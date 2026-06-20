@@ -1,0 +1,15 @@
+.DS_Store
+*.zip
+package-lock.json
+
+# Python / backend
+backend/.venv/
+backend/__pycache__/
+backend/*.db
+backend/.env
+
+# Node / frontend
+frontend/node_modules/
+frontend/.next/
+frontend/.env*
+!frontend/.env.local.example
