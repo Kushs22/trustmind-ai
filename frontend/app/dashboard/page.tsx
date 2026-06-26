@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 export default function DashboardPage() {
   return (
-    <div className="min-h-screen bg-[#fafbfc]">
+    <div className="min-h-screen bg-[#fafbfc] dark:bg-slate-950">
       <Header />
       <main className="relative overflow-hidden">
         <PageBackground />
@@ -20,10 +20,10 @@ export default function DashboardPage() {
             <p className="text-sm font-semibold uppercase tracking-wide text-teal-600">
               Your history
             </p>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-800 sm:text-4xl">
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-800 dark:text-slate-100 sm:text-4xl">
               Wellbeing dashboard
             </h1>
-            <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-600">
+            <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-600 dark:text-slate-400">
               A privacy-aware overview of your text-based check-ins. Review
               concern levels, AI confidence, and abstention history in one
               place.

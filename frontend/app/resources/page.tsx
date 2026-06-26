@@ -120,7 +120,7 @@ const resourceCategories = [
 
 export default function ResourcesPage() {
   return (
-    <div className="min-h-screen bg-[#fafbfc]">
+    <div className="min-h-screen bg-[#fafbfc] dark:bg-slate-950">
       <Header />
       <main className="relative overflow-hidden">
         <PageBackground />
@@ -129,10 +129,10 @@ export default function ResourcesPage() {
             <p className="text-sm font-semibold uppercase tracking-wide text-teal-600">
               Support directory
             </p>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-800 sm:text-4xl">
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-800 dark:text-slate-100 sm:text-4xl">
               Wellbeing resources
             </h1>
-            <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-slate-600">
+            <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-slate-600 dark:text-slate-400">
               Trusted support options alongside TrustMind AI. If you are in
               crisis, please use immediate support services first.
             </p>
@@ -142,12 +142,12 @@ export default function ResourcesPage() {
             {resourceCategories.map((category) => (
               <section
                 key={category.title}
-                className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+                className="rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 p-6 shadow-sm"
               >
-                <h2 className="text-lg font-semibold text-slate-800">
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
                   {category.title}
                 </h2>
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                   {category.description}
                 </p>
                 <ul className="mt-5 space-y-4">
@@ -164,7 +164,7 @@ export default function ResourcesPage() {
                       >
                         {item.name}
                       </a>
-                      <p className="mt-1 text-sm leading-relaxed text-slate-600">
+                      <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
                         {item.detail}
                       </p>
                     </li>

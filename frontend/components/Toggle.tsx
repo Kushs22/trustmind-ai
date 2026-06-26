@@ -20,14 +20,14 @@ export function Toggle({
   return (
     <label
       htmlFor={id}
-      className={`flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-teal-100 ${
-        disabled ? "cursor-not-allowed opacity-60" : "hover:border-teal-200"
+      className={`flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-teal-100 dark:border-slate-700 dark:bg-slate-800/50 dark:has-[:focus-visible]:ring-teal-900 ${
+        disabled ? "cursor-not-allowed opacity-60" : "hover:border-teal-200 dark:hover:border-teal-700"
       }`}
     >
       <span className="min-w-0">
-        <span className="block text-sm font-medium text-slate-800">{label}</span>
+        <span className="block text-sm font-medium text-slate-800 dark:text-slate-100">{label}</span>
         {description && (
-          <span className="mt-0.5 block text-xs text-slate-500">
+          <span className="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">
             {description}
           </span>
         )}
@@ -44,7 +44,7 @@ export function Toggle({
         />
         <span
           aria-hidden="true"
-          className="h-6 w-11 rounded-full bg-slate-200 transition-colors peer-checked:bg-teal-600 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-teal-500"
+          className="h-6 w-11 rounded-full bg-slate-200 transition-colors peer-checked:bg-teal-600 dark:bg-slate-600 dark:peer-checked:bg-teal-600 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-teal-500"
         />
         <span
           aria-hidden="true"

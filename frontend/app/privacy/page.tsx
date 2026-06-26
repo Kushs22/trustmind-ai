@@ -26,7 +26,7 @@ const notStoredItems = [
 
 export default function PrivacyPage() {
   return (
-    <div className="min-h-screen bg-[#fafbfc]">
+    <div className="min-h-screen bg-[#fafbfc] dark:bg-slate-950">
       <Header />
       <main className="relative overflow-hidden">
         <PageBackground />
@@ -35,25 +35,25 @@ export default function PrivacyPage() {
             <p className="text-sm font-semibold uppercase tracking-wide text-teal-600">
               Privacy & Safety
             </p>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-800 sm:text-4xl">
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-800 dark:text-slate-100 sm:text-4xl">
               Your data, your control
             </h1>
-            <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-slate-600">
+            <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-slate-600 dark:text-slate-400">
               TrustMind AI is built for transparency. We explain what we store,
               what we never store, and how you stay in control.
             </p>
           </div>
 
           <div className="space-y-6">
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-              <h2 className="text-lg font-semibold text-slate-800">
+            <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 p-6 shadow-sm sm:p-8">
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
                 What data is stored
               </h2>
               <ul className="mt-4 space-y-3">
                 {storedItems.map((item) => (
                   <li
                     key={item}
-                    className="flex items-start gap-3 text-sm text-slate-700"
+                    className="flex items-start gap-3 text-sm text-slate-700 dark:text-slate-300"
                   >
                     <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-teal-500" />
                     {item}
@@ -62,15 +62,15 @@ export default function PrivacyPage() {
               </ul>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-              <h2 className="text-lg font-semibold text-slate-800">
+            <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 p-6 shadow-sm sm:p-8">
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
                 What is not stored
               </h2>
               <ul className="mt-4 space-y-3">
                 {notStoredItems.map((item) => (
                   <li
                     key={item}
-                    className="flex items-start gap-3 text-sm text-slate-700"
+                    className="flex items-start gap-3 text-sm text-slate-700 dark:text-slate-300"
                   >
                     <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
                     {item}
@@ -80,22 +80,22 @@ export default function PrivacyPage() {
             </div>
 
             <div className="rounded-2xl border border-teal-100 bg-gradient-to-br from-teal-50/80 to-blue-50/50 p-6 sm:p-8">
-              <h2 className="text-lg font-semibold text-slate-800">
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
                 Anonymous & private mode
               </h2>
-              <p className="mt-3 text-sm leading-relaxed text-slate-700">
+              <p className="mt-3 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
                 You can use TrustMind AI without creating an account. When
                 &quot;Analyse privately&quot; is enabled, your text is processed
                 for insights without linking the check-in to your identity.
                 Private sessions can be excluded from saved history entirely.
               </p>
-              <p className="mt-3 text-sm leading-relaxed text-slate-700">
+              <p className="mt-3 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
                 Data is not used to train public models. Your wellbeing text is
                 never fed into shared AI training datasets.
               </p>
             </div>
 
-            <p className="rounded-xl border border-amber-100 bg-amber-50/60 px-4 py-3 text-sm text-slate-700">
+            <p className="rounded-xl border border-amber-100 bg-amber-50/60 px-4 py-3 text-sm text-slate-700 dark:text-slate-300">
               <strong className="font-medium text-amber-800">
                 No diagnosis disclaimer:
               </strong>{" "}
@@ -104,11 +104,11 @@ export default function PrivacyPage() {
               care.
             </p>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-              <h2 className="text-lg font-semibold text-slate-800">
+            <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 p-6 shadow-sm sm:p-8">
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
                 GDPR & privacy-first commitment
               </h2>
-              <p className="mt-3 text-sm leading-relaxed text-slate-700">
+              <p className="mt-3 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
                 We follow privacy-by-design principles aligned with GDPR
                 expectations: minimal collection, clear purpose, user access,
                 and the right to deletion. You can export or delete your data at

@@ -37,9 +37,9 @@ export function PrivacyActions() {
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h2 className="text-lg font-semibold text-slate-800">Your controls</h2>
-      <p className="mt-2 text-sm leading-relaxed text-slate-600">
+    <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 p-6 shadow-sm">
+      <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Your controls</h2>
+      <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
         You can request deletion of stored check-ins and account data at any
         time. This permanently removes your account and all associated history
         from the server.
@@ -55,7 +55,7 @@ export function PrivacyActions() {
       )}
 
       {!isAuthenticated() && !deleted && (
-        <p className="mt-4 text-sm text-slate-500">
+        <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
           <Link href="/login" className="font-medium text-teal-700 hover:underline">
             Log in
           </Link>{" "}
@@ -71,7 +71,7 @@ export function PrivacyActions() {
         type="button"
         onClick={handleDeleteData}
         disabled={isDeleting || deleted || !isAuthenticated()}
-        className="mt-4 inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 px-5 text-sm font-medium text-slate-700 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+        className="mt-4 inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 px-5 text-sm font-medium text-slate-700 dark:text-slate-300 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {isDeleting ? "Deleting…" : "Delete my data"}
       </button>

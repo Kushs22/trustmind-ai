@@ -116,7 +116,7 @@ function ServerIcon({ className }: { className?: string }) {
 
 export function HeroSection() {
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-white via-teal-50/30 to-blue-50/40">
+    <section className="relative overflow-hidden bg-gradient-to-b from-white via-teal-50/30 to-blue-50/40 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       <div
         className="pointer-events-none absolute inset-0 opacity-40"
         aria-hidden="true"
@@ -127,19 +127,19 @@ export function HeroSection() {
 
       <div className="relative mx-auto max-w-6xl px-6 pb-20 pt-16 lg:px-8 lg:pb-28 lg:pt-24">
         <div className="mx-auto max-w-3xl text-center">
-          <div className="animate-fade-in-up mb-6 inline-flex items-center gap-2 rounded-full border border-teal-200/80 bg-white/80 px-4 py-1.5 text-sm font-medium text-teal-700 shadow-sm">
+          <div className="animate-fade-in-up mb-6 inline-flex items-center gap-2 rounded-full border border-teal-200/80 bg-white/80 dark:bg-slate-900/80 px-4 py-1.5 text-sm font-medium text-teal-700 shadow-sm">
             <ShieldIcon className="h-4 w-4" />
             Trustworthy AI wellbeing support
           </div>
 
-          <h1 className="animate-fade-in-up animate-delay-100 text-4xl font-semibold tracking-tight text-slate-800 sm:text-5xl lg:text-6xl">
+          <h1 className="animate-fade-in-up animate-delay-100 text-4xl font-semibold tracking-tight text-slate-800 dark:text-slate-100 sm:text-5xl lg:text-6xl">
             Clarity and confidence for your{" "}
             <span className="bg-gradient-to-r from-teal-600 to-blue-500 bg-clip-text text-transparent">
               mental wellbeing
             </span>
           </h1>
 
-          <p className="animate-fade-in-up animate-delay-200 mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-slate-600">
+          <p className="animate-fade-in-up animate-delay-200 mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-slate-600 dark:text-slate-400">
             TrustMind AI gives students and everyday users thoughtful,
             evidence-informed wellbeing insights—without compromising your
             privacy. A calm platform built for clarity when you need support
@@ -155,7 +155,7 @@ export function HeroSection() {
             </Link>
             <a
               href="#how-it-works"
-              className="inline-flex h-12 min-w-[200px] items-center justify-center rounded-xl border border-slate-200 bg-white px-8 text-base font-medium text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50"
+              className="inline-flex h-12 min-w-[200px] items-center justify-center rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 px-8 text-base font-medium text-slate-700 dark:text-slate-300 transition-colors hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
             >
               See how it works
             </a>
@@ -163,8 +163,8 @@ export function HeroSection() {
         </div>
 
         <div className="mx-auto mt-16 max-w-5xl">
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-1 shadow-xl shadow-slate-200/50">
-            <div className="rounded-xl bg-gradient-to-br from-slate-50 to-blue-50/50 p-6 sm:p-8">
+          <div className="rounded-2xl border border-slate-200/80 bg-white dark:border-slate-700/80 dark:bg-slate-900 p-1 shadow-xl shadow-slate-200/50 dark:shadow-slate-950/50">
+            <div className="rounded-xl bg-gradient-to-br from-slate-50 to-blue-50/50 dark:from-slate-900 dark:to-slate-800/50 p-6 sm:p-8">
               <div className="mb-4 flex items-center gap-2 border-b border-slate-200/60 pb-4">
                 <div className="flex gap-1.5">
                   <span className="h-3 w-3 rounded-full bg-slate-300" />
@@ -218,10 +218,10 @@ export function HeroSection() {
                     key={metric.label}
                     className="rounded-lg border border-white/80 bg-white p-4 shadow-sm"
                   >
-                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
                       {metric.label}
                     </p>
-                    <p className="mt-1 text-xl font-semibold text-slate-800">
+                    <p className="mt-1 text-xl font-semibold text-slate-800 dark:text-slate-100">
                       {metric.value}
                     </p>
                     <p className={`mt-1 text-sm ${metric.detailClass}`}>
@@ -267,10 +267,10 @@ export function FeaturesSection() {
           <p className="text-sm font-semibold uppercase tracking-wide text-teal-600">
             Why TrustMind AI
           </p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-800 sm:text-4xl">
+          <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-800 dark:text-slate-100 sm:text-4xl">
             Built for thoughtful self-understanding
           </h2>
-          <p className="mt-4 text-lg text-slate-600">
+          <p className="mt-4 text-lg text-slate-600 dark:text-slate-400">
             Text-based analysis tools that respect your time and your data.
           </p>
         </div>
@@ -279,15 +279,15 @@ export function FeaturesSection() {
           {features.map((feature) => (
             <div
               key={feature.title}
-              className="group rounded-2xl border border-slate-200 bg-slate-50/50 p-8 transition-all hover:border-teal-200 hover:bg-teal-50/30 hover:shadow-md"
+              className="group rounded-2xl border border-slate-200 bg-slate-50/50 dark:border-slate-700 dark:bg-slate-800/50 p-8 transition-all hover:border-teal-200 hover:bg-teal-50/30 hover:shadow-md"
             >
               <div className="mb-5 inline-flex rounded-xl bg-teal-100 p-3 text-teal-700 transition-colors group-hover:bg-teal-600 group-hover:text-white">
                 <feature.icon className="h-6 w-6" />
               </div>
-              <h3 className="text-lg font-semibold text-slate-800">
+              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
                 {feature.title}
               </h3>
-              <p className="mt-3 leading-relaxed text-slate-600">
+              <p className="mt-3 leading-relaxed text-slate-600 dark:text-slate-400">
                 {feature.description}
               </p>
             </div>
@@ -419,10 +419,10 @@ export function HowItWorksSection() {
           <p className="text-sm font-semibold uppercase tracking-wide text-teal-600">
             How it works
           </p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-800 sm:text-4xl">
+          <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-800 dark:text-slate-100 sm:text-4xl">
             Three steps to clearer insight
           </h2>
-          <p className="mt-4 text-lg text-slate-600">
+          <p className="mt-4 text-lg text-slate-600 dark:text-slate-400">
             A straightforward process—no accounts required to explore.
           </p>
         </div>
@@ -436,14 +436,14 @@ export function HowItWorksSection() {
                   aria-hidden="true"
                 />
               )}
-              <div className="relative rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+              <div className="relative rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 p-8 shadow-sm">
                 <span className="text-4xl font-bold text-teal-100">
                   {item.step}
                 </span>
-                <h3 className="mt-4 text-xl font-semibold text-slate-800">
+                <h3 className="mt-4 text-xl font-semibold text-slate-800 dark:text-slate-100">
                   {item.title}
                 </h3>
-                <p className="mt-3 leading-relaxed text-slate-600">
+                <p className="mt-3 leading-relaxed text-slate-600 dark:text-slate-400">
                   {item.description}
                 </p>
               </div>

@@ -9,7 +9,7 @@ import {
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-[#fafbfc]">
+    <div className="min-h-screen bg-[#fafbfc] dark:bg-slate-950">
       <Header />
       <main>
         <HeroSection />

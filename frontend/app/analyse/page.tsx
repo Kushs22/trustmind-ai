@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 export default function AnalysePage() {
   return (
-    <div className="min-h-screen bg-[#fafbfc]">
+    <div className="min-h-screen bg-[#fafbfc] dark:bg-slate-950">
       <Header />
       <main className="relative overflow-hidden">
         <PageBackground />
@@ -20,15 +20,15 @@ export default function AnalysePage() {
             <p className="text-sm font-semibold uppercase tracking-wide text-teal-600">
               Private check-in
             </p>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-800 sm:text-4xl">
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-800 dark:text-slate-100 sm:text-4xl">
               Wellbeing Check-In
             </h1>
-            <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-slate-600">
+            <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-slate-600 dark:text-slate-400">
               Share how you&apos;ve been feeling in your own words. TrustMind AI
               will review your text and offer thoughtful, evidence-informed
               insights.
             </p>
-            <p className="mx-auto mt-4 inline-flex rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-sm text-slate-600">
+            <p className="mx-auto mt-4 inline-flex rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-400">
               This is not a diagnosis or therapy service.
             </p>
           </div>

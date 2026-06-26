@@ -86,16 +86,16 @@ export function DashboardContent() {
 
   if (isLoading) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-sm">
-        <p className="text-sm text-slate-500">Loading your dashboard…</p>
+      <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 p-12 text-center shadow-sm">
+        <p className="text-sm text-slate-500 dark:text-slate-400">Loading your dashboard…</p>
       </div>
     );
   }
 
   if (!isAuthenticated()) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-        <p className="text-sm text-slate-600">
+      <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 p-8 text-center shadow-sm">
+        <p className="text-sm text-slate-600 dark:text-slate-400">
           Sign in or continue anonymously to view saved check-ins.
         </p>
         <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -107,7 +107,7 @@ export function DashboardContent() {
           </Link>
           <Link
             href="/analyse"
-            className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 px-5 text-sm font-medium text-slate-700 hover:border-teal-200 hover:bg-teal-50/50"
+            className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 px-5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:border-teal-200 hover:bg-teal-50/50"
           >
             Continue anonymously
           </Link>
@@ -162,28 +162,28 @@ export function DashboardContent() {
         ].map((stat) => (
           <div
             key={stat.label}
-            className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+            className="rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 p-5 shadow-sm"
           >
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
               {stat.label}
             </p>
-            <p className="mt-2 text-2xl font-semibold text-slate-800">
+            <p className="mt-2 text-2xl font-semibold text-slate-800 dark:text-slate-100">
               {stat.value}
             </p>
-            <p className="mt-1 text-xs text-slate-500">{stat.detail}</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{stat.detail}</p>
           </div>
         ))}
       </div>
 
       <div className="grid gap-8 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+          <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 p-6 shadow-sm sm:p-8">
             <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-slate-800">
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
                   Previous wellbeing check-ins
                 </h2>
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                   Saved analyses from your account
                 </p>
               </div>
@@ -196,8 +196,8 @@ export function DashboardContent() {
             </div>
 
             {checkIns.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-6 py-12 text-center">
-                <p className="text-sm text-slate-600">No saved check-ins yet.</p>
+              <div className="rounded-xl border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:border-slate-700 dark:bg-slate-800/50 px-6 py-12 text-center">
+                <p className="text-sm text-slate-600 dark:text-slate-400">No saved check-ins yet.</p>
                 <Link
                   href="/analyse"
                   className="mt-4 inline-flex text-sm font-medium text-teal-700 hover:underline"
@@ -214,10 +214,10 @@ export function DashboardContent() {
                   >
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-medium text-slate-500">
+                        <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
                           {item.date}
                         </p>
-                        <p className="mt-1 text-sm leading-relaxed text-slate-700">
+                        <p className="mt-1 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
                           {item.preview ??
                             (item.is_private
                               ? "Private check-in · raw text not stored"
@@ -237,7 +237,7 @@ export function DashboardContent() {
                           </span>
                         )}
                         {item.is_private && (
-                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-400">
                             Private
                           </span>
                         )}
@@ -251,8 +251,8 @@ export function DashboardContent() {
         </div>
 
         <div className="space-y-6">
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-800">
+          <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
               Concern level history
             </h2>
             <ul className="mt-4 space-y-3">
@@ -261,20 +261,20 @@ export function DashboardContent() {
                   key={item.id}
                   className="flex items-center justify-between text-sm"
                 >
-                  <span className="text-slate-500">{item.date}</span>
+                  <span className="text-slate-500 dark:text-slate-400">{item.date}</span>
                   <span className="font-medium text-amber-600">
                     {item.concern}
                   </span>
                 </li>
               ))}
               {checkIns.length === 0 && (
-                <li className="text-sm text-slate-500">No data available</li>
+                <li className="text-sm text-slate-500 dark:text-slate-400">No data available</li>
               )}
             </ul>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-800">
+          <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
               AI confidence history
             </h2>
             <ul className="mt-4 space-y-3">
@@ -283,14 +283,14 @@ export function DashboardContent() {
                   key={item.id}
                   className="flex items-center justify-between text-sm"
                 >
-                  <span className="text-slate-500">{item.date}</span>
+                  <span className="text-slate-500 dark:text-slate-400">{item.date}</span>
                   <span className="font-medium text-teal-600">
                     {item.confidence}
                   </span>
                 </li>
               ))}
               {checkIns.length === 0 && (
-                <li className="text-sm text-slate-500">No data available</li>
+                <li className="text-sm text-slate-500 dark:text-slate-400">No data available</li>
               )}
             </ul>
           </div>
@@ -299,7 +299,7 @@ export function DashboardContent() {
             type="button"
             onClick={handleDeleteHistory}
             disabled={checkIns.length === 0 || isDeleting}
-            className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 px-4 py-3 text-sm font-medium text-slate-700 dark:text-slate-300 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isDeleting ? "Deleting…" : "Delete history"}
           </button>
