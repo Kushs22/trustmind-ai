@@ -127,7 +127,7 @@ export function HeroSection() {
 
       <div className="relative mx-auto max-w-6xl px-6 pb-20 pt-16 lg:px-8 lg:pb-28 lg:pt-24">
         <div className="mx-auto max-w-3xl text-center">
-          <div className="animate-fade-in-up mb-6 inline-flex items-center gap-2 rounded-full border border-teal-200/80 bg-white/80 dark:bg-slate-900/80 px-4 py-1.5 text-sm font-medium text-teal-700 shadow-sm">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-teal-200/80 bg-white/80 px-4 py-1.5 text-sm font-medium text-teal-700 shadow-sm dark:border-teal-800 dark:bg-slate-900/80 dark:text-teal-400">
             <ShieldIcon className="h-4 w-4" />
             Trustworthy AI wellbeing support
           </div>
@@ -165,13 +165,13 @@ export function HeroSection() {
         <div className="mx-auto mt-16 max-w-5xl">
           <div className="rounded-2xl border border-slate-200/80 bg-white dark:border-slate-700/80 dark:bg-slate-900 p-1 shadow-xl shadow-slate-200/50 dark:shadow-slate-950/50">
             <div className="rounded-xl bg-gradient-to-br from-slate-50 to-blue-50/50 dark:from-slate-900 dark:to-slate-800/50 p-6 sm:p-8">
-              <div className="mb-4 flex items-center gap-2 border-b border-slate-200/60 pb-4">
+              <div className="mb-4 flex items-center gap-2 border-b border-slate-200/60 pb-4 dark:border-slate-700/60">
                 <div className="flex gap-1.5">
-                  <span className="h-3 w-3 rounded-full bg-slate-300" />
-                  <span className="h-3 w-3 rounded-full bg-slate-300" />
-                  <span className="h-3 w-3 rounded-full bg-slate-300" />
+                  <span className="h-3 w-3 rounded-full bg-slate-300 dark:bg-slate-600" />
+                  <span className="h-3 w-3 rounded-full bg-slate-300 dark:bg-slate-600" />
+                  <span className="h-3 w-3 rounded-full bg-slate-300 dark:bg-slate-600" />
                 </div>
-                <span className="text-xs font-medium text-slate-400">
+                <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
                   Trust assessment preview
                 </span>
               </div>
@@ -216,7 +216,7 @@ export function HeroSection() {
                 ].map((metric) => (
                   <div
                     key={metric.label}
-                    className="rounded-lg border border-white/80 bg-white p-4 shadow-sm"
+                    className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-600 dark:bg-slate-800"
                   >
                     <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
                       {metric.label}
@@ -224,7 +224,7 @@ export function HeroSection() {
                     <p className="mt-1 text-xl font-semibold text-slate-800 dark:text-slate-100">
                       {metric.value}
                     </p>
-                    <p className={`mt-1 text-sm ${metric.detailClass}`}>
+                    <p className={`mt-1 text-sm ${metric.detailClass} dark:opacity-90`}>
                       {metric.detail}
                     </p>
                   </div>
@@ -261,7 +261,7 @@ const features = [
 
 export function FeaturesSection() {
   return (
-    <section id="features" className="bg-white py-20 lg:py-28">
+    <section id="features" className="bg-white py-20 dark:bg-slate-950 lg:py-28">
       <div className="mx-auto max-w-6xl px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-sm font-semibold uppercase tracking-wide text-teal-600">
@@ -279,9 +279,9 @@ export function FeaturesSection() {
           {features.map((feature) => (
             <div
               key={feature.title}
-              className="group rounded-2xl border border-slate-200 bg-slate-50/50 dark:border-slate-700 dark:bg-slate-800/50 p-8 transition-all hover:border-teal-200 hover:bg-teal-50/30 hover:shadow-md"
+              className="group rounded-2xl border border-slate-200 bg-slate-50/50 p-8 transition-all hover:border-teal-200 hover:bg-teal-50/30 hover:shadow-md dark:border-slate-700 dark:bg-slate-900 dark:hover:border-teal-700 dark:hover:bg-teal-950/40"
             >
-              <div className="mb-5 inline-flex rounded-xl bg-teal-100 p-3 text-teal-700 transition-colors group-hover:bg-teal-600 group-hover:text-white">
+              <div className="mb-5 inline-flex rounded-xl bg-teal-100 p-3 text-teal-700 transition-colors group-hover:bg-teal-600 group-hover:text-white dark:bg-teal-950 dark:text-teal-400 dark:group-hover:bg-teal-600 dark:group-hover:text-white">
                 <feature.icon className="h-6 w-6" />
               </div>
               <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
@@ -413,7 +413,7 @@ const steps = [
 
 export function HowItWorksSection() {
   return (
-    <section id="how-it-works" className="bg-slate-50 py-20 lg:py-28">
+    <section id="how-it-works" className="bg-slate-50 py-20 dark:bg-slate-900 lg:py-28">
       <div className="mx-auto max-w-6xl px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-sm font-semibold uppercase tracking-wide text-teal-600">
@@ -432,12 +432,12 @@ export function HowItWorksSection() {
             <div key={item.step} className="relative">
               {index < steps.length - 1 && (
                 <div
-                  className="absolute left-1/2 top-12 hidden h-0.5 w-full bg-gradient-to-r from-teal-200 to-blue-200 lg:block"
+                  className="absolute left-1/2 top-12 hidden h-0.5 w-full bg-gradient-to-r from-teal-200 to-blue-200 dark:from-teal-800 dark:to-blue-900 lg:block"
                   aria-hidden="true"
                 />
               )}
               <div className="relative rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 p-8 shadow-sm">
-                <span className="text-4xl font-bold text-teal-100">
+                <span className="text-4xl font-bold text-teal-200 dark:text-teal-800">
                   {item.step}
                 </span>
                 <h3 className="mt-4 text-xl font-semibold text-slate-800 dark:text-slate-100">
@@ -457,7 +457,7 @@ export function HowItWorksSection() {
 
 export function CTASection() {
   return (
-    <section className="py-20 lg:py-28">
+    <section className="bg-white py-20 dark:bg-slate-950 lg:py-28">
       <div className="mx-auto max-w-6xl px-6 lg:px-8">
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-teal-600 to-blue-500 px-8 py-16 text-center shadow-xl sm:px-16">
           <div

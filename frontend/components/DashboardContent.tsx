@@ -210,7 +210,7 @@ export function DashboardContent() {
                 {checkIns.map((item) => (
                   <li
                     key={item.id}
-                    className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 transition-colors hover:border-teal-100 hover:bg-teal-50/30"
+                    className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 transition-colors hover:border-teal-100 hover:bg-teal-50/30 dark:border-slate-700 dark:bg-slate-800/50 dark:hover:border-teal-800 dark:hover:bg-teal-950/30"
                   >
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0 flex-1">

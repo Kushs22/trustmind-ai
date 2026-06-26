@@ -79,7 +79,7 @@ export default function PrivacyPage() {
               </ul>
             </div>
 
-            <div className="rounded-2xl border border-teal-100 bg-gradient-to-br from-teal-50/80 to-blue-50/50 p-6 sm:p-8">
+            <div className="rounded-2xl border border-teal-100 bg-gradient-to-br from-teal-50/80 to-blue-50/50 p-6 dark:border-teal-900 dark:from-teal-950/50 dark:to-slate-900 sm:p-8">
               <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
                 Anonymous & private mode
               </h2>
@@ -95,8 +95,8 @@ export default function PrivacyPage() {
               </p>
             </div>
 
-            <p className="rounded-xl border border-amber-100 bg-amber-50/60 px-4 py-3 text-sm text-slate-700 dark:text-slate-300">
-              <strong className="font-medium text-amber-800">
+            <p className="rounded-xl border border-amber-100 bg-amber-50/60 px-4 py-3 text-sm text-slate-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-slate-300">
+              <strong className="font-medium text-amber-800 dark:text-amber-400">
                 No diagnosis disclaimer:
               </strong>{" "}
               TrustMind AI provides supportive, text-based wellbeing insights

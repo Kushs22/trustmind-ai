@@ -154,17 +154,17 @@ export default function ResourcesPage() {
                   {category.items.map((item) => (
                     <li
                       key={item.name}
-                      className="rounded-xl border border-slate-100 bg-slate-50/50 p-4"
+                      className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 dark:border-slate-700 dark:bg-slate-800/80"
                     >
                       <a
                         href={item.href}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-sm font-medium text-teal-700 hover:underline"
+                        className="text-sm font-medium text-teal-700 hover:underline dark:text-teal-400"
                       >
                         {item.name}
                       </a>
-                      <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+                      <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
                         {item.detail}
                       </p>
                     </li>
