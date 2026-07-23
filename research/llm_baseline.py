@@ -7,12 +7,11 @@ No RAG / retrieval. Used by research/02_LLM_Baseline.ipynb.
 from __future__ import annotations
 
 import json
+import math
 import re
 import time
 from pathlib import Path
 from typing import Any
-
-import pandas as pd
 
 VALID_LABELS = (
     "depression",
@@ -38,9 +37,14 @@ LABEL_ALIASES = {
 
 def normalize_label(label: Any) -> str:
     """Map SWMH / model labels to the canonical short form."""
-    if label is None or (isinstance(label, float) and pd.isna(label)):
+    # Avoid pandas at import time so the Render API can reuse these helpers.
+    if label is None:
+        return ""
+    if isinstance(label, float) and math.isnan(label):
         return ""
     key = str(label).strip()
+    if key.lower() in {"", "nan", "none", "null"}:
+        return ""
     mapped = LABEL_ALIASES.get(key, LABEL_ALIASES.get(key.lower().replace(" ", ""), ""))
     return mapped
 
@@ -153,8 +157,10 @@ def load_and_sample_test(
     test_csv: Path,
     sample_size: int,
     random_seed: int,
-) -> pd.DataFrame:
+) -> Any:
     """Load test.csv, normalise labels, and sample rows."""
+    import pandas as pd
+
     df = pd.read_csv(test_csv, encoding="utf-8")
     if "text" not in df.columns or "label" not in df.columns:
         raise ValueError(f"Expected columns text,label in {test_csv}")
@@ -219,7 +225,7 @@ def call_openai_json(
 
 
 def run_baseline_inference(
-    sample_df: pd.DataFrame,
+    sample_df: Any,
     client: Any,
     *,
     model_name: str,
@@ -227,12 +233,14 @@ def run_baseline_inference(
     sleep_between_calls: float = 0.5,
     progress_every: int = 10,
     max_retries: int = 5,
-) -> pd.DataFrame:
+) -> Any:
     """
     Classify each post with the LLM (no RAG).
 
     Continues on per-row failures and records error metadata.
     """
+    import pandas as pd
+
     rows: list[dict[str, Any]] = []
     total = len(sample_df)
 
