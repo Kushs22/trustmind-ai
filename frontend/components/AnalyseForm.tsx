@@ -299,7 +299,7 @@ export function AnalyseForm() {
 
       {showResult && result && !isProcessing && (
         <div className="animate-fade-in-up rounded-2xl border border-slate-200/80 bg-white dark:border-slate-700/80 dark:bg-slate-900 p-1 shadow-xl shadow-slate-200/50 dark:shadow-slate-950/50">
-          <div className="rounded-xl bg-gradient-to-br from-slate-50 to-blue-50/50 dark:from-slate-900 dark:to-slate-800/50 dark:from-slate-900 dark:to-slate-800/50 p-6 sm:p-8">
+          <div className="rounded-xl bg-gradient-to-br from-slate-50 to-blue-50/50 dark:from-slate-900 dark:to-slate-800/50 p-6 sm:p-8">
             <div className="mb-6 flex items-center gap-3 border-b border-slate-200/60 dark:border-slate-700/60 pb-4">
               <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-teal-100 text-teal-700">
                 <svg
@@ -322,68 +322,171 @@ export function AnalyseForm() {
                   Analysis result
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Pipeline: {result.pipeline_used || "LLM"}
+                  {" · "}
                   {result.saved_to_history ? "Saved to history" : "Not saved"}{" "}
                   · {analysePrivately ? "Private mode" : "Standard mode"}
                 </p>
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {[
-                {
-                  label: "Wellbeing concern level",
-                  value: result.concern_level,
-                  detailClass: "text-amber-600",
-                },
-                {
-                  label: "AI confidence",
-                  value: result.ai_confidence,
-                  detailClass: "text-teal-600",
-                },
-                {
-                  label: "Uncertainty level",
-                  value: result.uncertainty_level,
-                  detailClass: "text-blue-600",
-                },
-                {
-                  label: "Grounding status",
-                  value: result.grounding_status,
-                  detailClass: "text-teal-600",
-                  wide: true,
-                },
-                {
-                  label: "Abstention status",
-                  value: result.abstention_status,
-                  detailClass: "text-teal-600",
-                },
-              ].map((metric) => (
-                <div
-                  key={metric.label}
-                  className={`rounded-lg border border-white/80 bg-white dark:border-slate-700/80 dark:bg-slate-800 p-4 shadow-sm ${
-                    "wide" in metric && metric.wide ? "sm:col-span-2" : ""
-                  }`}
-                >
-                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                    {metric.label}
-                  </p>
-                  <p
-                    className={`mt-1 text-base font-semibold leading-snug ${metric.detailClass}`}
-                  >
-                    {metric.value}
-                  </p>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-6 space-y-4">
-              <div className="rounded-lg border border-white/80 bg-white dark:border-slate-700/80 dark:bg-slate-800 p-4 shadow-sm">
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                  Explanation
+            {result.status === "abstained" ? (
+              <div
+                className="rounded-lg border border-amber-200 bg-amber-50/80 dark:border-amber-900 dark:bg-amber-950/40 p-5"
+                role="status"
+              >
+                <p className="text-xs font-medium uppercase tracking-wide text-amber-800 dark:text-amber-200">
+                  Assessment abstained
                 </p>
-                <p className="mt-2 leading-relaxed text-slate-700 dark:text-slate-300">
-                  {result.explanation}
+                <p className="mt-2 text-base font-semibold text-slate-800 dark:text-slate-100">
+                  {result.message ||
+                    "The model is not sufficiently confident to provide a reliable wellbeing assessment."}
+                </p>
+                <p className="mt-3 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+                  {result.recommendation ||
+                    "Consider contacting your GP, NHS services or your university wellbeing team if you require support."}
+                </p>
+                <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+                  Reported confidence:{" "}
+                  {typeof result.confidence === "number"
+                    ? `${Math.round(result.confidence * 100)}%`
+                    : result.ai_confidence}
                 </p>
               </div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {[
+                  {
+                    label: "Prediction",
+                    value: result.prediction || result.concern_level,
+                    detailClass: "text-amber-600",
+                  },
+                  {
+                    label: "Confidence",
+                    value:
+                      typeof result.confidence === "number"
+                        ? `${Math.round(result.confidence * 100)}%`
+                        : result.ai_confidence,
+                    detailClass: "text-teal-600",
+                  },
+                  {
+                    label: "Uncertainty level",
+                    value: result.uncertainty_level,
+                    detailClass: "text-blue-600",
+                  },
+                  {
+                    label: "Pipeline",
+                    value: result.pipeline_used || "LLM",
+                    detailClass: "text-teal-600",
+                  },
+                  {
+                    label: "Grounding status",
+                    value: result.grounding_status,
+                    detailClass: "text-teal-600",
+                    wide: true,
+                  },
+                ].map((metric) => (
+                  <div
+                    key={metric.label}
+                    className={`rounded-lg border border-white/80 bg-white dark:border-slate-700/80 dark:bg-slate-800 p-4 shadow-sm ${
+                      "wide" in metric && metric.wide ? "sm:col-span-2" : ""
+                    }`}
+                  >
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                      {metric.label}
+                    </p>
+                    <p
+                      className={`mt-1 text-base font-semibold leading-snug ${metric.detailClass}`}
+                    >
+                      {metric.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-6 space-y-4">
+              {result.status !== "abstained" &&
+                result.early_signs &&
+                result.early_signs.length > 0 && (
+                  <div className="rounded-lg border border-white/80 bg-white dark:border-slate-700/80 dark:bg-slate-800 p-4 shadow-sm">
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                      Possible early signs detected
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      Themes only — not a clinical diagnosis
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {result.early_signs.map((sign) => (
+                        <span
+                          key={sign}
+                          className="rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-medium text-teal-800 dark:border-teal-800 dark:bg-teal-950/50 dark:text-teal-200"
+                        >
+                          {sign}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+              <div className="rounded-lg border border-white/80 bg-white dark:border-slate-700/80 dark:bg-slate-800 p-4 shadow-sm">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  Explanation / reasoning
+                </p>
+                <p className="mt-2 leading-relaxed text-slate-700 dark:text-slate-300">
+                  {result.reasoning || result.explanation}
+                </p>
+              </div>
+
+              {result.sources && result.sources.length > 0 && (
+                <div className="rounded-lg border border-white/80 bg-white dark:border-slate-700/80 dark:bg-slate-800 p-4 shadow-sm">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    Retrieved sources
+                  </p>
+                  <ul className="mt-3 space-y-2">
+                    {result.sources.map((source) => (
+                      <li
+                        key={source}
+                        className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300"
+                      >
+                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
+                        {source}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {result.support_resources &&
+                result.support_resources.length > 0 && (
+                  <div className="rounded-lg border border-rose-100 bg-rose-50/70 dark:border-rose-900 dark:bg-rose-950/30 p-4">
+                    <p className="text-xs font-medium uppercase tracking-wide text-rose-700 dark:text-rose-300">
+                      Available support services
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      These are support options — not a diagnosis.
+                    </p>
+                    <ul className="mt-3 space-y-3">
+                      {result.support_resources.map((resource) => (
+                        <li key={resource.name} className="text-sm text-slate-700 dark:text-slate-300">
+                          <p className="font-medium">{resource.name}</p>
+                          <p className="mt-0.5 text-slate-600 dark:text-slate-400">
+                            {resource.description}
+                          </p>
+                          <p className="mt-0.5">{resource.contact}</p>
+                          <a
+                            href={resource.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-1 inline-block text-teal-700 underline dark:text-teal-300"
+                          >
+                            Open resource
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
               <div className="rounded-lg border border-teal-100 bg-teal-50/60 dark:border-teal-900 dark:bg-teal-950/40 p-4">
                 <p className="text-xs font-medium uppercase tracking-wide text-teal-700">
@@ -400,6 +503,24 @@ export function AnalyseForm() {
                     </li>
                   ))}
                 </ul>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-800/60 p-4 space-y-2">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  Ethics &amp; transparency
+                </p>
+                <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+                  {result.disclaimer ||
+                    "This tool provides wellbeing support information and should not be considered a medical diagnosis."}
+                </p>
+                <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+                  {result.human_oversight ||
+                    "This tool should not replace qualified healthcare professionals."}
+                </p>
+                <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+                  {result.privacy_notice ||
+                    "No unnecessary storage of personal text. Raw check-in text is only saved when you explicitly opt in and disable private mode."}
+                </p>
               </div>
 
               <div className="rounded-lg border border-amber-100 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/40 p-4">

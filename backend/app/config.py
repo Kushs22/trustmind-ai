@@ -13,6 +13,22 @@ class Settings(BaseSettings):
 
     database_url: str = "sqlite:///./trustmind.db"
 
+    # Analyse backend: "auto" uses LLM when OPENAI_API_KEY is set, else keywords
+    analyse_backend: str = "auto"
+    openai_api_key: str = ""
+    openai_model: str = "gpt-4.1"
+    openai_temperature: float = 0.2
+
+    # Mode A (false) = standalone LLM | Mode B (true) = hybrid RAG
+    use_rag: bool = False
+    rag_top_k: int = 5
+
+    # Trust / ethics controls
+    confidence_threshold: float = 0.75
+    enable_abstention: bool = True
+    enable_source_display: bool = True
+    enable_support_resources: bool = True
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]

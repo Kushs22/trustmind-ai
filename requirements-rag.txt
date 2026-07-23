@@ -1,0 +1,11 @@
+# TrustMind RAG pipeline dependencies (research + local indexes)
+# Install: pip install -r requirements-rag.txt
+
+-r research/requirements.txt
+-r requirements-knowledge-base.txt
+
+faiss-cpu>=1.8.0
+rank-bm25>=0.2.2
+numpy>=1.24.0
+tqdm>=4.66.0
+python-dotenv>=1.0.0

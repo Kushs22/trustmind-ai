@@ -4,7 +4,7 @@ import uuid
 from sqlalchemy.orm import Session
 
 from app.models import CheckIn, User
-from app.schemas.analyse import AnalyseRequest, AnalyseResponse
+from app.schemas.analyse import AnalyseRequest, AnalyseResponse, SupportResourceOut
 from app.services.analyse_service import run_analysis
 
 
@@ -41,7 +41,8 @@ def analyse_and_optionally_save(
             safety_note=result.safety_note,
             text_preview=None if payload.analyse_privately else _text_preview(payload.text),
             is_private=payload.analyse_privately,
-            abstained="abstention triggered" in result.abstention_status.lower(),
+            abstained="abstention" in result.abstention_status.lower()
+            or result.status == "abstained",
         )
         db.add(check_in)
         db.commit()
@@ -51,6 +52,18 @@ def analyse_and_optionally_save(
 
     return AnalyseResponse(
         id=check_in_id,
+        status=result.status,
+        prediction=result.prediction,
+        confidence=result.confidence,
+        reasoning=result.reasoning,
+        sources=result.sources,
+        message=result.message,
+        recommendation=result.recommendation,
+        pipeline_used=result.pipeline_used,
+        support_resources=[SupportResourceOut(**r) for r in result.support_resources],
+        disclaimer=result.disclaimer,
+        privacy_notice=result.privacy_notice,
+        human_oversight=result.human_oversight,
         concern_level=result.concern_level,
         ai_confidence=result.ai_confidence,
         uncertainty_level=result.uncertainty_level,
@@ -59,5 +72,6 @@ def analyse_and_optionally_save(
         explanation=result.explanation,
         safe_next_steps=result.safe_next_steps,
         safety_note=result.safety_note,
+        early_signs=result.early_signs,
         saved_to_history=saved,
     )
