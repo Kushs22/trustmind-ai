@@ -3,9 +3,12 @@ services:
     name: trustmind-api
     runtime: python
     rootDir: backend
+    # Repo root must be on PYTHONPATH so `rag/` and `research/` import correctly.
     buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    startCommand: PYTHONPATH=/opt/render/project/src uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
+      - key: PYTHONPATH
+        value: /opt/render/project/src
       - key: DATABASE_URL
         sync: false
       - key: SECRET_KEY
@@ -14,3 +17,21 @@ services:
         sync: false
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
         value: "10080"
+      - key: ANALYSE_BACKEND
+        value: auto
+      - key: OPENAI_MODEL
+        value: gpt-4.1
+      - key: USE_RAG
+        value: "true"
+      - key: RAG_TOP_K
+        value: "5"
+      - key: CONFIDENCE_THRESHOLD
+        value: "0.75"
+      - key: ENABLE_ABSTENTION
+        value: "true"
+      - key: ENABLE_SOURCE_DISPLAY
+        value: "true"
+      - key: ENABLE_SUPPORT_RESOURCES
+        value: "true"
+      - key: OPENAI_API_KEY
+        sync: false

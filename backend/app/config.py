@@ -6,7 +6,9 @@ class Settings(BaseSettings):
 
     api_host: str = "127.0.0.1"
     api_port: int = 8000
-    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    cors_origins: str = (
+        "http://localhost:3000,http://127.0.0.1:3000,https://trustmind-ai.vercel.app"
+    )
 
     secret_key: str = "dev-only-change-me-in-production"
     access_token_expire_minutes: int = 60 * 24 * 7  # 7 days

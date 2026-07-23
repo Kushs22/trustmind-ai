@@ -32,14 +32,21 @@ scripts/__pycache__/
 rag/__pycache__/
 
 # RAG artifacts (regenerable; can be large)
-knowledge_base/chunks/*.jsonl
+# Allow committed production indexes so Render can run USE_RAG without a rebuild step.
+knowledge_base/chunks/*
 !knowledge_base/chunks/.gitkeep
+!knowledge_base/chunks/chunks.jsonl
 knowledge_base/embeddings/*
 !knowledge_base/embeddings/.gitkeep
+!knowledge_base/embeddings/embeddings.npy
+!knowledge_base/embeddings/embeddings_meta.jsonl
 knowledge_base/indexes/faiss/*
 !knowledge_base/indexes/faiss/.gitkeep
+!knowledge_base/indexes/faiss/index.faiss
+!knowledge_base/indexes/faiss/id_map.json
 knowledge_base/indexes/bm25/*
 !knowledge_base/indexes/bm25/.gitkeep
+!knowledge_base/indexes/bm25/bm25.pkl
 knowledge_base/logs/rag/*
 !knowledge_base/logs/rag/.gitkeep
 knowledge_base/logs/analyse/*
