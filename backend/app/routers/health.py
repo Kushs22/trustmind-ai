@@ -60,7 +60,7 @@ def health_check() -> dict[str, object]:
     return {
         "status": "ok",
         "service": "trustmind-ai-backend",
-        "version": "1.1.1",
+        "version": "1.1.2",
         "openai_configured": bool(settings.openai_api_key),
         "openai_model": settings.openai_model,
         "use_rag": settings.use_rag,
