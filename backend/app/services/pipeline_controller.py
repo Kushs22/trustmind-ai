@@ -96,49 +96,44 @@ def run_configured_pipeline(request: AnalyseRequest) -> PipelineResult:
     Execute Mode A (LLM) or Mode B (RAG) based on settings.use_rag.
 
     Applies abstention and high-risk support resources after inference.
+    Fallback order: RAG → LLM → keyword (never invents a SWMH label).
     """
     text = re.sub(r"\s+", " ", request.text).strip()
     if not text:
         raise ValueError("Text must not be empty")
 
-    raw: dict = {}
-    error = ""
-    try:
-        if settings.use_rag:
-            from app.services.rag_pipeline_service import run_rag_pipeline
-
-            raw = run_rag_pipeline(text)
-        else:
-            from app.services.llm_pipeline import run_llm_pipeline
-
-            raw = run_llm_pipeline(text)
-    except Exception as exc:  # noqa: BLE001 — surface controlled fallback
-        logger.exception("Primary pipeline failed; attempting keyword fallback")
-        error = f"{type(exc).__name__}: {exc}"
-        from app.services.analyse_service import _run_keyword_analysis
-
-        kw = _run_keyword_analysis(AnalyseRequest(text=text))
-        # Map keyword path into pipeline shape
-        conf = 0.5
+    if not settings.openai_api_key:
+        logger.error("OPENAI_API_KEY is not set on the server — using keyword fallback")
+        raw = _keyword_raw(text, error="OPENAI_API_KEY missing on server")
+    else:
+        raw = {}
+        error = ""
         try:
-            conf = float(str(kw.ai_confidence).replace("%", "")) / 100.0
-        except ValueError:
-            conf = 0.5
-        prediction = None
-        if kw.early_signs:
-            # Non-SWMH fallback — keep prediction null; use early signs only
-            prediction = None
-        raw = {
-            "prediction": prediction,
-            "confidence": conf,
-            "reasoning": kw.explanation,
-            "sources": [],
-            "pipeline_used": "keyword_fallback",
-            "latency_ms": 0.0,
-            "error": error,
-            "parse_ok": False,
-            "_keyword": kw,
-        }
+            if settings.use_rag:
+                from app.services.rag_pipeline_service import run_rag_pipeline
+
+                raw = run_rag_pipeline(text)
+            else:
+                from app.services.llm_pipeline import run_llm_pipeline
+
+                raw = run_llm_pipeline(text)
+        except Exception as exc:  # noqa: BLE001
+            error = f"{type(exc).__name__}: {exc}"
+            logger.exception("Primary pipeline failed (%s)", error)
+            # If RAG failed, try standalone LLM before keywords
+            if settings.use_rag:
+                try:
+                    from app.services.llm_pipeline import run_llm_pipeline
+
+                    raw = run_llm_pipeline(text)
+                    raw["error"] = f"rag_failed_then_llm: {error}"
+                    logger.warning("RAG failed; served LLM-only response")
+                except Exception as llm_exc:  # noqa: BLE001
+                    error = f"{error} | llm_also_failed: {type(llm_exc).__name__}: {llm_exc}"
+                    logger.exception("LLM fallback also failed")
+                    raw = _keyword_raw(text, error=error)
+            else:
+                raw = _keyword_raw(text, error=error)
 
     prediction = raw.get("prediction")
     confidence = float(raw.get("confidence") or 0.0)
@@ -161,6 +156,7 @@ def run_configured_pipeline(request: AnalyseRequest) -> PipelineResult:
     concern = _map_concern(final_prediction, abstained)
     uncertainty = "High" if abstained or confidence < 0.6 else ("Medium" if confidence < 0.85 else "Low")
     pipeline_used = str(raw.get("pipeline_used") or ("LLM+RAG" if settings.use_rag else "LLM"))
+    pipeline_error = str(raw.get("error") or "")
 
     if abstained:
         abstention_status = "Abstention triggered — no clinical prediction"
@@ -175,6 +171,10 @@ def run_configured_pipeline(request: AnalyseRequest) -> PipelineResult:
             f"{pipeline_used} grounded assessment"
             + (f" using: {', '.join(sources[:5])}" if sources else "")
         )
+        if pipeline_used == "keyword_fallback" and pipeline_error:
+            grounding = (
+                "keyword_fallback (LLM/RAG unavailable — check OPENAI_API_KEY / Render logs)"
+            )
         early_signs = [final_prediction] if final_prediction else []
         next_steps = _default_next_steps(high_risk)
         if "_keyword" in raw:
@@ -204,7 +204,7 @@ def run_configured_pipeline(request: AnalyseRequest) -> PipelineResult:
         safety_note=f"{DISCLAIMER} {HUMAN_OVERSIGHT}",
         early_signs=early_signs,
         latency_ms=float(raw.get("latency_ms") or 0.0),
-        error=str(raw.get("error") or error),
+        error=pipeline_error,
     )
 
     log_analyse_run(
@@ -219,6 +219,30 @@ def run_configured_pipeline(request: AnalyseRequest) -> PipelineResult:
             "error": result.error,
             "text_chars": len(text),
             "use_rag": settings.use_rag,
+            "openai_configured": bool(settings.openai_api_key),
         }
     )
     return result
+
+
+def _keyword_raw(text: str, *, error: str) -> dict:
+    """Map keyword analysis into the shared pipeline payload shape."""
+    from app.services.analyse_service import _run_keyword_analysis
+
+    kw = _run_keyword_analysis(AnalyseRequest(text=text))
+    conf = 0.5
+    try:
+        conf = float(str(kw.ai_confidence).replace("%", "")) / 100.0
+    except ValueError:
+        conf = 0.5
+    return {
+        "prediction": None,
+        "confidence": conf,
+        "reasoning": kw.explanation,
+        "sources": [],
+        "pipeline_used": "keyword_fallback",
+        "latency_ms": 0.0,
+        "error": error,
+        "parse_ok": False,
+        "_keyword": kw,
+    }
