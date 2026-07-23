@@ -21,8 +21,27 @@ export type TokenResponse = {
   is_anonymous: boolean;
 };
 
+export type SupportResource = {
+  name: string;
+  description: string;
+  contact: string;
+  url: string;
+};
+
 export type AnalyseResponse = {
   id: string | null;
+  status: string;
+  prediction: string | null;
+  confidence: number;
+  reasoning: string;
+  sources: string[];
+  message?: string;
+  recommendation?: string;
+  pipeline_used: string;
+  support_resources?: SupportResource[];
+  disclaimer?: string;
+  privacy_notice?: string;
+  human_oversight?: string;
   concern_level: string;
   ai_confidence: string;
   uncertainty_level: string;
@@ -31,6 +50,7 @@ export type AnalyseResponse = {
   explanation: string;
   safe_next_steps: string[];
   safety_note: string;
+  early_signs?: string[];
   saved_to_history: boolean;
 };
 

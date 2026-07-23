@@ -16,8 +16,13 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title="TrustMind AI API",
-    description="Professional backend for trustworthy text-based wellbeing analysis.",
-    version="1.0.0",
+    description=(
+        "Trustworthy text-based wellbeing analysis for the TrustMind AI MSc dissertation.\n\n"
+        "**Analyse:** `POST /api/v1/analyse` (alias `/api/analyse`).\n"
+        "Switch pipelines with `USE_RAG` in `.env`. "
+        "See `/docs` for request/response examples including abstention."
+    ),
+    version="1.1.0",
     lifespan=lifespan,
 )
 

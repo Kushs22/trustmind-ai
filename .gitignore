@@ -16,3 +16,38 @@ frontend/.env*
 
 # Research datasets (large CSV files — keep locally)
 datasets/swmh/*.csv
+datasets/swmh/processed/
+
+# Research secrets / LLM outputs containing raw posts
+research/.env
+research/results/*_predictions.csv
+research/__pycache__/
+
+# Knowledge base raw HTML (large / reproducible locally)
+knowledge_base/raw/*.html
+!knowledge_base/raw/.gitkeep
+knowledge_base/logs/*.log
+!knowledge_base/logs/.gitkeep
+scripts/__pycache__/
+rag/__pycache__/
+
+# RAG artifacts (regenerable; can be large)
+# Allow committed production indexes so Render can run USE_RAG without a rebuild step.
+knowledge_base/chunks/*
+!knowledge_base/chunks/.gitkeep
+!knowledge_base/chunks/chunks.jsonl
+knowledge_base/embeddings/*
+!knowledge_base/embeddings/.gitkeep
+!knowledge_base/embeddings/embeddings.npy
+!knowledge_base/embeddings/embeddings_meta.jsonl
+knowledge_base/indexes/faiss/*
+!knowledge_base/indexes/faiss/.gitkeep
+!knowledge_base/indexes/faiss/index.faiss
+!knowledge_base/indexes/faiss/id_map.json
+knowledge_base/indexes/bm25/*
+!knowledge_base/indexes/bm25/.gitkeep
+!knowledge_base/indexes/bm25/bm25.pkl
+knowledge_base/logs/rag/*
+!knowledge_base/logs/rag/.gitkeep
+knowledge_base/logs/analyse/*
+!knowledge_base/logs/analyse/.gitkeep
