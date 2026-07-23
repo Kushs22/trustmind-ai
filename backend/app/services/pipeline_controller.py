@@ -172,9 +172,9 @@ def run_configured_pipeline(request: AnalyseRequest) -> PipelineResult:
             + (f" using: {', '.join(sources[:5])}" if sources else "")
         )
         if pipeline_used == "keyword_fallback" and pipeline_error:
-            grounding = (
-                "keyword_fallback (LLM/RAG unavailable — check OPENAI_API_KEY / Render logs)"
-            )
+            # Truncate so we never leak secrets; enough to diagnose Render failures.
+            safe_err = re.sub(r"sk-[A-Za-z0-9_\-]+", "sk-***", pipeline_error)[:400]
+            grounding = f"keyword_fallback ({safe_err})"
         early_signs = [final_prediction] if final_prediction else []
         next_steps = _default_next_steps(high_risk)
         if "_keyword" in raw:
@@ -184,13 +184,18 @@ def run_configured_pipeline(request: AnalyseRequest) -> PipelineResult:
             explanation = kw.explanation
             concern = kw.concern_level
 
+    # Surface pipeline failures for ops/debug (no secrets; truncated above when set).
+    public_message = decision.message if abstained else ""
+    if pipeline_used == "keyword_fallback" and pipeline_error and not public_message:
+        public_message = re.sub(r"sk-[A-Za-z0-9_\-]+", "sk-***", pipeline_error)[:400]
+
     result = PipelineResult(
         status=decision.status,
         prediction=final_prediction,
         confidence=confidence,
         reasoning=reasoning if not abstained else decision.message,
         sources=sources,
-        message=decision.message if abstained else "",
+        message=public_message,
         recommendation=decision.recommendation if abstained else "",
         pipeline_used=pipeline_used,
         support_resources=support,
