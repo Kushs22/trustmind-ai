@@ -67,6 +67,8 @@ Return ONLY valid JSON:
 Rules:
 - prediction must be exactly one of the five labels above.
 - confidence must be a number between 0 and 1.
-- reasoning should briefly cite which retrieved sources informed your explanation.
+- reasoning must be a short, natural explanation for the user. Write in plain language.
+  Do NOT include citation markers like [1], [2], source IDs, or phrases such as
+  "Retrieved sources" or "according to source". Grounding belongs only in retrieved_sources.
 - retrieved_sources should list source IDs (e.g. NHS_DEP_001) you relied on.
 """
