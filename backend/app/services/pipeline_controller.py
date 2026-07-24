@@ -93,14 +93,22 @@ def _default_next_steps(high_risk: bool) -> list[str]:
 
 def run_configured_pipeline(request: AnalyseRequest) -> PipelineResult:
     """
-    Execute Mode A (LLM) or Mode B (RAG) based on settings.use_rag.
+    Execute Mode A (LLM) or Mode B (RAG).
 
-    Applies abstention and high-risk support resources after inference.
-    Fallback order: RAG → LLM → keyword (never invents a SWMH label).
+    Per-request `pipeline_mode` overrides the server `USE_RAG` default when set to
+    llm or rag (auto keeps the env setting). Fallback order for RAG: RAG → LLM → keyword.
     """
     text = re.sub(r"\s+", " ", request.text).strip()
     if not text:
         raise ValueError("Text must not be empty")
+
+    mode = (request.pipeline_mode or "auto").strip().lower()
+    if mode == "llm":
+        use_rag = False
+    elif mode == "rag":
+        use_rag = True
+    else:
+        use_rag = bool(settings.use_rag)
 
     if not settings.openai_api_key:
         logger.error("OPENAI_API_KEY is not set on the server — using keyword fallback")
@@ -109,7 +117,7 @@ def run_configured_pipeline(request: AnalyseRequest) -> PipelineResult:
         raw = {}
         error = ""
         try:
-            if settings.use_rag:
+            if use_rag:
                 from app.services.rag_pipeline_service import run_rag_pipeline
 
                 raw = run_rag_pipeline(text)
@@ -121,7 +129,7 @@ def run_configured_pipeline(request: AnalyseRequest) -> PipelineResult:
             error = f"{type(exc).__name__}: {exc}"
             logger.exception("Primary pipeline failed (%s)", error)
             # If RAG failed, try standalone LLM before keywords
-            if settings.use_rag:
+            if use_rag:
                 try:
                     from app.services.llm_pipeline import run_llm_pipeline
 
@@ -155,7 +163,7 @@ def run_configured_pipeline(request: AnalyseRequest) -> PipelineResult:
 
     concern = _map_concern(final_prediction, abstained)
     uncertainty = "High" if abstained or confidence < 0.6 else ("Medium" if confidence < 0.85 else "Low")
-    pipeline_used = str(raw.get("pipeline_used") or ("LLM+RAG" if settings.use_rag else "LLM"))
+    pipeline_used = str(raw.get("pipeline_used") or ("LLM+RAG" if use_rag else "LLM"))
     pipeline_error = str(raw.get("error") or "")
 
     if abstained:
@@ -223,7 +231,8 @@ def run_configured_pipeline(request: AnalyseRequest) -> PipelineResult:
             "latency_ms": result.latency_ms,
             "error": result.error,
             "text_chars": len(text),
-            "use_rag": settings.use_rag,
+            "use_rag": use_rag,
+            "pipeline_mode": mode,
             "openai_configured": bool(settings.openai_api_key),
         }
     )

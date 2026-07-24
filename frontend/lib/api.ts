@@ -163,10 +163,13 @@ export async function createAnonymousSession(): Promise<TokenResponse> {
   );
 }
 
+export type PipelineMode = "llm" | "rag" | "auto";
+
 export async function analyseText(payload: {
   text: string;
   save_to_history: boolean;
   analyse_privately: boolean;
+  pipeline_mode?: PipelineMode;
 }): Promise<AnalyseResponse> {
   return request<AnalyseResponse>("/api/v1/analyse", {
     method: "POST",

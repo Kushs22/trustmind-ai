@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -10,6 +12,9 @@ class AnalyseRequest(BaseModel):
     )
     save_to_history: bool = False
     analyse_privately: bool = True
+    # Per-request pipeline choice for the dissertation demo (overrides USE_RAG when set).
+    # auto = honour server USE_RAG; llm = standalone GPT; rag = hybrid BM25+FAISS + GPT
+    pipeline_mode: Literal["auto", "llm", "rag"] = "auto"
 
 
 class SupportResourceOut(BaseModel):

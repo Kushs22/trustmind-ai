@@ -12,9 +12,10 @@ router = APIRouter(tags=["analyse"])
 ANALYSE_DESCRIPTION = """
 Run a trustworthy wellbeing assessment.
 
-**Pipelines** (selected server-side via `USE_RAG`):
-- `USE_RAG=false` → standalone LLM (`pipeline_used: "LLM"`)
-- `USE_RAG=true` → hybrid BM25+FAISS RAG (`pipeline_used: "LLM+RAG"`)
+**Pipelines** (selected per request via `pipeline_mode`, else server `USE_RAG`):
+- `pipeline_mode: "llm"` → standalone LLM (`pipeline_used: "LLM"`)
+- `pipeline_mode: "rag"` → hybrid BM25+FAISS RAG (`pipeline_used: "LLM+RAG"`)
+- `pipeline_mode: "auto"` → honour server `USE_RAG`
 
 The frontend never calls the LLM directly.
 
