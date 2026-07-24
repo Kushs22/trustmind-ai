@@ -7,18 +7,25 @@ import {
   ApiError,
   createAnonymousSession,
   type AnalyseResponse,
+  type PipelineMode,
 } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 
-const PROCESSING_STEPS = [
+const PROCESSING_STEPS_RAG = [
   "Analysing emotional language",
   "Checking uncertainty level",
   "Retrieving evidence-informed support context",
   "Preparing safe response",
 ] as const;
 
+const PROCESSING_STEPS_LLM = [
+  "Analysing emotional language",
+  "Checking uncertainty level",
+  "Preparing model assessment",
+  "Preparing safe response",
+] as const;
+
 const PROCESSING_DURATION_MS = 2600;
-const STEP_INTERVAL_MS = PROCESSING_DURATION_MS / PROCESSING_STEPS.length;
 
 function Spinner({ className }: { className?: string }) {
   return (
@@ -69,9 +76,16 @@ export function AnalyseForm() {
   const [showResult, setShowResult] = useState(false);
   const [saveToHistory, setSaveToHistory] = useState(false);
   const [analysePrivately, setAnalysePrivately] = useState(true);
+  const [pipelineMode, setPipelineMode] = useState<Exclude<PipelineMode, "auto">>(
+    "rag",
+  );
   const [result, setResult] = useState<AnalyseResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const timersRef = useRef<number[]>([]);
+
+  const processingSteps =
+    pipelineMode === "rag" ? PROCESSING_STEPS_RAG : PROCESSING_STEPS_LLM;
+  const stepIntervalMs = PROCESSING_DURATION_MS / processingSteps.length;
 
   function clearTimers() {
     timersRef.current.forEach((timer) => window.clearTimeout(timer));
@@ -79,10 +93,10 @@ export function AnalyseForm() {
   }
 
   function startProgressAnimation() {
-    PROCESSING_STEPS.forEach((_, index) => {
+    processingSteps.forEach((_, index) => {
       const stepTimer = window.setTimeout(() => {
         setActiveStep(index + 1);
-      }, STEP_INTERVAL_MS * (index + 1));
+      }, stepIntervalMs * (index + 1));
       timersRef.current.push(stepTimer);
     });
   }
@@ -113,6 +127,7 @@ export function AnalyseForm() {
           text: text.trim(),
           save_to_history: saveToHistory,
           analyse_privately: analysePrivately,
+          pipeline_mode: pipelineMode,
         }),
         minDelay,
       ]);
@@ -136,7 +151,7 @@ export function AnalyseForm() {
   }, []);
 
   const progressPercent = isProcessing
-    ? Math.min(100, Math.round((activeStep / PROCESSING_STEPS.length) * 100))
+    ? Math.min(100, Math.round((activeStep / processingSteps.length) * 100))
     : 0;
 
   const privacyStatus = analysePrivately
@@ -175,6 +190,54 @@ export function AnalyseForm() {
           className="mt-4 w-full resize-y rounded-xl border border-slate-200 bg-slate-50/50 dark:border-slate-700 dark:bg-slate-800/50 px-4 py-3 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:border-teal-300 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-100 disabled:cursor-not-allowed disabled:opacity-60"
         />
         <div className="mt-6 space-y-4">
+          <div className="rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/50">
+            <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
+              Assessment mode
+            </p>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              Compare standalone LLM vs LLM with trusted-source retrieval (RAG).
+            </p>
+            <div
+              className="mt-3 grid grid-cols-2 gap-2"
+              role="radiogroup"
+              aria-label="Assessment mode"
+            >
+              <button
+                type="button"
+                role="radio"
+                aria-checked={pipelineMode === "llm"}
+                disabled={isProcessing}
+                onClick={() => setPipelineMode("llm")}
+                className={`rounded-lg border px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                  pipelineMode === "llm"
+                    ? "border-teal-500 bg-teal-50 text-teal-900 dark:border-teal-400 dark:bg-teal-950/40 dark:text-teal-100"
+                    : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                }`}
+              >
+                <span className="block text-sm font-semibold">LLM</span>
+                <span className="mt-0.5 block text-xs opacity-80">
+                  Model only · no retrieval
+                </span>
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={pipelineMode === "rag"}
+                disabled={isProcessing}
+                onClick={() => setPipelineMode("rag")}
+                className={`rounded-lg border px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                  pipelineMode === "rag"
+                    ? "border-teal-500 bg-teal-50 text-teal-900 dark:border-teal-400 dark:bg-teal-950/40 dark:text-teal-100"
+                    : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                }`}
+              >
+                <span className="block text-sm font-semibold">LLM+RAG</span>
+                <span className="mt-0.5 block text-xs opacity-80">
+                  Grounded in approved sources
+                </span>
+              </button>
+            </div>
+          </div>
           <Toggle
             id="save-history"
             label="Save this check-in to my history"
@@ -248,7 +311,7 @@ export function AnalyseForm() {
             </div>
 
             <ul className="space-y-3">
-              {PROCESSING_STEPS.map((step, index) => {
+              {processingSteps.map((step, index) => {
                 const isComplete = activeStep > index;
                 const isCurrent = activeStep === index;
 

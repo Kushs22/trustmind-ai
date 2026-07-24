@@ -229,6 +229,7 @@ def run_analysis(request: AnalyseRequest) -> AnalyseResult:
         text=re.sub(r"\s+", " ", request.text).strip(),
         save_to_history=request.save_to_history,
         analyse_privately=request.analyse_privately,
+        pipeline_mode=request.pipeline_mode,
     )
 
     from app.config import settings
