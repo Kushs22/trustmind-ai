@@ -49,10 +49,13 @@ def log_analyse_run(record: dict[str, Any]) -> None:
         logger.exception("Failed to write analyse JSONL log")
 
     logger.info(
-        "pipeline=%s prediction=%s confidence=%s abstained=%s latency_ms=%s error=%s sources=%s",
+        "pipeline=%s prediction=%s confidence=%s breakdown=%s uncertainty=%s "
+        "abstained=%s latency_ms=%s error=%s sources=%s",
         payload.get("pipeline_used"),
         payload.get("prediction"),
         payload.get("confidence"),
+        payload.get("confidence_breakdown"),
+        payload.get("uncertainty"),
         payload.get("abstained"),
         payload.get("latency_ms"),
         payload.get("error") or "",

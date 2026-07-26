@@ -4,7 +4,17 @@ import uuid
 from sqlalchemy.orm import Session
 
 from app.models import CheckIn, User
-from app.schemas.analyse import AnalyseRequest, AnalyseResponse, SupportResourceOut
+from app.schemas.analyse import (
+    AnalyseDebugOut,
+    AnalyseRequest,
+    AnalyseResponse,
+    ConfidenceBreakdownOut,
+    EvidenceItemOut,
+    GroundingOut,
+    SupportResourceOut,
+    TrustSignalsOut,
+)
+from app.schemas.multimodal import InputSummaryOut, ProcessedAttachmentOut
 from app.services.analyse_service import run_analysis
 
 
@@ -24,6 +34,8 @@ def analyse_and_optionally_save(
     saved = False
     check_in_id: str | None = None
 
+    # History stores only an approved preview of combined text — never original files.
+    preview_source = (result.explanation or payload.text or "")[:500]
     if payload.save_to_history:
         if user is None:
             raise PermissionError("Sign in or continue anonymously to save check-ins")
@@ -39,7 +51,9 @@ def analyse_and_optionally_save(
             explanation=result.explanation,
             safe_next_steps=json.dumps(result.safe_next_steps),
             safety_note=result.safety_note,
-            text_preview=None if payload.analyse_privately else _text_preview(payload.text),
+            text_preview=None
+            if payload.analyse_privately
+            else _text_preview(payload.text or preview_source),
             is_private=payload.analyse_privately,
             abstained="abstention" in result.abstention_status.lower()
             or result.status == "abstained",
@@ -50,10 +64,38 @@ def analyse_and_optionally_save(
         saved = True
         check_in_id = check_in.id
 
+    breakdown = None
+    if result.confidence_breakdown:
+        breakdown = ConfidenceBreakdownOut(**result.confidence_breakdown)
+
+    trust = None
+    if result.trust_signals:
+        trust = TrustSignalsOut(**result.trust_signals)
+
+    grounding = None
+    if result.grounding:
+        grounding = GroundingOut(**result.grounding)
+
+    evidence = [EvidenceItemOut(**item) for item in (result.evidence_used or [])]
+    sources_detail = [EvidenceItemOut(**item) for item in (result.sources_detail or [])]
+
+    debug = None
+    if result.debug:
+        debug = AnalyseDebugOut(**result.debug)
+
+    input_summary = None
+    if result.input_summary:
+        input_summary = InputSummaryOut(**result.input_summary)
+
+    processed = [
+        ProcessedAttachmentOut(**item) for item in (result.processed_attachments or [])
+    ]
+
     return AnalyseResponse(
         id=check_in_id,
         status=result.status,
         prediction=result.prediction,
+        prediction_display=result.prediction_display,
         confidence=result.confidence,
         reasoning=result.reasoning,
         sources=result.sources,
@@ -73,5 +115,16 @@ def analyse_and_optionally_save(
         safe_next_steps=result.safe_next_steps,
         safety_note=result.safety_note,
         early_signs=result.early_signs,
+        potential_indicators=result.potential_indicators,
         saved_to_history=saved,
+        confidence_breakdown=breakdown,
+        uncertainty=result.uncertainty or result.uncertainty_level,
+        trust_signals=trust,
+        grounding=grounding,
+        evidence_used=evidence,
+        sources_detail=sources_detail,
+        safety_triggered=result.safety_triggered,
+        debug=debug,
+        input_summary=input_summary,
+        processed_attachments=processed,
     )

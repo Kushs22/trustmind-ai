@@ -33,5 +33,15 @@ services:
         value: "true"
       - key: ENABLE_SUPPORT_RESOURCES
         value: "true"
+      - key: ENABLE_CONFIDENCE_CALIBRATION
+        value: "true"
+      - key: CONSISTENCY_RUNS
+        value: "3"
+      - key: CONSISTENCY_TEMPERATURE
+        value: "0.3"
+      - key: GROUNDING_RETRIEVAL_QUALITY_MIN
+        value: "55"
+      - key: GROUNDING_EVIDENCE_STRENGTH_MIN
+        value: "50"
       - key: OPENAI_API_KEY
         sync: false

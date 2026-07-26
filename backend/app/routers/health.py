@@ -65,6 +65,11 @@ def health_check() -> dict[str, object]:
         "openai_model": settings.openai_model,
         "use_rag": settings.use_rag,
         "enable_abstention": settings.enable_abstention,
+        "enable_confidence_calibration": settings.enable_confidence_calibration,
+        "consistency_runs": settings.consistency_runs,
+        "confidence_threshold": settings.confidence_threshold,
+        "grounding_retrieval_quality_min": settings.grounding_retrieval_quality_min,
+        "grounding_evidence_strength_min": settings.grounding_evidence_strength_min,
         "analyse_backend": settings.analyse_backend,
         "pipeline": _pipeline_diagnostics(),
     }

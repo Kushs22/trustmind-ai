@@ -62,6 +62,30 @@ CRISIS_SOURCE_HINTS = (
     "116 123",
 )
 
+# User-text crisis cues — independent of prediction confidence / RAG
+CRISIS_USER_HINTS = (
+    "kill myself",
+    "end my life",
+    "want to die",
+    "suicide",
+    "suicidal",
+    "self harm",
+    "self-harm",
+    "hurt myself",
+    "ending it",
+    "better off without me",
+    "everyone would be better without me",
+    "disappear forever",
+)
+
+
+def user_text_indicates_crisis(text: str | None) -> bool:
+    """Rule-based safety detector on the raw check-in (independent of model)."""
+    blob = (text or "").lower()
+    if not blob:
+        return False
+    return any(hint in blob for hint in CRISIS_USER_HINTS)
+
 
 def is_high_risk_prediction(prediction: str | None) -> bool:
     """True when the predicted class indicates crisis-related content."""
@@ -72,7 +96,10 @@ def is_high_risk_prediction(prediction: str | None) -> bool:
 
 def sources_indicate_crisis(sources: list[str] | None, reasoning: str = "") -> bool:
     """Heuristic check over retrieved source IDs / reasoning text."""
-    blob = " ".join(sources or []).lower() + " " + (reasoning or "").lower()
+    # Avoid false positives from negations like "no suicidal thoughts" alone —
+    # still scan sources; for reasoning require stronger user-crisis coupling
+    # via user_text_indicates_crisis in the pipeline.
+    blob = " ".join(sources or []).lower()
     return any(hint in blob for hint in CRISIS_SOURCE_HINTS)
 
 
@@ -81,16 +108,23 @@ def get_support_resources(
     prediction: str | None = None,
     sources: list[str] | None = None,
     reasoning: str = "",
+    user_text: str = "",
     force: bool = False,
 ) -> list[dict[str, str]]:
     """
     Return support resources when enabled and high-risk signals are present.
 
+    Safety is independent of classification confidence and RAG success.
     Resources are support services only — never framed as a diagnosis.
     """
     if not settings.enable_support_resources and not force:
         return []
 
-    if force or is_high_risk_prediction(prediction) or sources_indicate_crisis(sources, reasoning):
+    if (
+        force
+        or is_high_risk_prediction(prediction)
+        or user_text_indicates_crisis(user_text)
+        or sources_indicate_crisis(sources, reasoning)
+    ):
         return [r.to_dict() for r in DEFAULT_RESOURCES]
     return []

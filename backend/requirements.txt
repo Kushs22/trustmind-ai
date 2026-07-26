@@ -1,5 +1,6 @@
 fastapi>=0.115.0
 uvicorn[standard]>=0.32.0
+python-multipart>=0.0.9
 pydantic[email]>=2.10.0
 pydantic-settings>=2.6.0
 python-dotenv>=1.0.0
@@ -13,3 +14,6 @@ faiss-cpu>=1.8.0
 rank-bm25>=0.2.2
 numpy>=1.24.0
 pandas>=2.0.0
+Pillow>=10.0.0
+pypdf>=4.0.0
+filetype>=1.2.0
