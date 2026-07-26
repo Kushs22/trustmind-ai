@@ -28,10 +28,69 @@ export type SupportResource = {
   url: string;
 };
 
+export type ConfidenceBreakdown = {
+  retrieval_similarity: number | null;
+  source_agreement: number | null;
+  llm_confidence: number;
+  classification_consistency: number | null;
+  retrieval_coverage: number | null;
+  input_clarity?: number | null;
+};
+
+export type TrustSignals = {
+  model_confidence: number;
+  evidence_strength: number | null;
+  retrieval_quality: number | null;
+};
+
+export type GroundingInfo = {
+  status: string;
+  label: string;
+};
+
+export type EvidenceItem = {
+  source_id: string;
+  organisation: string;
+  title: string;
+  topic?: string;
+  url?: string;
+  retrieval_score?: number;
+  reason_retrieved?: string;
+  display_label?: string;
+};
+
+export type AnalyseDebug = {
+  latency_ms: number;
+  n_retrieved_chunks: number;
+  openai_model: string;
+  embedding_model: string;
+  confidence_threshold: number;
+  grounding_retrieval_quality_min: number;
+  grounding_evidence_strength_min: number;
+  pipeline_used: string;
+  consistency_runs: number;
+};
+
+export type InputSummary = {
+  typed_text_used: boolean;
+  speech_transcript_used: boolean;
+  image_count: number;
+  pdf_count: number;
+};
+
+export type ProcessedAttachment = {
+  type: "image" | "pdf" | "audio";
+  filename: string;
+  status: string;
+  included_in_analysis: boolean;
+  warnings: string[];
+};
+
 export type AnalyseResponse = {
   id: string | null;
   status: string;
   prediction: string | null;
+  prediction_display?: string | null;
   confidence: number;
   reasoning: string;
   sources: string[];
@@ -51,7 +110,18 @@ export type AnalyseResponse = {
   safe_next_steps: string[];
   safety_note: string;
   early_signs?: string[];
+  potential_indicators?: string[];
   saved_to_history: boolean;
+  confidence_breakdown?: ConfidenceBreakdown | null;
+  uncertainty?: string;
+  trust_signals?: TrustSignals | null;
+  grounding?: GroundingInfo | null;
+  evidence_used?: EvidenceItem[];
+  sources_detail?: EvidenceItem[];
+  safety_triggered?: boolean;
+  debug?: AnalyseDebug | null;
+  input_summary?: InputSummary | null;
+  processed_attachments?: ProcessedAttachment[];
 };
 
 export type CheckIn = {
@@ -166,15 +236,109 @@ export async function createAnonymousSession(): Promise<TokenResponse> {
 export type PipelineMode = "llm" | "rag" | "auto";
 
 export async function analyseText(payload: {
-  text: string;
+  text?: string;
+  typed_text?: string;
+  speech_transcript?: string;
+  image_context?: Array<{
+    filename: string;
+    extracted_text: string;
+    summary?: string;
+    included: boolean;
+    warnings?: string[];
+  }>;
+  pdf_context?: Array<{
+    filename: string;
+    extracted_text: string;
+    summary?: string;
+    included: boolean;
+    warnings?: string[];
+  }>;
   save_to_history: boolean;
   analyse_privately: boolean;
   pipeline_mode?: PipelineMode;
+  include_debug?: boolean;
 }): Promise<AnalyseResponse> {
   return request<AnalyseResponse>("/api/v1/analyse", {
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+/** Multipart helper — does not set JSON Content-Type (browser sets boundary). */
+export async function requestMultipart<T>(
+  path: string,
+  formData: FormData,
+): Promise<T> {
+  const headers = new Headers();
+  const token = getToken();
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const response = await fetch(`${API_URL}${path}`, {
+    method: "POST",
+    headers,
+    body: formData,
+  });
+
+  if (!response.ok) {
+    let message = "Request failed";
+    try {
+      const body = (await response.json()) as { detail?: unknown };
+      message = parseErrorDetail(body.detail ?? message);
+    } catch {
+      message = response.statusText || message;
+    }
+    throw new ApiError(response.status, message);
+  }
+
+  return response.json() as Promise<T>;
+}
+
+export type TranscriptionResult = {
+  status: string;
+  transcript: string;
+  language: string;
+  duration_seconds: number | null;
+  warnings: string[];
+};
+
+export type ImageProcessResult = {
+  filename: string;
+  summary: string;
+  extracted_text: string;
+  contains_text: boolean;
+  safety_flags: string[];
+  warnings: string[];
+  useful_context: boolean;
+};
+
+export type PdfProcessResult = {
+  filename: string;
+  page_count: number;
+  extracted_text: string;
+  document_summary: string;
+  safety_flags: string[];
+  warnings: string[];
+  is_scanned: boolean;
+};
+
+export async function transcribeAudio(file: Blob, filename = "recording.webm") {
+  const form = new FormData();
+  form.append("file", file, filename);
+  return requestMultipart<TranscriptionResult>("/api/v1/transcribe", form);
+}
+
+export async function processImageFile(file: File) {
+  const form = new FormData();
+  form.append("file", file, file.name);
+  return requestMultipart<ImageProcessResult>("/api/v1/process-image", form);
+}
+
+export async function processPdfFile(file: File) {
+  const form = new FormData();
+  form.append("file", file, file.name);
+  return requestMultipart<PdfProcessResult>("/api/v1/process-pdf", form);
 }
 
 export async function getCheckIns(): Promise<CheckIn[]> {

@@ -8,7 +8,7 @@ from app.config import settings
 
 
 ABSTENTION_MESSAGE = (
-    "The model is not sufficiently confident to provide a reliable wellbeing assessment."
+    "The system did not have enough reliable evidence to provide a confident assessment."
 )
 ABSTENTION_RECOMMENDATION = (
     "Consider contacting your GP, NHS services or your university wellbeing team "

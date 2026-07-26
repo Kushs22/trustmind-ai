@@ -199,6 +199,146 @@ Each RAG call appends to:
 - `knowledge_base/logs/rag/rag_runs.jsonl` (passages, scores, latency, response preview)
 - `knowledge_base/logs/rag/rag_pipeline.log`
 
+## Trust and explainability design
+
+TrustMind separates **research classification** from **clinical diagnosis**. Stored labels remain SWMH classes (`depression`, `Anxiety`, `SuicideWatch`, `bipolar`, `offmychest`). The UI shows display names such as “Depression-related indicators”.
+
+### Three trust signals
+
+| Signal | Meaning | Formula (0–100) |
+|--------|---------|-----------------|
+| **Model confidence** | Final calibrated classification confidence | Calibrated overall score |
+| **Evidence strength** | How strongly retrieved evidence supports the prediction | `0.6 × source_agreement + 0.4 × classification_consistency` |
+| **Retrieval quality** | Relevance / adequacy of retrieved passages | `0.6 × retrieval_similarity + 0.4 × retrieval_coverage` |
+
+Standalone **LLM** mode marks Evidence strength and Retrieval quality as **Not applicable** (null in the API)—never misleading zeros.
+
+### Confidence calibration
+
+**LLM+RAG** overall confidence combines:
+
+- 30% retrieval similarity (mean FAISS cosine)
+- 20% source agreement
+- 20% LLM self-reported confidence
+- 20% classification consistency (default 3 runs)
+- 10% retrieval coverage
+
+**Standalone LLM** uses a separate formula (retrieval weights are never applied):
+
+- 40% LLM self-reported confidence
+- 40% classification consistency across repeated runs
+- 20% input clarity (`1 − ambiguity`)
+
+Ambiguity considers short/underspecified text, contradictions, overlapping class cues, missing duration/context, and ordinary non-clinical experiences. Caps: **90%** normal; **75%** substantial ambiguity; **60%** when repeated-run predictions differ.
+
+Component scores are logged under `knowledge_base/logs/analyse/` for dissertation analysis. The UI shows the final percentage plus a **Show confidence details** accordion. Standalone mode does not show retrieved sources, evidence-used cards, or retrieval scores.
+
+
+### Grounding status
+
+Thresholds (env): `GROUNDING_RETRIEVAL_QUALITY_MIN` (default 55), `GROUNDING_EVIDENCE_STRENGTH_MIN` (default 50).
+
+| Status | When | User label |
+|--------|------|------------|
+| `grounded` | RAG + scores ≥ thresholds | Grounded with retrieved evidence |
+| `limited` | RAG with weak scores | Limited supporting evidence |
+| `ungrounded` | RAG with no useful passages | Limited supporting evidence |
+| `not_applicable` | LLM-only | Standalone model response |
+
+### Source presentation
+
+Internal IDs (e.g. `NHS_DEP_001`) stay in the API for evaluation and **developer mode** (`?dev=1` or `localStorage.trustmind_dev=1`). Normal users see **Organisation — Title** with optional **View source** links from passage/manifest metadata. Titles and URLs are never invented.
+
+### Evidence used
+
+“Why it was relevant” text is generated with a **deterministic template** from user text ∩ passage tokens (no extra LLM call), using cautious phrasing (“overlap with”, “associated with”) and an explicit non-diagnosis caveat.
+
+### Abstention and safety
+
+- Abstention uses **calibrated** confidence vs `CONFIDENCE_THRESHOLD` and withholds the prediction.
+- Crisis support resources are triggered by a **rule-based user-text detector** (and high-risk labels), independent of confidence, retrieval success, or abstention.
+
+### Known limitations
+
+- Consistency runs increase latency/cost (~3× LLM calls when enabled).
+- Source-agreement uses topic/keyword heuristics, not clinician review.
+- Evidence reasons are template-based and may miss subtle relevance.
+- Display labels do not change evaluation metrics on SWMH.
+
+## Multimodal input and safety boundaries
+
+TrustMind accepts optional **typed text**, **speech**, **images**, and **PDFs**. All modalities are normalised into labelled combined text before the existing LLM / LLM+RAG pipeline. The text-analysis pipeline itself is unchanged.
+
+### Architecture
+
+1. **Browser speech recognition** when available (Web Speech API). Mic permission is requested only after the user clicks **Speak**.
+2. **Fallback:** MediaRecorder captures audio → `POST /api/v1/transcribe` (configurable provider, default OpenAI Whisper via `TRANSCRIPTION_PROVIDER` / `TRANSCRIPTION_MODEL`).
+3. **Images:** `POST /api/v1/process-image` — signature validation, EXIF strip (Pillow), vision extract with a non-diagnostic prompt (`IMAGE_PROCESSING_MODEL`).
+4. **PDFs:** `POST /api/v1/process-pdf` — genuine PDF check, reject encrypted files, page/size limits, selectable-text extraction (`pypdf`). Scanned-PDF OCR is off by default (`ENABLE_SCANNED_PDF_OCR`).
+5. User **reviews and edits** extracted text, then **Confirm and analyse** → `POST /api/v1/analyse` with JSON multimodal fields (no files on the analyse call).
+
+### User context vs trusted RAG evidence
+
+| User uploads (images / PDFs / audio) | Trusted RAG sources |
+|--------------------------------------|---------------------|
+| Contextual input only | NHS, Mind, Student Minds, Samaritans, PAPYRUS, UWE, other approved orgs |
+| Never added to FAISS / BM25 | Indexed knowledge base only |
+| Never labelled as grounding sources | Drive grounding status |
+| Deleted after processing in privacy mode | Not user uploads |
+
+Images are **not** used to diagnose medical or psychiatric conditions. Facial expression alone is not used to infer mental state. Crisis language in any modality still triggers support resources independently of confidence and retrieval.
+
+### Supported formats and limits (defaults)
+
+| Modality | Types | Limits |
+|----------|-------|--------|
+| Audio | webm, mp4, mpeg, wav | 180s, 15 MB |
+| Image | JPEG, PNG, WEBP | 5 files, 8 MB, pixel/dimension caps |
+| PDF | application/pdf | 3 files, 15 MB, 50 pages |
+
+### Privacy and temporary files
+
+With **Analyse privately** (default): raw audio, images, PDFs, transcripts, and extracted text are not retained after the request; uploads are never written to history or the knowledge base. History (opt-in) stores only an approved summary, never original files. Temporary files use an isolated directory with try/finally cleanup.
+
+### Security controls
+
+- File-size, MIME, and magic-byte signature checks
+- Filename sanitisation; no user path handling; no public static upload URLs
+- In-memory rate limiting on upload/transcribe routes
+- API keys stay on the backend
+- Antivirus scanning is **not** included in MVP (documented limitation; `antivirus_scan_hook` is reserved for later)
+
+### Configuration (environment)
+
+```
+TRANSCRIPTION_PROVIDER=openai
+TRANSCRIPTION_MODEL=whisper-1
+IMAGE_PROCESSING_MODEL=gpt-4.1
+ENABLE_SCANNED_PDF_OCR=false
+MAX_AUDIO_DURATION_SECONDS=180
+MAX_AUDIO_SIZE_MB=15
+MAX_IMAGE_COUNT=5
+MAX_IMAGE_SIZE_MB=8
+MAX_PDF_COUNT=3
+MAX_PDF_SIZE_MB=15
+MAX_PDF_PAGES=50
+```
+
+### Tests
+
+```bash
+cd backend
+python -m unittest tests.test_multimodal_input tests.test_trust_explainability -v
+```
+
+### Known multimodal limitations
+
+- Browser speech quality varies by device/browser.
+- Vision extraction requires an API key; without it, images return a warning and no text.
+- Scanned PDFs need selectable text unless OCR is enabled and extended.
+- No antivirus scanning yet.
+- Frontend unit tests for mic/upload UI are manual (scenarios A–H in the dissertation notes); no Jest/Vitest runner in this repo yet.
+
 ## How this answers the research question
 
 1. **Reliability** — Identical evaluation protocol (accuracy, macro-P/R/F1, confusion matrix) on the same SWMH sample for LLM-only vs LLM+RAG.

@@ -18,9 +18,11 @@ class AnalyseResult:
     safe_next_steps: list[str]
     safety_note: str
     early_signs: list[str] = field(default_factory=list)
+    potential_indicators: list[str] = field(default_factory=list)
     # Extended fields
     status: str = "accepted"
     prediction: str | None = None
+    prediction_display: str | None = None
     confidence: float = 0.0
     reasoning: str = ""
     sources: list[str] = field(default_factory=list)
@@ -31,6 +33,16 @@ class AnalyseResult:
     disclaimer: str = ""
     privacy_notice: str = ""
     human_oversight: str = ""
+    confidence_breakdown: dict[str, int] = field(default_factory=dict)
+    uncertainty: str = ""
+    trust_signals: dict = field(default_factory=dict)
+    grounding: dict = field(default_factory=dict)
+    evidence_used: list = field(default_factory=list)
+    sources_detail: list = field(default_factory=list)
+    safety_triggered: bool = False
+    debug: dict | None = None
+    input_summary: dict | None = None
+    processed_attachments: list = field(default_factory=list)
 
 
 # Heuristic theme detectors for keyword fallback (non-LLM mode)
@@ -224,20 +236,43 @@ def run_analysis(request: AnalyseRequest) -> AnalyseResult:
     Run the configured analyse pipeline (LLM or LLM+RAG).
 
     Frontend never talks to the LLM directly — this is the sole entry point.
+    Multimodal fields are normalised into labelled combined text first.
     """
+    from app.config import settings
+    from app.services.multimodal_input_service import normalize_multimodal_input
+    from app.services.pipeline_controller import run_configured_pipeline
+
+    normalised = normalize_multimodal_input(request)
+    combined = re.sub(r"\s+", " ", normalised.combined_user_text).strip()
+    if not combined:
+        raise ValueError(
+            "Provide typed text, a speech transcript, or included image/PDF context."
+        )
+
+    # Cap combined length for pipeline safety
+    if len(combined) > 12000:
+        combined = combined[:12000]
+
     request = AnalyseRequest(
-        text=re.sub(r"\s+", " ", request.text).strip(),
+        text=combined,
+        typed_text=normalised.typed_text,
+        speech_transcript=normalised.speech_transcript,
+        image_context=request.image_context,
+        pdf_context=request.pdf_context,
         save_to_history=request.save_to_history,
         analyse_privately=request.analyse_privately,
         pipeline_mode=request.pipeline_mode,
+        include_debug=request.include_debug,
     )
-
-    from app.config import settings
-    from app.services.pipeline_controller import run_configured_pipeline
 
     backend = settings.analyse_backend.lower().strip()
     if backend == "keywords":
-        return _run_keyword_analysis(request)
+        result = _run_keyword_analysis(request)
+        result.input_summary = normalised.input_summary.model_dump()
+        result.processed_attachments = [
+            a.model_dump() for a in normalised.processed_attachments
+        ]
+        return result
 
     # auto / llm → dissertation LLM or RAG pipelines via controller
     try:
@@ -264,7 +299,26 @@ def run_analysis(request: AnalyseRequest) -> AnalyseResult:
             disclaimer=pipe.disclaimer,
             privacy_notice=pipe.privacy_notice,
             human_oversight=pipe.human_oversight,
+            confidence_breakdown=pipe.confidence_breakdown,
+            uncertainty=pipe.uncertainty or pipe.uncertainty_level,
+            prediction_display=pipe.prediction_display,
+            potential_indicators=pipe.potential_indicators,
+            trust_signals=pipe.trust_signals,
+            grounding=pipe.grounding,
+            evidence_used=pipe.evidence_used,
+            sources_detail=pipe.sources_detail,
+            safety_triggered=pipe.safety_triggered,
+            debug=pipe.debug,
+            input_summary=normalised.input_summary.model_dump(),
+            processed_attachments=[
+                a.model_dump() for a in normalised.processed_attachments
+            ],
         )
     except Exception:
         logger.exception("Configured pipeline failed; using keyword fallback")
-        return _run_keyword_analysis(request)
+        result = _run_keyword_analysis(request)
+        result.input_summary = normalised.input_summary.model_dump()
+        result.processed_attachments = [
+            a.model_dump() for a in normalised.processed_attachments
+        ]
+        return result

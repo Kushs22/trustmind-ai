@@ -67,8 +67,13 @@ Return ONLY valid JSON:
 Rules:
 - prediction must be exactly one of the five labels above.
 - confidence must be a number between 0 and 1.
-- reasoning must be a short, natural explanation for the user. Write in plain language.
+- reasoning must follow this structure in plain language (2–5 short sentences):
+  (1) Mention observable indicators from the user post (paraphrase carefully).
+  (2) Refer to themes in the retrieved guidance without inventing clinical facts.
+  (3) State a cautious interpretation linking those together for the research label.
+  (4) End with a limitation: this is an automated wellbeing assessment, not a diagnosis.
   Do NOT include citation markers like [1], [2], source IDs, or phrases such as
-  "Retrieved sources" or "according to source". Grounding belongs only in retrieved_sources.
+  "Retrieved sources" or "according to source". Do NOT say "you have", "this proves",
+  or "the diagnosis is". Grounding belongs only in retrieved_sources.
 - retrieved_sources should list source IDs (e.g. NHS_DEP_001) you relied on.
 """
