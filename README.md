@@ -1,6 +1,29 @@
 # TrustMind AI
 
-MSc Artificial Intelligence dissertation (UWE Bristol): trustworthy text-based wellbeing support with optional Retrieval-Augmented Generation (RAG).
+MSc Artificial Intelligence dissertation (UWE Bristol): trustworthy wellbeing support with optional Retrieval-Augmented Generation (RAG), calibrated confidence, and multimodal user input.
+
+## Live demo
+
+| Surface | URL |
+|---------|-----|
+| **Frontend** | [https://trustmind-ai.vercel.app](https://trustmind-ai.vercel.app) |
+| **Analyse page** | [https://trustmind-ai.vercel.app/analyse](https://trustmind-ai.vercel.app/analyse) |
+| **Backend API** | [https://trustmind-ai.onrender.com](https://trustmind-ai.onrender.com) |
+| **API docs** | [https://trustmind-ai.onrender.com/docs](https://trustmind-ai.onrender.com/docs) |
+
+Repository: [https://github.com/Kushs22/trustmind-ai](https://github.com/Kushs22/trustmind-ai)
+
+### What the live product includes
+
+- **LLM** and **LLM+RAG** assessment modes (user-selectable on the analyse page)
+- Optional **typed text**, **microphone / speech**, **image**, and **PDF** input with a confirmation step
+- Hybrid **BM25 + FAISS** retrieval over approved wellbeing sources
+- **Calibrated confidence**, uncertainty bands, abstention, and grounding status
+- **Trust signals** (model confidence / evidence strength / retrieval quality)
+- Safety-first **support resources** (independent of confidence and retrieval)
+- Privacy mode (default): no unnecessary retention of text, audio, images, or PDFs
+
+Uploaded files are **user context only** — they are never added to the trusted RAG knowledge base and do not count as grounding evidence.
 
 ## Research question
 
@@ -10,10 +33,30 @@ MSc Artificial Intelligence dissertation (UWE Bristol): trustworthy text-based w
 
 | Mode | Path | Description |
 |------|------|-------------|
-| **LLM-only** | `research/llm_baseline.py` + `02_LLM_Baseline.ipynb` | Standalone GPT-4.1 (unchanged) |
+| **LLM-only** | `research/llm_baseline.py` + `02_LLM_Baseline.ipynb` | Standalone GPT-4.1 (unchanged for eval parity) |
 | **LLM+RAG** | `rag/` + `04_RAG_Evaluation.ipynb` | Hybrid BM25+FAISS retrieval → GPT-4.1 |
 
 Both arms use the same model, temperature, seed, sample size, and SWMH test split for a fair comparison.
+
+## Application architecture (product)
+
+```
+Frontend (Next.js / Vercel)
+    ↓  optional: /api/v1/transcribe | /process-image | /process-pdf
+    ↓  user confirms inputs
+    ↓  POST /api/v1/analyse  (typed + speech + extracted file text)
+FastAPI backend (Render)
+    ↓  pipeline_mode: llm | rag | auto
+LLM pipeline  or  RAG pipeline (BM25+FAISS → GPT)
+    ↓
+Calibrated confidence → abstention → grounding / trust signals
+    ↓
+Support resources if crisis language or high-risk label
+    ↓
+JSON response (never exposes API keys; uploads not in retrieved_evidence)
+```
+
+The frontend **never** calls OpenAI directly.
 
 ## RAG pipeline
 
@@ -110,13 +153,13 @@ Outputs:
 - `research/figures/rag_confusion_matrix.png`
 - `research/figures/llm_vs_rag_metrics.png`
 
-## Application architecture (demo)
+## Application architecture (demo / local)
 
 ```
 Frontend (Next.js)
     ↓  POST /api/v1/analyse
 FastAPI backend
-    ↓  USE_RAG ?
+    ↓  USE_RAG / pipeline_mode ?
 LLM pipeline  or  RAG pipeline (BM25+FAISS → GPT)
     ↓
 Abstention check (CONFIDENCE_THRESHOLD)
@@ -126,18 +169,16 @@ Support resources (if SuicideWatch / crisis)
 JSON response (prediction, confidence, reasoning, sources, ethics fields)
 ```
 
-The frontend **never** calls OpenAI directly.
-
 ### Switch LLM vs RAG
 
-In `backend/.env`:
+Per request on the analyse page (`pipeline_mode`: `llm` | `rag` | `auto`), or in `backend/.env`:
 
 ```bash
-USE_RAG=false   # Mode A — standalone LLM
-USE_RAG=true    # Mode B — hybrid RAG
+USE_RAG=false   # Mode A — standalone LLM (when pipeline_mode is auto)
+USE_RAG=true    # Mode B — hybrid RAG (when pipeline_mode is auto)
 ```
 
-Restart the API after changing this flag.
+Restart the API after changing the server flag.
 
 ### Abstention
 
@@ -146,21 +187,21 @@ ENABLE_ABSTENTION=true
 CONFIDENCE_THRESHOLD=0.75
 ```
 
-If model confidence &lt; threshold → `status: "abstained"`, `prediction: null`, and a support recommendation (no fabricated label).
+If calibrated confidence &lt; threshold → `status: "abstained"`, `prediction: null`, and a support recommendation (no fabricated label).
 
 ### Support resources
 
-When prediction is `SuicideWatch` (or crisis sources are retrieved) and `ENABLE_SUPPORT_RESOURCES=true`, the API returns NHS / Samaritans / Student Minds / UWE links as **support services**, not diagnoses.
+When prediction is `SuicideWatch` (or crisis language / crisis sources are detected) and `ENABLE_SUPPORT_RESOURCES=true`, the API returns NHS / Samaritans / Student Minds / UWE links as **support services**, not diagnoses.
 
 ### Ethics (always returned)
 
 - Disclaimer (not a medical diagnosis)
-- Privacy notice (no unnecessary text storage)
+- Privacy notice (no unnecessary storage of text / media)
 - Transparency (`pipeline_used`: `LLM` or `LLM+RAG`)
-- Explainability (reasoning + sources + confidence)
+- Explainability (reasoning + sources + confidence details)
 - Human oversight notice
 
-### Run the app
+### Run the app locally
 
 ```bash
 # Backend
@@ -174,12 +215,13 @@ npm install
 npm run dev
 ```
 
-OpenAPI docs: http://127.0.0.1:8000/docs
+Open http://localhost:3000/analyse and http://127.0.0.1:8000/docs
 
 Analyse logs: `knowledge_base/logs/analyse/`
 
 ---
 
+## Key configuration variables
 
 | Variable | Default | Meaning |
 |----------|---------|---------|
@@ -190,8 +232,10 @@ Analyse logs: `knowledge_base/logs/analyse/`
 | `RAG_TOP_K` | `5` | Passages in the prompt |
 | `TEMPERATURE` | `0.0` | Research temperature |
 | `ALLOW_PENDING_CLEANED` | `true` | Index cleaned/ if approved/ empty |
-| `USE_RAG` | `false` | Backend Mode B switch |
-| `OPENAI_API_KEY` | — | Required for embed + generate |
+| `USE_RAG` | `false` | Backend Mode B switch (auto mode) |
+| `OPENAI_API_KEY` | — | Required for embed + generate + multimodal |
+| `TRANSCRIPTION_MODEL` | `whisper-1` | Speech-to-text model |
+| `IMAGE_PROCESSING_MODEL` | `gpt-4.1` | Vision extract model |
 
 ## Logging
 
