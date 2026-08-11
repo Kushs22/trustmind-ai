@@ -1,0 +1,46 @@
+{
+  "baseline_experiment": "llm_only_local_proxy",
+  "rag_experiment": "llm_rag_bm25_local_proxy",
+  "comparison_table": [
+    {
+      "metric": "Accuracy",
+      "llm_only": 0.68,
+      "llm_rag": 0.66,
+      "delta_rag_minus_baseline": -0.020000000000000018
+    },
+    {
+      "metric": "Precision (macro)",
+      "llm_only": 0.7594950738916256,
+      "llm_rag": 0.7305747126436781,
+      "delta_rag_minus_baseline": -0.0289203612479475
+    },
+    {
+      "metric": "Recall (macro)",
+      "llm_only": 0.6432359307359308,
+      "llm_rag": 0.6502525252525253,
+      "delta_rag_minus_baseline": 0.007016594516594532
+    },
+    {
+      "metric": "Macro F1",
+      "llm_only": 0.6632572970811675,
+      "llm_rag": 0.6539923960411765,
+      "delta_rag_minus_baseline": -0.009264901039991003
+    }
+  ],
+  "retrieval_stats": {
+    "n_rows": 100,
+    "mean_n_retrieved": 3.0,
+    "median_n_retrieved": 3.0,
+    "mean_confidence": 0.8956000000000001,
+    "median_confidence": 0.88,
+    "mean_latency_ms": 3137.7896213147324,
+    "median_latency_ms": 3005.4314164444804,
+    "pct_with_sources": 1.0
+  },
+  "protocol_notes": {
+    "same_posts_as_notebook_baseline": true,
+    "fair_apples_to_apples": "LLM and RAG arms both use local GPT proxy + identical SWMH instruction",
+    "notebook_baseline_temp0_reference": "/Users/kushsharma/Desktop/trustmind-ai/research/results/llm_baseline_metrics.json",
+    "retrieval": "BM25 top-5 over curated knowledge_base chunks"
+  }
+}

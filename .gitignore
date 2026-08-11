@@ -2,11 +2,19 @@
 *.zip
 package-lock.json
 
-# Python / backend
+# Python / backend / local envs
+.venv/
+.venv-eval/
+.mplconfig/
 backend/.venv/
 backend/__pycache__/
 backend/*.db
 backend/.env
+
+# Local eval noise
+research/results/*_eval*.log
+research/results/rag_eval_*.log
+research/_launch_eval.sh
 
 # Node / frontend
 frontend/node_modules/
