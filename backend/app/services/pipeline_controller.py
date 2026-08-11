@@ -22,7 +22,6 @@ from app.services.evidence_presentation import (
 )
 from app.services.support_resources import get_support_resources
 from app.services.trust_signals import (
-    GroundingInfo,
     compute_trust_signals,
     prediction_display_name,
     resolve_grounding,
@@ -204,9 +203,11 @@ def run_configured_pipeline(request: AnalyseRequest) -> PipelineResult:
             breakdown=breakdown or None,
             has_retrieval=False,
         )
-        grounding_info = GroundingInfo(
-            status="not_applicable",
-            label="Standalone model response",
+        # Prefer resolve_grounding so this path never depends on a bare constructor import.
+        grounding_info = resolve_grounding(
+            pipeline_used="LLM",
+            has_passages=False,
+            trust=trust,
         )
         # Never present retrieval evidence in standalone LLM mode
         evidence_dicts: list[dict[str, Any]] = []

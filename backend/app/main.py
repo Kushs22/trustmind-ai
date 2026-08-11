@@ -24,7 +24,7 @@ app = FastAPI(
         "Switch pipelines with `USE_RAG` in `.env`. "
         "See `/docs` for request/response examples including abstention."
     ),
-    version="1.2.0",
+    version="1.2.1",
     lifespan=lifespan,
 )
 
@@ -51,5 +51,5 @@ def root() -> dict[str, str]:
         "message": "TrustMind AI backend is running",
         "docs": "/docs",
         "health": "/health",
-        "version": "1.0.0",
+        "version": "1.2.1",
     }

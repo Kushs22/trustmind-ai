@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import logging
+import re
 import sys
 import time
 from pathlib import Path
@@ -17,8 +19,45 @@ from app.services.evidence_presentation import sanitise_reasoning
 
 logger = logging.getLogger(__name__)
 
-_REPO_ROOT = Path(__file__).resolve().parents[3]
+
+def _find_repo_root() -> Path:
+    """Locate monorepo root whether backend is nested or is the serve root."""
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        if (parent / "research" / "llm_baseline.py").is_file():
+            return parent
+        if (parent / "rag" / "config.py").is_file() and (parent / "backend").is_dir():
+            return parent
+    # Fallbacks for local + Render layouts
+    for idx in (3, 2, 4):
+        if len(here.parents) > idx:
+            return here.parents[idx]
+    return here.parents[2]
+
+
+_REPO_ROOT = _find_repo_root()
 _RESEARCH = _REPO_ROOT / "research"
+
+VALID_LABELS = (
+    "depression",
+    "SuicideWatch",
+    "Anxiety",
+    "bipolar",
+    "offmychest",
+)
+
+LABEL_ALIASES = {
+    "depression": "depression",
+    "self.depression": "depression",
+    "suicidewatch": "SuicideWatch",
+    "self.suicidewatch": "SuicideWatch",
+    "anxiety": "Anxiety",
+    "self.anxiety": "Anxiety",
+    "bipolar": "bipolar",
+    "self.bipolar": "bipolar",
+    "offmychest": "offmychest",
+    "self.offmychest": "offmychest",
+}
 
 
 def _ensure_paths() -> None:
@@ -26,6 +65,128 @@ def _ensure_paths() -> None:
         sys.path.insert(0, str(_REPO_ROOT))
     if str(_RESEARCH) not in sys.path:
         sys.path.insert(0, str(_RESEARCH))
+
+
+def _normalize_label(label: Any) -> str:
+    if label is None:
+        return ""
+    key = str(label).strip()
+    if key.lower() in {"", "nan", "none", "null"}:
+        return ""
+    return LABEL_ALIASES.get(key, LABEL_ALIASES.get(key.lower().replace(" ", ""), ""))
+
+
+def _extract_json_object(text: str) -> dict[str, Any] | None:
+    if not text or not str(text).strip():
+        return None
+    cleaned = str(text).strip()
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+        cleaned = re.sub(r"\s*```$", "", cleaned).strip()
+    try:
+        data = json.loads(cleaned)
+        if isinstance(data, dict):
+            return data
+    except json.JSONDecodeError:
+        pass
+    match = re.search(r"\{.*\}", cleaned, flags=re.DOTALL)
+    if not match:
+        return None
+    try:
+        data = json.loads(match.group(0))
+        if isinstance(data, dict):
+            return data
+    except json.JSONDecodeError:
+        return None
+    return None
+
+
+def _parse_prediction_local(response_text: str) -> dict[str, Any]:
+    parsed = _extract_json_object(response_text)
+    if parsed is None:
+        return {
+            "predicted_label": "",
+            "confidence": 0.0,
+            "reasoning": "",
+            "parse_ok": False,
+            "error": "invalid_json_or_empty_response",
+        }
+    raw_label = parsed.get("predicted_label", parsed.get("prediction", ""))
+    label = _normalize_label(raw_label)
+    confidence = parsed.get("confidence", 0.0)
+    try:
+        confidence = float(confidence)
+        if confidence > 1.0 and confidence <= 100.0:
+            confidence = confidence / 100.0
+    except (TypeError, ValueError):
+        confidence = 0.0
+    confidence = max(0.0, min(1.0, confidence))
+    reasoning = str(parsed.get("reasoning") or "").strip()
+    return {
+        "predicted_label": label if label in VALID_LABELS else "",
+        "confidence": confidence,
+        "reasoning": reasoning,
+        "parse_ok": bool(label and label in VALID_LABELS),
+        "error": "" if label in VALID_LABELS else "invalid_or_missing_label",
+    }
+
+
+def _call_openai_json_local(
+    client: Any,
+    *,
+    model_name: str,
+    prompt: str,
+    temperature: float,
+    max_retries: int = 5,
+    base_sleep: float = 2.0,
+) -> tuple[str, str]:
+    last_error = ""
+    for attempt in range(max_retries):
+        try:
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a careful research assistant. "
+                            "Respond with valid JSON only."
+                        ),
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=temperature,
+                response_format={"type": "json_object"},
+            )
+            content = response.choices[0].message.content
+            if content is None or not str(content).strip():
+                last_error = "empty_response"
+                time.sleep(base_sleep * (attempt + 1))
+                continue
+            return str(content), ""
+        except Exception as exc:  # noqa: BLE001
+            last_error = f"{type(exc).__name__}: {exc}"
+            message = str(exc).lower()
+            if any(tok in message for tok in ("rate", "429", "timeout", "temporar")):
+                time.sleep(base_sleep * (2**attempt))
+            else:
+                time.sleep(base_sleep * (attempt + 1))
+    return "", last_error or "api_failure"
+
+
+def _resolve_openai_helpers() -> tuple[Any, Any]:
+    """Prefer research helpers when available; else use local fallbacks."""
+    _ensure_paths()
+    try:
+        from llm_baseline import call_openai_json, parse_prediction
+
+        return call_openai_json, parse_prediction
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "llm_baseline import failed (%s); using in-module OpenAI helpers",
+            exc,
+        )
+        return _call_openai_json_local, _parse_prediction_local
 
 
 def _build_product_llm_prompt(post_text: str) -> str:
@@ -72,8 +233,7 @@ def run_llm_pipeline(text: str) -> dict[str, Any]:
 
     Uses a standalone confidence formula (not the RAG retrieval formula).
     """
-    _ensure_paths()
-    from llm_baseline import call_openai_json, parse_prediction
+    call_openai_json, parse_prediction = _resolve_openai_helpers()
     from openai import OpenAI
 
     started = time.perf_counter()
@@ -82,7 +242,9 @@ def run_llm_pipeline(text: str) -> dict[str, Any]:
 
     client = OpenAI(api_key=settings.openai_api_key)
     prompt = _build_product_llm_prompt(text)
-    n_runs = max(1, int(settings.consistency_runs)) if settings.enable_confidence_calibration else 1
+    # Cap consistency runs for product latency (keyword fallback often followed long timeouts).
+    configured = max(1, int(settings.consistency_runs)) if settings.enable_confidence_calibration else 1
+    n_runs = min(configured, 3)
     consistency_temp = float(settings.consistency_temperature)
     primary_temp = float(settings.openai_temperature)
 
@@ -98,6 +260,7 @@ def run_llm_pipeline(text: str) -> dict[str, Any]:
         )
         if api_error and not response_text:
             last_error = api_error
+            logger.warning("llm_pipeline API error run %s/%s: %s", i + 1, n_runs, api_error)
             continue
         parsed = parse_prediction(response_text)
         if api_error and not parsed.get("error"):

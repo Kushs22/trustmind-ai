@@ -652,9 +652,7 @@ export function AnalyseForm() {
                       <p className="text-xs text-slate-500 dark:text-slate-400">
                         {result.saved_to_history ? "Saved to history" : "Not saved"}{" "}
                         · {analysePrivately ? "Private mode" : "Standard mode"}
-                        {developerMode
-                          ? ` · Pipeline: ${result.pipeline_used || "LLM"}`
-                          : ""}
+                        {` · Pipeline: ${result.pipeline_used || "LLM"}`}
                       </p>
                     </div>
                   </div>

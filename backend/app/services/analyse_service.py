@@ -314,9 +314,15 @@ def run_analysis(request: AnalyseRequest) -> AnalyseResult:
                 a.model_dump() for a in normalised.processed_attachments
             ],
         )
-    except Exception:
+    except Exception as exc:
         logger.exception("Configured pipeline failed; using keyword fallback")
+        safe_err = re.sub(r"sk-[A-Za-z0-9_\-]+", "sk-***", f"{type(exc).__name__}: {exc}")[
+            :400
+        ]
         result = _run_keyword_analysis(request)
+        result.grounding_status = f"keyword_fallback ({safe_err})"
+        result.message = safe_err
+        result.pipeline_used = "keyword_fallback"
         result.input_summary = normalised.input_summary.model_dump()
         result.processed_attachments = [
             a.model_dump() for a in normalised.processed_attachments
