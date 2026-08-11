@@ -367,6 +367,54 @@ class TrustExplainabilityTests(unittest.TestCase):
             prediction_display_name("bipolar"), "Bipolar-related indicators"
         )
 
+    def test_standalone_llm_controller_does_not_keyword_fallback(self) -> None:
+        """Regression: missing GroundingInfo import caused NameError → keyword path."""
+        from app.schemas.analyse import AnalyseRequest
+        from app.services import pipeline_controller as pc
+
+        fake = {
+            "prediction": "Anxiety",
+            "confidence": 0.82,
+            "reasoning": (
+                "The text mentions anxiety about a dissertation. "
+                "This is not a clinical diagnosis."
+            ),
+            "sources": [],
+            "retrieved_passages": [],
+            "pipeline_used": "LLM",
+            "latency_ms": 12.0,
+            "error": "",
+            "parse_ok": True,
+            "confidence_breakdown": {
+                "retrieval_similarity": None,
+                "source_agreement": None,
+                "llm_confidence": 85,
+                "classification_consistency": 100,
+                "retrieval_coverage": None,
+                "input_clarity": 80,
+            },
+            "uncertainty": "Low",
+        }
+        req = AnalyseRequest(
+            text="I'm really anxious about my dissertation.",
+            pipeline_mode="llm",
+            analyse_privately=True,
+        )
+        with patch("app.services.llm_pipeline.run_llm_pipeline", return_value=fake), patch.object(
+            pc.settings, "openai_api_key", "sk-test"
+        ):
+            result = pc.run_configured_pipeline(req)
+
+        self.assertEqual(result.pipeline_used, "LLM")
+        self.assertEqual(result.prediction, "Anxiety")
+        self.assertEqual(result.prediction_display, "Anxiety-related indicators")
+        self.assertEqual(result.grounding_status, "Standalone model response")
+        self.assertEqual(result.grounding.get("status"), "not_applicable")
+        self.assertNotIn("keyword", (result.grounding_status or "").lower())
+        self.assertIsNone((result.trust_signals or {}).get("evidence_strength"))
+        self.assertIsNone((result.trust_signals or {}).get("retrieval_quality"))
+        self.assertEqual(result.evidence_used, [])
+
     def test_consistency_score(self) -> None:
         self.assertAlmostEqual(
             score_classification_consistency(["Anxiety", "Anxiety", "depression"]),

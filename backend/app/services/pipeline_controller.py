@@ -22,6 +22,7 @@ from app.services.evidence_presentation import (
 )
 from app.services.support_resources import get_support_resources
 from app.services.trust_signals import (
+    GroundingInfo,
     compute_trust_signals,
     prediction_display_name,
     resolve_grounding,
