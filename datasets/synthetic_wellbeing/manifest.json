@@ -1,6 +1,22 @@
 {
   "name": "TrustMind Synthetic Wellbeing (SWMH-schema)",
-  "purpose": "Ethical replacement for Reddit-sourced SWMH evaluation data",
+  "version": "2.0",
+  "purpose": "Harder ethical replacement for Reddit-sourced SWMH evaluation data",
+  "design": {
+    "goal": "More realistic classification difficulty via ambiguity and overlap",
+    "style_mix": {
+      "ambiguous": 0.35,
+      "messy": 0.3,
+      "short": 0.2,
+      "medium": 0.15
+    },
+    "traits": [
+      "shared everyday vocabulary across classes",
+      "messy informal orthography",
+      "ambiguous borderline posts",
+      "non-graphic SuicideWatch language with help-seeking cues"
+    ]
+  },
   "columns": [
     "text",
     "label"
@@ -13,7 +29,7 @@
     "self.offmychest"
   ],
   "seed": 42,
-  "generation": "template+combinatorial; no scraped social posts",
+  "generation": "template+combinatorial v2 (hard); no scraped social posts",
   "splits": {
     "train": {
       "n": 1600,
@@ -51,9 +67,7 @@
   },
   "total": 2500,
   "notes": [
-    "Labels mirror SWMH class names for pipeline compatibility.",
-    "Texts are fictional student/everyday wellbeing narratives.",
     "Not clinical data; not for diagnosis.",
-    "SuicideWatch class uses non-graphic distress language only."
+    "Absolute metrics may still differ from real social media; interpret cautiously."
   ]
 }

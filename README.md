@@ -44,18 +44,18 @@ This is **not** clinical diagnosis or a replacement for UWE Wisdom / Health Assu
 
 > To what extent does Retrieval-Augmented Generation (RAG) improve the **trustworthiness, reliability and explainability** of LLM-generated wellbeing assessments compared with a standalone LLM?
 
-### Controlled evaluation (n=100, seed=42, synthetic wellbeing test sample)
+### Controlled evaluation (n=100, seed=42, synthetic wellbeing v2 test sample)
 
 | Metric | LLM-only | LLM+RAG (BM25) | Δ (RAG − LLM) |
 |--------|----------|----------------|---------------|
-| Accuracy | **0.980** | **0.980** | **0.000** |
-| Macro-F1 | **0.981** | **0.981** | **+0.000** |
-| Precision (macro) | 0.981 | 0.982 | +0.002 |
-| Recall (macro) | 0.982 | 0.980 | −0.002 |
+| Accuracy | **0.840** | **0.830** | **−0.010** |
+| Macro-F1 | **0.836** | **0.829** | **−0.006** |
+| Precision (macro) | 0.877 | 0.871 | −0.006 |
+| Recall (macro) | 0.831 | 0.821 | −0.009 |
 
-**Corpus:** `datasets/synthetic_wellbeing/` (2,500 fictional posts; no Reddit scrape).  
-**Interpretation:** on this synthetic theme-label task, reliability was essentially tied; high absolute scores reflect separable template language — do not over-claim clinical validity. **Trustworthiness and explainability** still improve via allow-listed sources and audit trails.  
-Full ethical write-up: [`research/results/rq_answer_summary.md`](research/results/rq_answer_summary.md).
+**Corpus:** `datasets/synthetic_wellbeing/` v2 (2,500 fictional posts; ambiguity + overlap; no Reddit scrape).  
+**Interpretation:** reliability is essentially tied / slightly lower with RAG on this harder synthetic set. Absolute scores are more conservative than v1 template data, but still synthetic — do not claim clinical validity. **Trustworthiness and explainability** improve via allow-listed sources.  
+Full write-up: [`research/results/rq_answer_summary.md`](research/results/rq_answer_summary.md).
 
 ---
 
@@ -267,7 +267,7 @@ Health after deploy: `GET /health` should report a current `version` (e.g. `1.2.
 ## Citation / academic context
 
 - **Product & experiments:** TrustMind AI — UWE MSc AI group dissertation project.  
-- **Evaluation dataset:** TrustMind Synthetic Wellbeing (SWMH-compatible schema), v1.0 — `datasets/synthetic_wellbeing/` (template-generated; seed 42; N=2500).  
+- **Evaluation dataset:** TrustMind Synthetic Wellbeing v2 (SWMH-compatible schema) — `datasets/synthetic_wellbeing/` (harder template generation; seed 42; N=2500).  
 - **Historical motivation (not used as data):** Ji et al. (2021) SWMH paper — [https://doi.org/10.1007/s00521-021-06208-y](https://doi.org/10.1007/s00521-021-06208-y)
 
 ---

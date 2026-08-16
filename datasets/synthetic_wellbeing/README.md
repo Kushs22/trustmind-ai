@@ -1,7 +1,7 @@
 # Synthetic Wellbeing Dataset (SWMH-compatible schema)
 
-Ethical **replacement** for Reddit-sourced SWMH evaluation data. All posts are
-**fictional**, generated locally with templates (no scraped social media).
+**Version 2.0** — harder, more real-world-oriented synthetic posts (ambiguity + overlap).  
+Ethical replacement for Reddit-sourced SWMH. No scraped social media.
 
 ## Files
 
@@ -12,26 +12,30 @@ Ethical **replacement** for Reddit-sourced SWMH evaluation data. All posts are
 | `test.csv` | 500 | 100 |
 | **Total** | **2,500** | balanced |
 
-Also: `manifest.json` (seed, counts, provenance) and **`DATASET_CARD.md`** (full dataset description for the report / supervisor).
+Also: `manifest.json`, `DATASET_CARD.md`, `processed/*_clean.csv`.
 
-## Schema (same as SWMH)
+## Schema
 
 | Column | Description |
 |--------|-------------|
 | `text` | Synthetic first-person wellbeing post |
-| `label` | One of `self.depression`, `self.SuicideWatch`, `self.Anxiety`, `self.bipolar`, `self.offmychest` |
+| `label` | `self.depression`, `self.SuicideWatch`, `self.Anxiety`, `self.bipolar`, `self.offmychest` |
+
+## v2 design (why scores should look more realistic)
+
+- Shared everyday vocabulary across classes  
+- Messy informal style (short / incomplete)  
+- Ambiguous borderline posts (e.g. anxiety ↔ depression ↔ venting)  
+- Fewer obvious “giveaway” template phrases than v1  
 
 ## Regenerate
 
 ```bash
-python research/generate_synthetic_wellbeing.py
-# optional size overrides:
-python research/generate_synthetic_wellbeing.py --train-per-class 320 --val-per-class 80 --test-per-class 100 --seed 42
+python research/generate_synthetic_wellbeing.py --seed 42
 ```
 
-## Ethics notes
+## Ethics
 
-- No human subjects; no Reddit / social scrape.
-- Labels are **author-defined themes** for academic classification, not diagnoses.
-- `SuicideWatch` texts are non-graphic and include help-seeking language.
-- Product crisis support remains rule-based and separate from this dataset.
+- No human subjects; fictional text only  
+- Labels are author-defined themes, not diagnoses  
+- `SuicideWatch` texts are non-graphic and often include help-seeking language  

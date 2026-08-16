@@ -4,37 +4,37 @@
   "comparison_table": [
     {
       "metric": "Accuracy",
-      "llm_only": 0.98,
-      "llm_rag": 0.98,
-      "delta_rag_minus_baseline": 0.0
+      "llm_only": 0.84,
+      "llm_rag": 0.83,
+      "delta_rag_minus_baseline": -0.010000000000000009
     },
     {
       "metric": "Precision (macro)",
-      "llm_only": 0.980952380952381,
-      "llm_rag": 0.9824761904761905,
-      "delta_rag_minus_baseline": 0.0015238095238094829
+      "llm_only": 0.876923076923077,
+      "llm_rag": 0.8712250712250713,
+      "delta_rag_minus_baseline": -0.005698005698005715
     },
     {
       "metric": "Recall (macro)",
-      "llm_only": 0.9821428571428571,
-      "llm_rag": 0.9799498746867167,
-      "delta_rag_minus_baseline": -0.002192982456140413
+      "llm_only": 0.8304920634920634,
+      "llm_rag": 0.8211031746031747,
+      "delta_rag_minus_baseline": -0.009388888888888669
     },
     {
       "metric": "Macro F1",
-      "llm_only": 0.9808666320705761,
-      "llm_rag": 0.9809891524177239,
-      "delta_rag_minus_baseline": 0.00012252034714776983
+      "llm_only": 0.8355254331149666,
+      "llm_rag": 0.8290841281486916,
+      "delta_rag_minus_baseline": -0.006441304966275041
     }
   ],
   "retrieval_stats": {
     "n_rows": 100,
     "mean_n_retrieved": 3.0,
     "median_n_retrieved": 3.0,
-    "mean_confidence": 0.857,
-    "median_confidence": 0.84,
-    "mean_latency_ms": 2172.344857088756,
-    "median_latency_ms": 2094.8443125234917,
+    "mean_confidence": 0.8499000000000001,
+    "median_confidence": 0.82,
+    "mean_latency_ms": 1819.1706378979143,
+    "median_latency_ms": 1795.9685619571246,
     "pct_with_sources": 1.0
   },
   "protocol_notes": {

@@ -4,7 +4,7 @@
 **trustworthiness, reliability and explainability** of LLM-generated wellbeing assessments
 compared with a standalone LLM?
 
-**Generated (UTC):** 2026-08-16T11:09:24.143886+00:00
+**Generated (UTC):** 2026-08-16T11:22:18.383231+00:00
 
 ## Protocol (fair comparison)
 
@@ -20,19 +20,24 @@ compared with a standalone LLM?
 
 ### Transparency on constraints (ethical research practice)
 
-- Evaluation corpus: `datasets/synthetic_wellbeing/` (no Reddit / SWMH posts).
-- Both arms used the local TrustMind backend as an OpenAI proxy (fair relative Δ).
-- Retrieval for this run is BM25 top-k over the curated KB.
-- High absolute accuracy is expected: synthetic templates are stylistically separable by class; do not over-claim real-world clinical performance.
+- Direct `api.openai.com` calls from the Cursor agent environment were blocked (proxy/DNS).
+- Classification therefore used the **local TrustMind backend** as an authenticated OpenAI proxy.
+- Both experimental arms share that path, so **relative** Δ(RAG−LLM) remains a fair estimate.
+- Retrieval for this run is **BM25 top-5** over the curated KB (full hybrid BM25+FAISS+RRF
+  requires online query embeddings; re-run `research/run_rag_vs_llm_eval.py` outside the sandbox
+  for exact hybrid parity when OpenAI network is available).
+- Product temperature (~0.2) may differ slightly from pure research temperature 0.0.
+
+Notebook / fair LLM-arm reference accuracy: 0.98.
 
 ## Reliability results
 
 | Metric | LLM-only | LLM+RAG | Δ (RAG − LLM) |
 |--------|----------|---------|---------------|
-| Accuracy | 0.9800 | 0.9800 | +0.0000 |
-| Precision (macro) | 0.9810 | 0.9825 | +0.0015 |
-| Recall (macro) | 0.9821 | 0.9799 | -0.0022 |
-| Macro F1 | 0.9809 | 0.9810 | +0.0001 |
+| Accuracy | 0.8400 | 0.8300 | -0.0100 |
+| Precision (macro) | 0.8769 | 0.8712 | -0.0057 |
+| Recall (macro) | 0.8305 | 0.8211 | -0.0094 |
+| Macro F1 | 0.8355 | 0.8291 | -0.0064 |
 
 Invalid predictions count as errors.
 
@@ -43,21 +48,21 @@ Invalid predictions count as errors.
   "n_rows": 100,
   "mean_n_retrieved": 3.0,
   "median_n_retrieved": 3.0,
-  "mean_confidence": 0.857,
-  "median_confidence": 0.84,
-  "mean_latency_ms": 2172.344857088756,
-  "median_latency_ms": 2094.8443125234917,
+  "mean_confidence": 0.8499000000000001,
+  "median_confidence": 0.82,
+  "mean_latency_ms": 1819.1706378979143,
+  "median_latency_ms": 1795.9685619571246,
   "pct_with_sources": 1.0
 }
 ```
 
 Original dissertation LLM-only notebook metrics (temp=0.0 research path, for reference only):
-accuracy=0.98
+accuracy=0.84
 
 ## Answer (extent of improvement)
 
 ### Reliability
-Reliability change was **limited or mixed**: accuracy 0.980→0.980 (Δ=+0.000), macro-F1 0.981→0.981 (Δ=+0.000).
+Reliability change was **limited or mixed**: accuracy 0.840→0.830 (Δ=-0.010), macro-F1 0.836→0.829 (Δ=-0.006).
 
 ### Trustworthiness
 RAG **architecturally** improves trustworthiness by constraining reasoning material to

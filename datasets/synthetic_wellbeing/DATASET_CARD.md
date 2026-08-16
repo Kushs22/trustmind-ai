@@ -1,6 +1,6 @@
 # TrustMind Synthetic Wellbeing Dataset — Full Description
 
-**Version:** 1.0  
+**Version:** 2.0 (harder / real-world oriented)  
 **Created for:** TrustMind AI (UWE MSc AI group project)  
 **Purpose:** Ethical evaluation corpus with the same schema as SWMH, without using Reddit or any scraped social-media posts  
 **Location:** `datasets/synthetic_wellbeing/`  
@@ -115,28 +115,22 @@ That differs from real SWMH (where depression was largest). Balanced design make
 
 ## 6. How texts were generated
 
-Method: **template + combinatorial generation** (local Python; seed 42).
+**Version 2** method: template + combinatorial generation with a **hard style mix**:
 
-1. For each class, several theme templates encode the intended linguistic pattern.  
-2. Slots are filled from banks of:
-   - openers (“Lately I have been thinking…”)
-   - everyday contexts (deadlines, flatmates, commuting, money worries, etc.)
-   - time phrases (“this week”, “since midterms started”, …)
-   - closers (non-diagnostic framing / anonymous sharing language)
-3. Light style variants (contractions, short prefixes/suffixes) increase diversity.  
-4. Duplicate texts are rejected via hashing so each row is unique across the whole dataset.  
-5. Rows are shuffled within each split.
+| Style | Approx. weight | Intent |
+|-------|----------------|--------|
+| ambiguous | 35% | Overlapping cues across classes |
+| messy | 30% | Informal orthography / run-ons |
+| short | 20% | Sparse social-media-like posts |
+| medium | 15% | Slightly clearer theme signals |
 
-**Provenance guarantee:** no Reddit API, no Hugging Face SWMH download, no copied social posts.
+Shared everyday hooks (uni, sleep, money, mates, …) appear across labels so models cannot rely on a single keyword. SuicideWatch remains non-graphic and often includes help-seeking language.
 
-Regenerate identically:
+Regenerate:
 
 ```bash
-python research/generate_synthetic_wellbeing.py --seed 42 \
-  --train-per-class 320 --val-per-class 80 --test-per-class 100
+python research/generate_synthetic_wellbeing.py --seed 42
 ```
-
----
 
 ## 7. Text length profile (approx.)
 
