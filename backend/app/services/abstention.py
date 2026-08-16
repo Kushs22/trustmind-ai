@@ -16,25 +16,59 @@ ABSTENTION_RECOMMENDATION = (
     "if you require support."
 )
 
-# Aligns with frontend hard guardrail / input-ambiguity heuristic (~12 words).
+# Short check-ins are allowed; longer inputs keep the global trust threshold.
 SHORT_INPUT_WORD_LIMIT = 12
 _SHORT_INPUT_WORD_LIMIT = SHORT_INPUT_WORD_LIMIT  # backward-compatible alias
 
+# Soft tip only (never used as a hard 422 rejection).
 SHORT_INPUT_CLIENT_MESSAGE = (
-    "Please write at least 2–4 sentences (about 12+ words). "
-    "A single word or short phrase is not enough for a reliable assessment."
+    "Tip: a little more detail (how long this has lasted, sleep, study, daily life) "
+    "usually improves assessment quality — short check-ins are still analysed."
 )
 
+# When short inputs somehow still abstain (e.g. missing prediction), keep copy clear.
 ABSTENTION_MESSAGE_SHORT_INPUT = (
-    "This is intentional — not a broken result. Your check-in was too short for a "
-    "confident assessment, so TrustMind abstained rather than guessing. "
-    "Please write at least 2–4 sentences (about 12+ words) and try again."
+    "This is intentional — not a broken result. Confidence stayed too low even for a "
+    "short check-in, so TrustMind withheld a category label rather than guessing. "
+    "Try adding a sentence or two about how long this has lasted and how it affects you."
 )
 ABSTENTION_RECOMMENDATION_SHORT_INPUT = (
     "Example: \"I've been feeling stressed for about two weeks. It's hard to sleep "
     "and I'm falling behind on coursework. Things feel heavier than usual.\" "
     + ABSTENTION_RECOMMENDATION
 )
+
+LIMITED_CONTEXT_DISCLAIMER = (
+    "Limited context / low confidence: this check-in was very short, so the "
+    "assessment is provisional and not a diagnosis. Adding a little more detail "
+    "usually improves reliability."
+)
+
+# Clear single-word / short-phrase wellbeing cues → research labels (SWMH schema).
+SHORT_WELLBEING_LABELS: dict[str, str] = {
+    "stressed": "Anxiety",
+    "stress": "Anxiety",
+    "anxious": "Anxiety",
+    "anxiety": "Anxiety",
+    "worried": "Anxiety",
+    "worry": "Anxiety",
+    "nervous": "Anxiety",
+    "panic": "Anxiety",
+    "overwhelmed": "Anxiety",
+    "sad": "depression",
+    "depressed": "depression",
+    "depression": "depression",
+    "hopeless": "depression",
+    "empty": "depression",
+    "numb": "depression",
+    "lonely": "offmychest",
+    "burnout": "offmychest",
+    "exhausted": "offmychest",
+    "tired": "offmychest",
+    "ok": "offmychest",
+    "fine": "offmychest",
+    "meh": "offmychest",
+}
 
 
 @dataclass
@@ -61,7 +95,7 @@ def is_underspecified_input(
     combined_text: str | None = None,
 ) -> bool:
     """
-    True when user content has too few words for a reliable assessment.
+    True when user content has fewer than SHORT_INPUT_WORD_LIMIT words.
 
     Prefer raw modality fields over labelled ``combined_text`` (which includes
     prefixes like "Typed input:").
@@ -76,15 +110,35 @@ def is_underspecified_input(
     return 0 < combined_n < SHORT_INPUT_WORD_LIMIT
 
 
-def should_abstain(confidence: float) -> bool:
-    """Return True when confidence is below the configured threshold."""
+def short_wellbeing_heuristic_label(text: str | None) -> str | None:
+    """Map a clear short wellbeing phrase to a research label, else None."""
+    if not text or not str(text).strip():
+        return None
+    tokens = [t.strip(".,!?;:\"'()[]").lower() for t in str(text).strip().split()]
+    tokens = [t for t in tokens if t]
+    if not tokens or len(tokens) >= SHORT_INPUT_WORD_LIMIT:
+        return None
+    # Prefer whole-phrase then individual tokens (last cue wins for "feeling stressed").
+    joined = " ".join(tokens)
+    if joined in SHORT_WELLBEING_LABELS:
+        return SHORT_WELLBEING_LABELS[joined]
+    label: str | None = None
+    for tok in tokens:
+        if tok in SHORT_WELLBEING_LABELS:
+            label = SHORT_WELLBEING_LABELS[tok]
+    return label
+
+
+def should_abstain(confidence: float, *, threshold: float | None = None) -> bool:
+    """Return True when confidence is below the configured (or override) threshold."""
     if not settings.enable_abstention:
         return False
     try:
         value = float(confidence)
     except (TypeError, ValueError):
         return True
-    return value < float(settings.confidence_threshold)
+    cut = float(settings.confidence_threshold if threshold is None else threshold)
+    return value < cut
 
 
 def apply_abstention(
@@ -98,27 +152,31 @@ def apply_abstention(
     """
     Decide whether to withhold a prediction.
 
-    Does not fabricate labels — callers must null out prediction when abstained.
-    Optional text fields only adjust user-facing copy for very short inputs.
+    Long inputs keep the global confidence threshold (default 0.75).
+    Very short inputs skip abstention so one-word check-ins still return a label;
+    callers should attach a limited-context disclaimer.
     """
-    if should_abstain(confidence):
-        short = is_underspecified_input(
-            typed_text=typed_text,
-            speech_transcript=speech_transcript,
-            file_text=file_text,
-            combined_text=text,
+    short = is_underspecified_input(
+        typed_text=typed_text,
+        speech_transcript=speech_transcript,
+        file_text=file_text,
+        combined_text=text,
+    )
+    if short:
+        # Prefer usable short-check-in results over forced abstention.
+        return AbstentionDecision(
+            abstained=False,
+            status="accepted",
+            message="",
+            recommendation="",
         )
+
+    if should_abstain(confidence):
         return AbstentionDecision(
             abstained=True,
             status="abstained",
-            message=(
-                ABSTENTION_MESSAGE_SHORT_INPUT if short else ABSTENTION_MESSAGE
-            ),
-            recommendation=(
-                ABSTENTION_RECOMMENDATION_SHORT_INPUT
-                if short
-                else ABSTENTION_RECOMMENDATION
-            ),
+            message=ABSTENTION_MESSAGE,
+            recommendation=ABSTENTION_RECOMMENDATION,
         )
     return AbstentionDecision(
         abstained=False,

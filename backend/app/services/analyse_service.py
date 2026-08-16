@@ -249,30 +249,6 @@ def run_analysis(request: AnalyseRequest) -> AnalyseResult:
             "Provide typed text, a speech transcript, or included image/PDF context."
         )
 
-    from app.services.abstention import (
-        SHORT_INPUT_CLIENT_MESSAGE,
-        is_underspecified_input,
-    )
-
-    file_bits: list[str] = []
-    for img in request.image_context or []:
-        if img.included:
-            file_bits.append((img.extracted_text or img.summary or "").strip())
-    for pdf in request.pdf_context or []:
-        if pdf.included:
-            file_bits.append((pdf.extracted_text or pdf.summary or "").strip())
-    file_text = " ".join(bit for bit in file_bits if bit)
-
-    # Hard reject ultra-short typed-only (or overall underspecified) inputs before
-    # spending LLM/RAG cost — mirrors the frontend word floor.
-    if is_underspecified_input(
-        typed_text=normalised.typed_text,
-        speech_transcript=normalised.speech_transcript,
-        file_text=file_text,
-        combined_text=combined,
-    ):
-        raise ValueError(SHORT_INPUT_CLIENT_MESSAGE)
-
     # Cap combined length for pipeline safety
     if len(combined) > 12000:
         combined = combined[:12000]

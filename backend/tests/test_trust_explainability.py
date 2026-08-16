@@ -318,6 +318,7 @@ class TrustExplainabilityTests(unittest.TestCase):
 
     def test_abstention_still_works_below_threshold(self) -> None:
         from app.config import settings
+        from app.services.abstention import short_wellbeing_heuristic_label
 
         with patch.object(settings, "enable_abstention", True), patch.object(
             settings, "confidence_threshold", 0.75
@@ -330,10 +331,19 @@ class TrustExplainabilityTests(unittest.TestCase):
             )
             self.assertLess(low.confidence, 0.75)
             self.assertTrue(should_abstain(low.confidence))
-            decision = apply_abstention(low.confidence, text="stressed")
-            self.assertTrue(decision.abstained)
-            self.assertIn("intentional", decision.message.lower())
-            self.assertIn("short", decision.message.lower())
+            # Short inputs skip abstention so one-word check-ins stay usable.
+            short_decision = apply_abstention(low.confidence, text="stressed")
+            self.assertFalse(short_decision.abstained)
+            self.assertEqual(short_decision.status, "accepted")
+            self.assertEqual(short_wellbeing_heuristic_label("Stressed"), "Anxiety")
+            # Longer low-confidence inputs still abstain under the global 0.75 cut.
+            long_text = (
+                "I have been feeling off for a couple of weeks now and I am not "
+                "sure what is going on with my mood lately."
+            )
+            long_decision = apply_abstention(0.5, text=long_text)
+            self.assertTrue(long_decision.abstained)
+            self.assertIn("intentional", long_decision.message.lower())
             self.assertFalse(should_abstain(0.9))
 
     def test_safety_independent_of_confidence(self) -> None:

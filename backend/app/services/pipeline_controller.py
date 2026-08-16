@@ -13,7 +13,12 @@ from typing import Any
 
 from app.config import settings
 from app.schemas.analyse import AnalyseRequest
-from app.services.abstention import apply_abstention
+from app.services.abstention import (
+    LIMITED_CONTEXT_DISCLAIMER,
+    apply_abstention,
+    is_underspecified_input,
+    short_wellbeing_heuristic_label,
+)
 from app.services.analyse_logging import log_analyse_run
 from app.services.confidence_calibration import uncertainty_from_confidence
 from app.services.evidence_presentation import (
@@ -179,15 +184,40 @@ def run_configured_pipeline(request: AnalyseRequest) -> PipelineResult:
     for pdf in request.pdf_context or []:
         if pdf.included:
             file_bits.append((pdf.extracted_text or pdf.summary or "").strip())
+    file_text = " ".join(bit for bit in file_bits if bit)
+    short_input = is_underspecified_input(
+        typed_text=request.typed_text,
+        speech_transcript=request.speech_transcript,
+        file_text=file_text,
+        combined_text=text,
+    )
+    # Short check-ins: ensure a usable label when cues are clear (LLM may omit one).
+    if short_input and not prediction:
+        heuristic = short_wellbeing_heuristic_label(
+            request.typed_text or request.speech_transcript or text
+        )
+        if heuristic:
+            prediction = heuristic
+            if confidence < 0.55:
+                confidence = 0.55
+            if not reasoning:
+                reasoning = (
+                    f"Short check-in matched a clear wellbeing cue mapped to "
+                    f"{heuristic} for research classification (not a diagnosis)."
+                )
+
     decision = apply_abstention(
         confidence,
         text=text,
         typed_text=request.typed_text,
         speech_transcript=request.speech_transcript,
-        file_text=" ".join(bit for bit in file_bits if bit),
+        file_text=file_text,
     )
     abstained = decision.abstained
     final_prediction = None if abstained else prediction
+    if short_input and not abstained and final_prediction:
+        if LIMITED_CONTEXT_DISCLAIMER.lower() not in reasoning.lower():
+            reasoning = f"{LIMITED_CONTEXT_DISCLAIMER} {reasoning}".strip()
 
     # Safety independent of confidence / RAG success
     support = get_support_resources(

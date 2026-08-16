@@ -33,10 +33,10 @@ const PROCESSING_STEPS_LLM = [
 
 const PROCESSING_DURATION_MS = 2600;
 
-/** Hard guardrail: typed-only inputs under ~12 words are underspecified. */
-const MIN_WORDS_FOR_SUBMIT = 12;
-const SHORT_INPUT_BANNER =
-  "Please write at least 2–4 sentences (about 12+ words).";
+/** Soft guidance only — short inputs are always allowed to analyse. */
+const SHORT_INPUT_TIP_WORDS = 12;
+const SHORT_INPUT_TIP =
+  "Tip: a little more detail (how long this has lasted, sleep, study, daily life) usually improves quality — short check-ins still work.";
 const SHORT_INPUT_EXAMPLE =
   "I've been feeling stressed for about two weeks. It's hard to sleep and I'm falling behind on coursework. Things feel heavier than usual.";
 
@@ -123,22 +123,14 @@ export function AnalyseForm() {
     files.pdfs
       .filter((p) => p.included)
       .reduce((sum, p) => sum + countWords(p.extractedText), 0);
-  const hasSpeechOrFiles = speechWordCount > 0 || fileWordCount > 0;
-  /** Enough content when speech/files alone meet the word floor, or typed text does. */
-  const enoughContentWords =
-    typedWordCount >= MIN_WORDS_FOR_SUBMIT ||
-    speechWordCount >= MIN_WORDS_FOR_SUBMIT ||
-    fileWordCount >= MIN_WORDS_FOR_SUBMIT ||
-    typedWordCount + speechWordCount + fileWordCount >= MIN_WORDS_FOR_SUBMIT;
-  /** Hard block typed-only (or overall) underspecified inputs. */
-  const tooShortToSubmit = hasContent && !enoughContentWords;
-  const shortTypedText =
-    typedWordCount > 0 && typedWordCount < MIN_WORDS_FOR_SUBMIT && !hasSpeechOrFiles;
+  const totalWordCount = typedWordCount + speechWordCount + fileWordCount;
+  /** Optional tip only — never blocks submit. */
+  const showShortInputTip =
+    hasContent && totalWordCount > 0 && totalWordCount < SHORT_INPUT_TIP_WORDS;
 
   const filesBusy = files.images.some((i) => i.status === "uploading") ||
     files.pdfs.some((p) => p.status === "uploading");
-  const canSubmit =
-    hasContent && !isProcessing && !filesBusy && !tooShortToSubmit;
+  const canSubmit = hasContent && !isProcessing && !filesBusy;
 
   const developerMode = useMemo(() => {
     if (typeof window === "undefined") return false;
@@ -171,10 +163,6 @@ export function AnalyseForm() {
 
   async function handleAnalyse() {
     if (!hasContent || isProcessing || filesBusy) return;
-    if (tooShortToSubmit) {
-      setError(SHORT_INPUT_BANNER);
-      return;
-    }
 
     clearTimers();
     setIsProcessing(true);
@@ -246,10 +234,6 @@ export function AnalyseForm() {
 
   function handleReviewRequest() {
     if (!hasContent || isProcessing || filesBusy) return;
-    if (tooShortToSubmit) {
-      setError(SHORT_INPUT_BANNER);
-      return;
-    }
     setError(null);
     setShowReview(true);
   }
@@ -272,25 +256,12 @@ export function AnalyseForm() {
 
   return (
     <div className="space-y-8">
-      {(error || tooShortToSubmit) && (
+      {error && (
         <div
-          className={`rounded-xl border px-4 py-3 text-sm ${
-            error && !tooShortToSubmit
-              ? "border-red-200 bg-red-50 text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-100"
-              : "border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-700 dark:bg-amber-950/50 dark:text-amber-50"
-          }`}
+          className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-100"
           role="alert"
         >
-          <p className="font-semibold">
-            {error || SHORT_INPUT_BANNER}
-          </p>
-          {tooShortToSubmit && (
-            <p className="mt-1 text-sm opacity-90">
-              Single words like &quot;stressed&quot; are blocked on purpose. Add how
-              long this has lasted and how it affects sleep, study, or daily life
-              — or use speech / a file with enough detail.
-            </p>
-          )}
+          <p className="font-semibold">{error}</p>
         </div>
       )}
 
@@ -317,27 +288,20 @@ export function AnalyseForm() {
           }}
           rows={8}
           disabled={isProcessing || showReview}
-          placeholder="Share what's been on your mind in 2–4 sentences. There are no right or wrong answers."
+          placeholder="Share what's on your mind — even one word works. A few sentences usually improves quality."
           className="mt-4 w-full resize-y rounded-xl border border-slate-200 bg-slate-50/50 dark:border-slate-700 dark:bg-slate-800/50 px-4 py-3 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:border-teal-300 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-100 disabled:cursor-not-allowed disabled:opacity-60"
         />
-        {tooShortToSubmit && (
+        {showShortInputTip && (
           <div
-            className="mt-3 rounded-xl border-2 border-amber-400 bg-amber-100 px-4 py-3 dark:border-amber-500 dark:bg-amber-950/60"
+            className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/60"
             role="status"
           >
-            <p className="text-sm font-semibold text-amber-950 dark:text-amber-50">
-              {SHORT_INPUT_BANNER}
+            <p className="text-sm text-slate-700 dark:text-slate-200">
+              {SHORT_INPUT_TIP}
             </p>
-            <p className="mt-1 text-sm text-amber-900 dark:text-amber-100">
-              Analysis is blocked until your input has about {MIN_WORDS_FOR_SUBMIT}+
-              words
-              {shortTypedText
-                ? " (typed text alone is too short right now)"
-                : ""}
-              . Speech transcripts and file text also count.
-            </p>
-            <p className="mt-2 text-xs leading-relaxed text-amber-900/90 dark:text-amber-100/90">
-              <span className="font-medium">Example:</span> {SHORT_INPUT_EXAMPLE}
+            <p className="mt-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+              <span className="font-medium">Optional example:</span>{" "}
+              {SHORT_INPUT_EXAMPLE}
             </p>
           </div>
         )}
@@ -476,11 +440,9 @@ export function AnalyseForm() {
               onClick={handleReviewRequest}
               disabled={!canSubmit}
               title={
-                tooShortToSubmit
-                  ? SHORT_INPUT_BANNER
-                  : !hasContent
-                    ? "Enter some text, speech, or a file first"
-                    : undefined
+                !hasContent
+                  ? "Enter some text, speech, or a file first"
+                  : undefined
               }
               aria-disabled={!canSubmit}
               className="inline-flex h-12 min-w-[180px] items-center justify-center gap-2 rounded-xl bg-teal-600 px-8 text-base font-medium text-white shadow-md shadow-teal-600/20 transition-all hover:bg-teal-700 hover:shadow-lg hover:shadow-teal-600/25 disabled:cursor-not-allowed disabled:opacity-50"
@@ -758,17 +720,18 @@ export function AnalyseForm() {
                         This is intentional — not a broken result
                       </p>
                       <p className="mt-2 text-sm leading-relaxed text-slate-800 dark:text-slate-200">
-                        TrustMind withheld a category label because confidence was
-                        below the trust threshold (or the input was too short). It
-                        chose not to guess.
+                        TrustMind withheld a category label because calibrated
+                        confidence stayed below the trust threshold for this
+                        longer check-in. It chose not to guess.
                       </p>
                       {result.message ? (
                         <p className="mt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
                           {result.message}
                         </p>
                       ) : null}
-                      <p className="mt-3 text-sm font-semibold text-slate-900 dark:text-slate-50">
-                        {SHORT_INPUT_BANNER}
+                      <p className="mt-3 text-sm text-slate-800 dark:text-slate-200">
+                        Try adding how long this has lasted and how it affects
+                        sleep, study, or daily life, then analyse again.
                       </p>
                       <p className="mt-2 rounded-lg border border-amber-300/80 bg-white/80 px-3 py-2 text-sm leading-relaxed text-slate-800 dark:border-amber-800 dark:bg-slate-900/60 dark:text-slate-200">
                         <span className="font-medium">Example prompt: </span>
