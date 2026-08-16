@@ -220,6 +220,11 @@ def preprocess_swmh_directory(
 
 if __name__ == "__main__":
     root = Path(__file__).resolve().parents[1]
-    stats = preprocess_swmh_directory(root / "datasets" / "swmh")
+    data_dir = root / "datasets" / "synthetic_wellbeing"
+    if not (data_dir / "train.csv").exists():
+        raise FileNotFoundError(
+            f"Missing {data_dir}/train.csv — run research/generate_synthetic_wellbeing.py"
+        )
+    stats = preprocess_swmh_directory(data_dir)
     for key, value in stats.items():
         print(f"{key}: {value}")

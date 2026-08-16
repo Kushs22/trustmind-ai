@@ -1,5 +1,6 @@
 .DS_Store
 *.zip
+!datasets/synthetic_wellbeing_v1.zip
 package-lock.json
 
 # Python / backend / local envs
@@ -22,9 +23,9 @@ frontend/.next/
 frontend/.env*
 !frontend/.env.local.example
 
-# Research datasets (large CSV files — keep locally)
-datasets/swmh/*.csv
-datasets/swmh/processed/
+# Do not reintroduce scraped SWMH Reddit CSVs
+datasets/swmh/
+research/results/archive_swmh_eval/*_predictions.csv
 
 # Research secrets / LLM outputs containing raw posts
 research/.env

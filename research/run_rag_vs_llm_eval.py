@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Run LLM+RAG evaluation on the same SWMH test sample as the LLM-only baseline.
+Run LLM+RAG evaluation on the same synthetic test sample as the LLM-only baseline.
 
 Parity controls (must match research/results/llm_baseline_metrics.json):
   - model: gpt-4.1
   - n: 100
   - seed: 42
   - temperature: 0.0
-  - split: datasets/swmh/test.csv
+  - split: datasets/synthetic_wellbeing/test.csv (override with EVAL_TEST_CSV)
 
 Outputs (research/results/ and research/figures/):
   - rag_predictions.csv
@@ -165,29 +165,27 @@ def _write_rq_summary(
     ethics = """
 ## Ethical framing (required for this result)
 
-1. **Evaluation data (SWMH)** — Reddit SuicideWatch / mental-health collection used **offline only**
-   for research comparison on a fixed sample. Source paper: Ji et al. (2021), *Neural Computing
-   and Applications* (https://doi.org/10.1007/s00521-021-06208-y). Dataset access is research-
-   restricted (Hugging Face AIMH/SWMH; Zenodo 10.5281/zenodo.6476179). SWMH labels are
-   **subreddit proxies**, not clinical diagnoses. Results are **not** valid for patient care.
+1. **Evaluation data (synthetic wellbeing)** — group-prepared fictional posts with
+   SWMH-compatible five-class labels (`datasets/synthetic_wellbeing/`). No scraped Reddit
+   posts. Labels are **theme proxies for academic classification**, not clinical diagnoses.
+   Results are **not** valid for patient care.
 
-2. **Product knowledge base** is separate from SWMH. RAG retrieves only **curated official
-   guidance** (approved allow-list); user uploads never enter FAISS/BM25 indexes.
+2. **Product knowledge base** is separate from the evaluation CSVs. RAG retrieves only
+   **curated official guidance** (approved allow-list); user uploads never enter FAISS/BM25.
 
 3. **Non-clinical language** — outputs are indicator classifications for research/demo, not
    medical diagnosis. Crisis support resources in the product are rule-based and independent
    of model confidence.
 
 4. **No claims to replace human support** (e.g. UWE Wisdom / Health Assured WisdomAI EAP).
-   TrustMind measures LLM vs LLM+RAG under controlled conditions; WisdomAI is a commercial
-   counsellor-informed Q&A / EAP surface with different goals.
+   TrustMind measures LLM vs LLM+RAG under controlled conditions.
 
 5. **Limitations that bound the RQ answer**
-   - Sample size n=100 (seed 42); not the full SWMH test set
-   - Domain shift: Reddit posts vs NHS-style KB
+   - Sample size n=100 (seed 42); not the full synthetic test set (500)
+   - Domain shift: synthetic informal posts vs NHS-style KB
    - Single model (gpt-4.1); no fine-tuning
+   - Synthetic labels are author-defined themes, not clinician-coded data
    - Source-agreement heuristics and template evidence text in the live app are not clinician review
-   - Hybrid retrieval used pending/`cleaned/` corpus when `review/approved/` is empty
 """
 
     body = f"""# Research question answer — LLM-only vs LLM+RAG
@@ -206,7 +204,7 @@ compared with a standalone LLM?
 | Sample size | {r.get("n_samples", 100)} |
 | Random seed | {rag.get("random_seed", 42)} |
 | Temperature | {rag.get("temperature", 0.0)} |
-| Split | SWMH test.csv |
+| Split | synthetic_wellbeing/test.csv |
 | LLM-only metrics | research/results/llm_baseline_metrics.json |
 | LLM+RAG metrics | research/results/rag_metrics.json |
 
@@ -276,7 +274,7 @@ def main() -> int:
     results.mkdir(parents=True, exist_ok=True)
     figures.mkdir(parents=True, exist_ok=True)
 
-    print("Loading SWMH test sample (n=100, seed=42)...")
+    print("Loading synthetic test sample (n=100, seed=42)...")
     sample = load_and_sample_test(cfg.test_csv, cfg.sample_size, cfg.random_seed)
     _verify_sample_parity(sample, results / "llm_baseline_predictions.csv")
 

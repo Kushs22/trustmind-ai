@@ -9,8 +9,8 @@ This stage prepares documents that may later support Retrieval-Augmented Generat
 
 | Resource | Role |
 |----------|------|
-| **SWMH dataset** | Experimental evaluation data (LLM-only vs LLM+RAG classification) |
-| **This knowledge base** | Curated external guidance (NHS, Mind, Samaritans, UWE, …) for future grounding |
+| **Synthetic wellbeing dataset** | Experimental evaluation data (LLM-only vs LLM+RAG classification) |
+| **This knowledge base** | Curated external guidance (NHS, Mind, Samaritans, UWE, …) for grounding |
 
 Only URLs you manually add to the approved list are downloaded. There is **no website crawling** and **no automatic link following**.
 

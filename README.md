@@ -44,18 +44,17 @@ This is **not** clinical diagnosis or a replacement for UWE Wisdom / Health Assu
 
 > To what extent does Retrieval-Augmented Generation (RAG) improve the **trustworthiness, reliability and explainability** of LLM-generated wellbeing assessments compared with a standalone LLM?
 
-### Controlled evaluation (n=100, seed=42, SWMH test sample)
+### Controlled evaluation (n=100, seed=42, synthetic wellbeing test sample)
 
 | Metric | LLM-only | LLM+RAG (BM25) | Δ (RAG − LLM) |
 |--------|----------|----------------|---------------|
-| Accuracy | **0.680** | **0.660** | **−0.020** |
-| Macro-F1 | **0.663** | **0.654** | **−0.009** |
-| Precision (macro) | 0.759 | 0.731 | −0.029 |
-| Recall (macro) | 0.643 | 0.650 | +0.007 |
+| Accuracy | **0.980** | **0.980** | **0.000** |
+| Macro-F1 | **0.981** | **0.981** | **+0.000** |
+| Precision (macro) | 0.981 | 0.982 | +0.002 |
+| Recall (macro) | 0.982 | 0.980 | −0.002 |
 
-Earlier notebook LLM-only arm (temp=0.0): accuracy **0.65** (`research/results/llm_baseline_metrics.json`).
-
-**Interpretation:** on Reddit → subreddit-label classification, RAG did **not** improve accuracy under domain shift (informal posts vs institutional guidance). **Trustworthiness and explainability** still improve via allow-listed sources and audit trails.  
+**Corpus:** `datasets/synthetic_wellbeing/` (2,500 fictional posts; no Reddit scrape).  
+**Interpretation:** on this synthetic theme-label task, reliability was essentially tied; high absolute scores reflect separable template language — do not over-claim clinical validity. **Trustworthiness and explainability** still improve via allow-listed sources and audit trails.  
 Full ethical write-up: [`research/results/rq_answer_summary.md`](research/results/rq_answer_summary.md).
 
 ---
@@ -104,7 +103,7 @@ trustmind-ai/
 ├── knowledge_base/           # Allow-listed sources, chunks, indexes
 ├── research/                 # Experiments, metrics, figures, scripts
 ├── scripts/                  # Collect / chunk / embed / index builders
-├── datasets/swmh/            # SWMH CSVs (local only; gitignored)
+├── datasets/synthetic_wellbeing/  # Ethical eval CSVs (+ zip for download)
 └── requirements-rag.txt
 ```
 
@@ -176,7 +175,7 @@ Server default for `auto`: `USE_RAG` in `backend/.env` / Render env.
 | Curated KB only | No free web crawl; `approved_sources.csv` allow-list |
 | Uploads | Never enter FAISS/BM25; privacy mode default |
 | Crisis support | Rule-based; independent of confidence / RAG success |
-| Evaluation data (SWMH) | Offline research only — Ji et al. (2021), *Neural Computing and Applications* · [dataset](https://huggingface.co/datasets/AIMH/SWMH) |
+| Evaluation data | Synthetic wellbeing CSVs (`datasets/synthetic_wellbeing/`) — same label schema as SWMH, no scraped Reddit posts |
 
 ---
 
@@ -257,8 +256,8 @@ Health after deploy: `GET /health` should report a current `version` (e.g. `1.2.
 ## Known limitations
 
 - Free Render cold starts can delay the first request.
-- SWMH labels are **subreddit proxies**, not clinical diagnoses.
-- Domain shift: Reddit evaluation text vs NHS-style KB.
+- Evaluation labels are **theme proxies** on a synthetic corpus, not clinical diagnoses.
+- Domain shift: synthetic informal posts vs NHS-style KB.
 - Source-agreement and evidence “why retrieved” text use **heuristics/templates**, not clinician review.
 - Consistency runs increase latency/cost.
 - Antivirus on uploads is not included in MVP.
@@ -268,7 +267,8 @@ Health after deploy: `GET /health` should report a current `version` (e.g. `1.2.
 ## Citation / academic context
 
 - **Product & experiments:** TrustMind AI — UWE MSc AI group dissertation project.  
-- **Evaluation dataset:** SWMH — Ji, S., Li, X., Huang, Z. & Cambria, E. (2021). *Suicidal ideation and mental disorder detection with attentive relation networks.* Neural Computing and Applications. [https://doi.org/10.1007/s00521-021-06208-y](https://doi.org/10.1007/s00521-021-06208-y)
+- **Evaluation dataset:** TrustMind Synthetic Wellbeing (SWMH-compatible schema), v1.0 — `datasets/synthetic_wellbeing/` (template-generated; seed 42; N=2500).  
+- **Historical motivation (not used as data):** Ji et al. (2021) SWMH paper — [https://doi.org/10.1007/s00521-021-06208-y](https://doi.org/10.1007/s00521-021-06208-y)
 
 ---
 

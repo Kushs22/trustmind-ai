@@ -87,7 +87,10 @@ class RagConfig:
         self.embeddings_meta_jsonl = self.embeddings_dir / "embeddings_meta.jsonl"
         self.faiss_index_path = self.faiss_dir / "index.faiss"
         self.bm25_index_path = self.bm25_dir / "bm25.pkl"
-        self.test_csv = self.root / "datasets" / "swmh" / "test.csv"
+        # Default eval corpus: synthetic SWMH-schema set (ethical replacement for Reddit SWMH).
+        # Override with EVAL_TEST_CSV=/path/to/test.csv if needed.
+        default_test = self.root / "datasets" / "synthetic_wellbeing" / "test.csv"
+        self.test_csv = Path(os.getenv("EVAL_TEST_CSV", str(default_test)))
         self.results_dir = self.root / "research" / "results"
 
 

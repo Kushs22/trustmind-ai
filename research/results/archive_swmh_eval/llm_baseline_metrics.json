@@ -1,0 +1,107 @@
+{
+  "experiment": "llm_only_baseline",
+  "model_name": "gpt-4.1",
+  "sample_size": 100,
+  "random_seed": 42,
+  "temperature": 0.0,
+  "dry_run": false,
+  "timestamp_utc": "2026-07-18T18:45:32.908965+00:00",
+  "metrics": {
+    "n_samples": 100,
+    "n_valid_predictions": 100,
+    "n_invalid_predictions": 0,
+    "accuracy": 0.65,
+    "precision_macro": 0.715925925925926,
+    "recall_macro": 0.6570707070707071,
+    "f1_macro": 0.6458478513356563,
+    "labels": [
+      "depression",
+      "SuicideWatch",
+      "Anxiety",
+      "bipolar",
+      "offmychest"
+    ],
+    "confusion_matrix": [
+      [
+        14,
+        6,
+        1,
+        0,
+        12
+      ],
+      [
+        1,
+        17,
+        0,
+        1,
+        2
+      ],
+      [
+        0,
+        1,
+        18,
+        0,
+        2
+      ],
+      [
+        0,
+        1,
+        0,
+        4,
+        4
+      ],
+      [
+        1,
+        2,
+        1,
+        0,
+        12
+      ]
+    ],
+    "classification_report": {
+      "depression": {
+        "precision": 0.875,
+        "recall": 0.42424242424242425,
+        "f1-score": 0.5714285714285714,
+        "support": 33.0
+      },
+      "SuicideWatch": {
+        "precision": 0.6296296296296297,
+        "recall": 0.8095238095238095,
+        "f1-score": 0.7083333333333334,
+        "support": 21.0
+      },
+      "Anxiety": {
+        "precision": 0.9,
+        "recall": 0.8571428571428571,
+        "f1-score": 0.8780487804878048,
+        "support": 21.0
+      },
+      "bipolar": {
+        "precision": 0.8,
+        "recall": 0.4444444444444444,
+        "f1-score": 0.5714285714285714,
+        "support": 9.0
+      },
+      "offmychest": {
+        "precision": 0.375,
+        "recall": 0.75,
+        "f1-score": 0.5,
+        "support": 16.0
+      },
+      "accuracy": 0.65,
+      "macro avg": {
+        "precision": 0.715925925925926,
+        "recall": 0.6570707070707071,
+        "f1-score": 0.6458478513356563,
+        "support": 100.0
+      },
+      "weighted avg": {
+        "precision": 0.7419722222222223,
+        "recall": 0.65,
+        "f1-score": 0.653140243902439,
+        "support": 100.0
+      }
+    }
+  }
+}

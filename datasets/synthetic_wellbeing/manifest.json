@@ -1,0 +1,59 @@
+{
+  "name": "TrustMind Synthetic Wellbeing (SWMH-schema)",
+  "purpose": "Ethical replacement for Reddit-sourced SWMH evaluation data",
+  "columns": [
+    "text",
+    "label"
+  ],
+  "labels": [
+    "self.depression",
+    "self.SuicideWatch",
+    "self.Anxiety",
+    "self.bipolar",
+    "self.offmychest"
+  ],
+  "seed": 42,
+  "generation": "template+combinatorial; no scraped social posts",
+  "splits": {
+    "train": {
+      "n": 1600,
+      "per_class": 320,
+      "counts": {
+        "self.depression": 320,
+        "self.SuicideWatch": 320,
+        "self.Anxiety": 320,
+        "self.bipolar": 320,
+        "self.offmychest": 320
+      }
+    },
+    "val": {
+      "n": 400,
+      "per_class": 80,
+      "counts": {
+        "self.depression": 80,
+        "self.SuicideWatch": 80,
+        "self.Anxiety": 80,
+        "self.bipolar": 80,
+        "self.offmychest": 80
+      }
+    },
+    "test": {
+      "n": 500,
+      "per_class": 100,
+      "counts": {
+        "self.depression": 100,
+        "self.SuicideWatch": 100,
+        "self.Anxiety": 100,
+        "self.bipolar": 100,
+        "self.offmychest": 100
+      }
+    }
+  },
+  "total": 2500,
+  "notes": [
+    "Labels mirror SWMH class names for pipeline compatibility.",
+    "Texts are fictional student/everyday wellbeing narratives.",
+    "Not clinical data; not for diagnosis.",
+    "SuicideWatch class uses non-graphic distress language only."
+  ]
+}

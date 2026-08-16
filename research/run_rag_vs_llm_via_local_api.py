@@ -5,10 +5,10 @@ Controlled LLM-only vs LLM+RAG evaluation using a local OpenAI proxy.
 Cursor agent sandbox cannot reach api.openai.com. The user's long-running local
 backend (localhost:8000) can. This script:
 
-  1. Samples the SAME SWMH test posts as the dissertation baseline
+  1. Samples the SAME synthetic test posts as the dissertation baseline
      (n=100, seed=42; verified against llm_baseline_predictions.csv).
   2. Arm A / B both go through the same local GPT endpoint with an identical
-     SWMH 5-class instruction (fair comparison).
+     5-class theme instruction (fair comparison).
   3. Arm B adds BM25 top-k passages from the curated knowledge base
      (FAISS hybrid is used when OpenAI embeddings work; otherwise BM25-only
      is recorded as the retrieval mode).
@@ -328,10 +328,10 @@ compared with a standalone LLM?
 | Control | Value |
 |---------|-------|
 | Model (local backend) | gpt-4.1 (product OpenAI path used as API proxy) |
-| Sample | SWMH test, **n=100**, **seed=42** (same posts as baseline CSV) |
+| Sample | Synthetic test, **n=100**, **seed=42** (same posts as baseline CSV) |
 | Labels | depression, SuicideWatch, Anxiety, bipolar, offmychest |
-| LLM arm | Same SWMH instruction; **no** retrieved passages |
-| RAG arm | Same SWMH instruction + **BM25 top-{TOP_K}** curated KB passages |
+| LLM arm | Same 5-class instruction; **no** retrieved passages |
+| RAG arm | Same 5-class instruction + **BM25 top-{TOP_K}** curated KB passages |
 | Retrieval mode | **{rag.get("retrieval_mode", "bm25")}** |
 | API proxy | `{LOCAL_API}` (agent cannot reach api.openai.com directly) |
 
@@ -365,8 +365,8 @@ accuracy={b.get("accuracy") if False else baseline.get("metrics", baseline).get(
 ### Trustworthiness
 RAG **architecturally** improves trustworthiness by constraining reasoning material to
 **allow-listed official wellbeing sources** (NHS / Mind / Samaritans / Student Minds / UWE, etc.),
-rather than parametric memory alone. This is independent of whether accuracy rises on Reddit
-subreddit labels (domain shift: informal Reddit posts vs institutional guidance).
+rather than parametric memory alone. This is independent of whether accuracy rises on the
+synthetic theme-label task (domain shift: informal synthetic posts vs institutional guidance).
 
 ### Explainability
 RAG returns **auditable sources** (`retrieved_sources` / passage text in the research log).
@@ -381,14 +381,13 @@ LLM-only exposes only parametric reasoning. Explainability therefore improves **
 
 ## Ethical AI statement
 
-1. **SWMH** is used **offline for research evaluation only**, not as the product knowledge base.
-   Dataset paper: Ji et al. (2021), *Neural Computing and Applications*
-   (https://doi.org/10.1007/s00521-021-06208-y). Hub: https://huggingface.co/datasets/AIMH/SWMH
-2. SWMH labels are **subreddit proxies**, not clinical diagnoses.
+1. **Evaluation corpus** is the synthetic wellbeing dataset
+   (`datasets/synthetic_wellbeing/`) with SWMH-compatible labels and **no scraped Reddit posts**.
+2. Labels are **theme proxies for academic classification**, not clinical diagnoses.
 3. Product RAG corpus is separately curated official guidance; user uploads never enter FAISS/BM25.
 4. Outputs are **non-diagnostic wellbeing indicator classifications** for research/demo.
 5. Crisis / support pathways in the live product are rule-based and independent of confidence.
-6. No fine-tuning was performed on SWMH posts for this evaluation.
+6. No fine-tuning was performed on evaluation posts for this run.
 
 ## Artefacts
 
@@ -511,7 +510,8 @@ def main() -> int:
         "retrieval_stats": retrieval_stats(results / "rag_predictions.csv"),
         "protocol_notes": {
             "same_posts_as_notebook_baseline": True,
-            "fair_apples_to_apples": "LLM and RAG arms both use local GPT proxy + identical SWMH instruction",
+            "fair_apples_to_apples": "LLM and RAG arms both use local GPT proxy + identical 5-class instruction",
+            "evaluation_corpus": "datasets/synthetic_wellbeing/test.csv",
             "notebook_baseline_temp0_reference": str(results / "llm_baseline_metrics.json"),
             "retrieval": "BM25 top-5 over curated knowledge_base chunks",
         },
@@ -538,18 +538,38 @@ def main() -> int:
 - Product temperature (~0.2) may differ slightly from pure research temperature 0.0.
 """.strip()
 
-    # For summary header, pass original notebook baseline as secondary reference via file
-    notebook_baseline = json.loads(
-        (results / "llm_baseline_metrics.json").read_text(encoding="utf-8")
-    )
+    # For summary header, optional notebook baseline reference
+    notebook_acc = None
+    baseline_path = results / "llm_baseline_metrics.json"
+    if baseline_path.exists():
+        notebook_baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
+        notebook_acc = notebook_baseline.get("metrics", {}).get("accuracy")
+    else:
+        # Persist the fair LLM arm as the baseline artefact for this corpus.
+        baseline_path.write_text(
+            json.dumps(
+                {
+                    **llm_payload,
+                    "experiment": "llm_only_synthetic_baseline",
+                    "note": "Fair dual-arm LLM arm on synthetic_wellbeing (n=100, seed=42).",
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        notebook_acc = llm_payload["metrics"].get("accuracy")
+
+    extra = ""
+    if notebook_acc is not None:
+        extra = f"\n\nNotebook / fair LLM-arm reference accuracy: {notebook_acc}."
     _write_rq_summary(
         results / "rq_answer_summary.md",
         baseline=llm_payload,
         rag=rag_payload,
         comparison_rows=summary["comparison_table"],
         retrieval=summary["retrieval_stats"],
-        notes=notes + f"\n\nNotebook Arm-A reference accuracy (temp=0.0): "
-        f"{notebook_baseline.get('metrics', {}).get('accuracy')}.",
+        notes=notes + extra,
     )
     return 0
 
