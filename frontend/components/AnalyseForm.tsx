@@ -33,6 +33,16 @@ const PROCESSING_STEPS_LLM = [
 
 const PROCESSING_DURATION_MS = 2600;
 
+/** Soft guardrail: under ~12 words is underspecified (matches backend ambiguity heuristic). */
+const MIN_WORDS_FOR_SUBMIT = 12;
+const SHORT_INPUT_EXAMPLE =
+  "I've been feeling stressed for about two weeks. It's hard to sleep and I'm falling behind on coursework. Things feel heavier than usual.";
+
+function countWords(value: string): number {
+  const trimmed = value.trim();
+  return trimmed ? trimmed.split(/\s+/).length : 0;
+}
+
 function Spinner({ className }: { className?: string }) {
   return (
     <svg
@@ -102,6 +112,19 @@ export function AnalyseForm() {
       files.pdfs.some((p) => p.included && p.extractedText.trim()),
   );
 
+  const typedWordCount = countWords(text);
+  const shortTypedText = typedWordCount > 0 && typedWordCount < 12;
+  const hasSpeechOrFiles = Boolean(
+    speechTranscript.trim() ||
+      files.images.some((i) => i.included && i.extractedText.trim()) ||
+      files.pdfs.some((p) => p.included && p.extractedText.trim()),
+  );
+  /** Soft block when typed text alone is too short (speech/files can still proceed). */
+  const tooShortToSubmit =
+    typedWordCount > 0 &&
+    typedWordCount < MIN_WORDS_FOR_SUBMIT &&
+    !hasSpeechOrFiles;
+
   const filesBusy = files.images.some((i) => i.status === "uploading") ||
     files.pdfs.some((p) => p.status === "uploading");
 
@@ -135,7 +158,7 @@ export function AnalyseForm() {
   }
 
   async function handleAnalyse() {
-    if (!hasContent || isProcessing || filesBusy) return;
+    if (!hasContent || isProcessing || filesBusy || tooShortToSubmit) return;
 
     clearTimers();
     setIsProcessing(true);
@@ -206,7 +229,7 @@ export function AnalyseForm() {
   }
 
   function handleReviewRequest() {
-    if (!hasContent || isProcessing || filesBusy) return;
+    if (!hasContent || isProcessing || filesBusy || tooShortToSubmit) return;
     setError(null);
     setShowReview(true);
   }
@@ -261,6 +284,30 @@ export function AnalyseForm() {
           placeholder="Share what's been on your mind. There are no right or wrong answers."
           className="mt-4 w-full resize-y rounded-xl border border-slate-200 bg-slate-50/50 dark:border-slate-700 dark:bg-slate-800/50 px-4 py-3 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:border-teal-300 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-100 disabled:cursor-not-allowed disabled:opacity-60"
         />
+        {shortTypedText && (
+          <div
+            className="mt-3 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 dark:border-amber-900 dark:bg-amber-950/40"
+            role="status"
+          >
+            <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+              Please add 2–4 sentences before analysing
+            </p>
+            <p className="mt-1 text-sm text-amber-800/90 dark:text-amber-200/90">
+              A single word or short phrase (like &quot;stressed&quot;) usually
+              isn&apos;t enough for a confident assessment. Mention how long
+              this has lasted and how it affects sleep, study, or daily life.
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-amber-800/80 dark:text-amber-200/80">
+              <span className="font-medium">Example:</span> {SHORT_INPUT_EXAMPLE}
+            </p>
+            {tooShortToSubmit && (
+              <p className="mt-2 text-xs font-medium text-amber-900 dark:text-amber-100">
+                Review &amp; analyse stays disabled until there are at least{" "}
+                {MIN_WORDS_FOR_SUBMIT} words (or you add speech / a file).
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="mt-4 space-y-4">
           <VoiceInput
@@ -315,7 +362,7 @@ export function AnalyseForm() {
                   text: p.extractedText.trim(),
                 }))}
               analysePrivately={analysePrivately}
-              disabled={isProcessing}
+              disabled={isProcessing || tooShortToSubmit}
               onBack={() => setShowReview(false)}
               onConfirm={() => void handleAnalyse()}
             />
@@ -394,7 +441,9 @@ export function AnalyseForm() {
             <button
               type="button"
               onClick={handleReviewRequest}
-              disabled={!hasContent || isProcessing || filesBusy}
+              disabled={
+                !hasContent || isProcessing || filesBusy || tooShortToSubmit
+              }
               className="inline-flex h-12 min-w-[180px] items-center justify-center gap-2 rounded-xl bg-teal-600 px-8 text-base font-medium text-white shadow-md shadow-teal-600/20 transition-all hover:bg-teal-700 hover:shadow-lg hover:shadow-teal-600/25 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Review &amp; analyse
@@ -423,7 +472,8 @@ export function AnalyseForm() {
                 </h2>
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                   TrustMind AI is reviewing your text with care. This usually
-                  takes a few seconds.
+                  takes a few seconds; the first request after idle can take up
+                  to about two minutes while the backend wakes up.
                 </p>
               </div>
             </div>
@@ -663,15 +713,29 @@ export function AnalyseForm() {
                       role="status"
                     >
                       <p className="text-xs font-medium uppercase tracking-wide text-amber-800 dark:text-amber-200">
-                        Assessment abstained
+                        Assessment abstained — intentional
                       </p>
                       <p className="mt-2 text-base font-semibold text-slate-800 dark:text-slate-100">
+                        This is intentional — not a broken result
+                      </p>
+                      <p className="mt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
                         {result.message ||
-                          "The system did not have enough reliable evidence to provide a confident assessment."}
+                          "TrustMind did not have enough reliable signal for a confident assessment, so it abstained rather than guessing."}
                       </p>
-                      <p className="mt-3 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
-                        {result.recommendation}
+                      <p className="mt-3 text-sm font-medium text-slate-800 dark:text-slate-100">
+                        Add more detail (2–4 sentences) and try again.
                       </p>
+                      <p className="mt-2 rounded-lg border border-amber-200/80 bg-white/70 px-3 py-2 text-sm leading-relaxed text-slate-700 dark:border-amber-900/60 dark:bg-slate-900/50 dark:text-slate-300">
+                        <span className="font-medium text-slate-800 dark:text-slate-100">
+                          Example prompt:{" "}
+                        </span>
+                        {SHORT_INPUT_EXAMPLE}
+                      </p>
+                      {result.recommendation ? (
+                        <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+                          {result.recommendation}
+                        </p>
+                      ) : null}
                       <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
                         Calibrated confidence: {confidencePct}% · Uncertainty:{" "}
                         {result.uncertainty || result.uncertainty_level}

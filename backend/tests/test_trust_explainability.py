@@ -330,8 +330,9 @@ class TrustExplainabilityTests(unittest.TestCase):
             )
             self.assertLess(low.confidence, 0.75)
             self.assertTrue(should_abstain(low.confidence))
-            decision = apply_abstention(low.confidence)
+            decision = apply_abstention(low.confidence, text="stressed")
             self.assertTrue(decision.abstained)
+            self.assertIn("short", decision.message.lower())
             self.assertFalse(should_abstain(0.9))
 
     def test_safety_independent_of_confidence(self) -> None:

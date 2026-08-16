@@ -172,7 +172,7 @@ def run_configured_pipeline(request: AnalyseRequest) -> PipelineResult:
     if not settings.enable_source_display:
         sources = []
 
-    decision = apply_abstention(confidence)
+    decision = apply_abstention(confidence, text=text)
     abstained = decision.abstained
     final_prediction = None if abstained else prediction
 
