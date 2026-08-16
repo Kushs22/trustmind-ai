@@ -67,7 +67,6 @@ export function InputReview({
         <button
           type="button"
           onClick={onBack}
-          disabled={disabled}
           className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium dark:border-slate-600"
         >
           Back to edit
@@ -76,7 +75,7 @@ export function InputReview({
           type="button"
           onClick={onConfirm}
           disabled={disabled}
-          className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
+          className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Confirm and analyse
         </button>

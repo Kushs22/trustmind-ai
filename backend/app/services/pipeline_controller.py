@@ -172,7 +172,20 @@ def run_configured_pipeline(request: AnalyseRequest) -> PipelineResult:
     if not settings.enable_source_display:
         sources = []
 
-    decision = apply_abstention(confidence, text=text)
+    file_bits: list[str] = []
+    for img in request.image_context or []:
+        if img.included:
+            file_bits.append((img.extracted_text or img.summary or "").strip())
+    for pdf in request.pdf_context or []:
+        if pdf.included:
+            file_bits.append((pdf.extracted_text or pdf.summary or "").strip())
+    decision = apply_abstention(
+        confidence,
+        text=text,
+        typed_text=request.typed_text,
+        speech_transcript=request.speech_transcript,
+        file_text=" ".join(bit for bit in file_bits if bit),
+    )
     abstained = decision.abstained
     final_prediction = None if abstained else prediction
 

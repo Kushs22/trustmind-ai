@@ -332,6 +332,7 @@ class TrustExplainabilityTests(unittest.TestCase):
             self.assertTrue(should_abstain(low.confidence))
             decision = apply_abstention(low.confidence, text="stressed")
             self.assertTrue(decision.abstained)
+            self.assertIn("intentional", decision.message.lower())
             self.assertIn("short", decision.message.lower())
             self.assertFalse(should_abstain(0.9))
 
