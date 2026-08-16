@@ -33,10 +33,10 @@ const PROCESSING_STEPS_LLM = [
 
 const PROCESSING_DURATION_MS = 2600;
 
-/** Soft guidance only — short inputs are always allowed to analyse. */
+/** Soft guidance only — never disables Review/Confirm; one-word check-ins are allowed. */
 const SHORT_INPUT_TIP_WORDS = 12;
 const SHORT_INPUT_TIP =
-  "Tip: a little more detail (how long this has lasted, sleep, study, daily life) usually improves quality — short check-ins still work.";
+  "Optional tip: a little more detail (how long this has lasted, sleep, study, daily life) usually improves quality — one-word check-ins still work.";
 const SHORT_INPUT_EXAMPLE =
   "I've been feeling stressed for about two weeks. It's hard to sleep and I'm falling behind on coursework. Things feel heavier than usual.";
 

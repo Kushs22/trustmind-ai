@@ -1,0 +1,2 @@
+deploy-stamp=2026-08-16-short-input-allow
+git-fix=one-word-checkins-allowed
