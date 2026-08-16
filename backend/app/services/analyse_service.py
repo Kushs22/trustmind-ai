@@ -118,9 +118,9 @@ SAFETY_NOTE = (
 )
 
 DEFAULT_NEXT_STEPS = [
-    "Consider speaking to someone you trust",
-    "Explore UWE wellbeing support",
-    "Contact professional support if feelings worsen",
+    "If it helps, talk with someone you trust about how you're feeling",
+    "Explore UWE wellbeing support if you are a student",
+    "Reach out for professional support if things feel heavier or worsen",
 ]
 
 
@@ -149,26 +149,32 @@ def _run_keyword_analysis(request: AnalyseRequest) -> AnalyseResult:
             grounding_status="Crisis support resources recommended",
             abstention_status="Abstention triggered — no clinical prediction",
             explanation=(
-                "Possible early signs related to self-harm or crisis language were detected. "
-                "TrustMind AI does not diagnose or provide crisis counselling. "
-                "Please consider urgent support options."
+                "It sounds like you may be in a lot of distress right now. "
+                "TrustMind AI does not diagnose or provide crisis counselling — "
+                "please consider the urgent support options below."
             ),
             safe_next_steps=[
-                "Contact emergency services if you are in immediate danger",
-                "Reach out to Samaritans (116 123) or local crisis support",
-                "Speak to a trusted person or UWE wellbeing support",
+                "If you are in immediate danger, please contact emergency services",
+                "You can reach Samaritans (116 123) or local crisis support",
+                "Please speak to someone you trust or UWE wellbeing support",
             ],
             safety_note=SAFETY_NOTE,
             early_signs=early_signs or ["self-harm / suicidal crisis signs"],
             status="abstained",
             prediction=None,
             confidence=0.62,
-            reasoning="Crisis language detected — prediction withheld.",
+            reasoning=(
+                "It sounds like you may need urgent safety support right now — "
+                "we've paused a labelled category and highlighted help options instead."
+            ),
             sources=[],
-            message="The model is not sufficiently confident to provide a reliable wellbeing assessment.",
+            message=(
+                "We're holding back a labelled assessment and prioritising support "
+                "options for you."
+            ),
             recommendation=(
-                "Consider contacting your GP, NHS services or your university wellbeing team "
-                "if you require support."
+                "If you'd like support, consider contacting your GP, NHS services, "
+                "or your university wellbeing team."
             ),
             pipeline_used="keyword_fallback",
             support_resources=get_support_resources(force=True),
@@ -184,25 +190,25 @@ def _run_keyword_analysis(request: AnalyseRequest) -> AnalyseResult:
     if n >= 3:
         concern, confidence, uncertainty = "Moderate", "74%", "Medium"
         explanation = (
-            "Several possible early wellbeing signs were detected in your message "
+            "It sounds like several themes may be coming through in what you shared "
             f"(for example: {', '.join(early_signs[:3])}). "
-            "This is not a diagnosis, but supportive resources may help."
+            "This is not a diagnosis — supportive resources may still help."
         )
         conf_f = 0.74
     elif n >= 1:
         concern, confidence, uncertainty = "Low", "78%", "Medium"
         explanation = (
-            "Some possible early wellbeing signs were detected "
+            "It sounds like you may be experiencing some early wellbeing themes "
             f"({', '.join(early_signs)}). "
-            "This is not a diagnosis. Gentle support and self-check-ins can still be useful."
+            "This is not a diagnosis. Gentle support and another check-in later can still help."
         )
         conf_f = 0.78
     else:
         concern, confidence, uncertainty = "Low", "85%", "Low"
         early_signs = []
         explanation = (
-            "No strong early distress signs were detected in this message. "
-            "This is not a diagnosis. You can check in again if how you feel changes."
+            "From what you've shared, there aren't strong early distress themes coming through. "
+            "This is not a diagnosis. You're welcome to check in again if how you feel changes."
         )
         conf_f = 0.85
 

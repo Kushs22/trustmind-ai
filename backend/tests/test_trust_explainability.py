@@ -311,7 +311,8 @@ class TrustExplainabilityTests(unittest.TestCase):
 
     def test_internal_evaluation_label_unchanged(self) -> None:
         self.assertEqual(
-            prediction_display_name("bipolar"), "Bipolar-related indicators"
+            prediction_display_name("bipolar"),
+            "It sounds like you may be experiencing mood-swing themes",
         )
         # Research/storage label remains the SWMH class string.
         self.assertEqual("bipolar", "bipolar")
@@ -366,17 +367,20 @@ class TrustExplainabilityTests(unittest.TestCase):
 
     def test_prediction_display_names(self) -> None:
         self.assertEqual(
-            prediction_display_name("depression"), "Depression-related indicators"
+            prediction_display_name("depression"),
+            "It sounds like you may be experiencing low-mood themes",
         )
         self.assertEqual(
-            prediction_display_name("Anxiety"), "Anxiety-related indicators"
+            prediction_display_name("Anxiety"),
+            "It sounds like you may be experiencing anxiety-related themes",
         )
         self.assertEqual(
             prediction_display_name("SuicideWatch"),
-            "Urgent safety-related indicators",
+            "It sounds like you may need urgent safety support",
         )
         self.assertEqual(
-            prediction_display_name("bipolar"), "Bipolar-related indicators"
+            prediction_display_name("bipolar"),
+            "It sounds like you may be experiencing mood-swing themes",
         )
 
     def test_standalone_llm_controller_does_not_keyword_fallback(self) -> None:
@@ -419,7 +423,7 @@ class TrustExplainabilityTests(unittest.TestCase):
 
         self.assertEqual(result.pipeline_used, "LLM")
         self.assertEqual(result.prediction, "Anxiety")
-        self.assertEqual(result.prediction_display, "Anxiety-related indicators")
+        self.assertEqual(result.prediction_display, "It sounds like you may be experiencing anxiety-related themes")
         self.assertEqual(result.grounding_status, "Standalone model response")
         self.assertEqual(result.grounding.get("status"), "not_applicable")
         self.assertNotIn("keyword", (result.grounding_status or "").lower())

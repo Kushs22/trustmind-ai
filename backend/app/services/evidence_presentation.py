@@ -126,15 +126,15 @@ def _reason_retrieved(
     if overlap:
         shown = ", ".join(overlap[:4])
         return (
-            f"This {org} material is relevant because it discusses themes that "
-            f"overlap with language in the submitted text (for example: {shown}). "
-            f"It describes indicators associated with {theme}, which informed "
-            f"the interpretation — it does not prove a diagnosis."
+            f"This {org} guidance may be helpful because it touches themes that "
+            f"overlap with what you shared (for example: {shown}). "
+            f"It offers general information related to {theme} — it does not "
+            f"prove a diagnosis."
         )
     return (
-        f"This {org} passage was retrieved as related guidance on {theme}. "
-        f"It supports a cautious interpretation of the submitted text and "
-        f"should not be read as a clinical conclusion."
+        f"This {org} guidance was included as related support on {theme}. "
+        f"It can sit alongside what you shared as cautious context — not a "
+        f"clinical conclusion."
     )
 
 
@@ -218,10 +218,10 @@ DIAGNOSTIC_PHRASES = (
 )
 
 BIPOLAR_CAUTIOUS_REASONING = (
-    "The submitted text contains experiences that may overlap with descriptions "
-    "associated with manic or hypomanic episodes, including reduced sleep, unusually "
+    "It sounds like you're describing experiences that may overlap with descriptions "
+    "associated with manic or hypomanic episodes — for example reduced sleep, unusually "
     "elevated confidence and impulsive spending, followed by exhaustion and low mood. "
-    "The system therefore selected the bipolar research category. "
+    "We've noted mood-swing-related themes so we can point you toward supportive guidance. "
     "This is not a clinical diagnosis."
 )
 

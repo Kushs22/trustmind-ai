@@ -107,14 +107,14 @@ def _confidence_percent(confidence: float) -> str:
 def _default_next_steps(high_risk: bool) -> list[str]:
     if high_risk:
         return [
-            "If you are in immediate danger, contact emergency services",
-            "Reach out to Samaritans on 116 123 (UK)",
-            "Speak to a trusted person or UWE wellbeing support",
+            "If you are in immediate danger, please contact emergency services",
+            "You can reach Samaritans on 116 123 (UK) any time",
+            "Please speak to someone you trust or UWE wellbeing support",
         ]
     return [
-        "Consider speaking to someone you trust",
+        "If it helps, talk with someone you trust about how you're feeling",
         "Explore UWE wellbeing support if you are a student",
-        "Contact professional support if feelings worsen",
+        "Reach out for professional support if things feel heavier or worsen",
     ]
 
 

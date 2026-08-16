@@ -46,14 +46,14 @@ These are support services — not a diagnosis.
                                 "status": "accepted",
                                 "prediction": "Anxiety",
                                 "confidence": 0.91,
-                                "reasoning": "Language emphasises worry and physical tension.",
+                                "reasoning": "It sounds like you're describing worry and physical tension.",
                                 "sources": [],
                                 "pipeline_used": "LLM",
                                 "concern_level": "Moderate",
                                 "ai_confidence": "91%",
-                                "explanation": "Language emphasises worry and physical tension.",
+                                "explanation": "It sounds like you're describing worry and physical tension.",
                                 "safe_next_steps": [
-                                    "Consider speaking to someone you trust"
+                                    "If it helps, talk with someone you trust about how you're feeling"
                                 ],
                                 "safety_note": "This tool provides wellbeing support information...",
                                 "saved_to_history": False,
@@ -65,7 +65,7 @@ These are support services — not a diagnosis.
                                 "status": "accepted",
                                 "prediction": "depression",
                                 "confidence": 0.88,
-                                "reasoning": "Aligned with NHS low-mood guidance retrieved.",
+                                "reasoning": "It sounds like low-mood themes in what you shared, aligned with trusted guidance.",
                                 "sources": ["NHS_DEP_001", "NHS_EMM_LOWMOOD_001"],
                                 "pipeline_used": "LLM+RAG",
                                 "support_resources": [],
@@ -79,16 +79,16 @@ These are support services — not a diagnosis.
                                 "prediction": None,
                                 "confidence": 0.61,
                                 "reasoning": (
-                                    "The model is not sufficiently confident to provide "
-                                    "a reliable wellbeing assessment."
+                                    "We're holding back a labelled read for now — "
+                                    "we'd rather not guess about how you're feeling."
                                 ),
                                 "message": (
-                                    "The model is not sufficiently confident to provide "
-                                    "a reliable wellbeing assessment."
+                                    "We're holding back a labelled assessment because "
+                                    "we aren't confident enough yet."
                                 ),
                                 "recommendation": (
-                                    "Consider contacting your GP, NHS services or your "
-                                    "university wellbeing team if you require support."
+                                    "If you'd like support, consider contacting your GP, "
+                                    "NHS services, or your university wellbeing team."
                                 ),
                                 "sources": [],
                                 "pipeline_used": "LLM",

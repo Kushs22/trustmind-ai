@@ -393,21 +393,36 @@ export function PrivacySection() {
 const steps = [
   {
     step: "01",
-    title: "Share your context",
+    title: "Share how you're feeling",
     description:
-      "Describe how you're feeling through a guided, text-based assessment focused on emotional wellbeing.",
+      "Type, speak, or attach notes. The more you share, the better we can support you — one-word check-ins still work.",
   },
   {
     step: "02",
-    title: "Receive your analysis",
+    title: "Receive a gentle reflection",
     description:
-      "Our AI processes your inputs privately and generates clear, AI-generated wellbeing insights.",
+      "You see a warm, non-diagnostic read of what you shared, plus supportive next steps — not pipeline mechanics.",
   },
   {
     step: "03",
-    title: "Explore supportive next steps",
+    title: "Explore support at your pace",
     description:
-      "Review supportive insights at your own pace. Export or delete your data anytime.",
+      "Review insights privately. Export or delete your data anytime. Crisis support routes stay available when needed.",
+  },
+];
+
+const methodologyNotes = [
+  {
+    title: "Assessment modes",
+    body: "LLM uses the model alone. LLM+RAG also retrieves passages from an allow-listed knowledge base (for example NHS, Mind, Samaritans, and student-support guidance) so reflections can cite trusted sources.",
+  },
+  {
+    title: "Confidence & care",
+    body: "Behind the scenes we calibrate confidence and may withhold a category label when we are not sure enough — that is intentional care, not an error. Crisis language still routes to support links independently of confidence.",
+  },
+  {
+    title: "What you see vs what we hide",
+    body: "The check-in screen focuses on your reflection and next steps. Technical detail — retrieval scores, confidence breakdowns, grounding labels, and processing steps — lives here for transparency and academic demo, not as the primary product experience.",
   },
 ];
 
@@ -449,6 +464,30 @@ export function HowItWorksSection() {
               </div>
             </div>
           ))}
+        </div>
+
+        <div className="mx-auto mt-16 max-w-3xl">
+          <h3 className="text-center text-xl font-semibold text-slate-800 dark:text-slate-100">
+            For demos &amp; academic detail
+          </h3>
+          <p className="mt-2 text-center text-sm text-slate-500 dark:text-slate-400">
+            Methodology that stays off the main check-in screen.
+          </p>
+          <ul className="mt-8 space-y-4">
+            {methodologyNotes.map((note) => (
+              <li
+                key={note.title}
+                className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900"
+              >
+                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                  {note.title}
+                </p>
+                <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+                  {note.body}
+                </p>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
     </section>

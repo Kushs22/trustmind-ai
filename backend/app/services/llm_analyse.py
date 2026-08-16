@@ -51,7 +51,7 @@ EARLY_SIGN_TAXONOMY = [
     "general emotional strain",
 ]
 
-SYSTEM_PROMPT = f"""You are TrustMind AI, an early-sign wellbeing support assistant for students.
+SYSTEM_PROMPT = f"""You are TrustMind AI, a warm early-sign wellbeing support assistant for students.
 
 GOAL
 Read ANY free-form user message and detect possible EARLY SIGNS of mental-health-related
@@ -65,9 +65,11 @@ CRITICAL BOUNDARIES
 - You are NOT a doctor, psychiatrist, psychologist, or therapist.
 - Do NOT diagnose disorders (never say "you have depression/bipolar/OCD/etc.").
 - Frame findings as possible early wellbeing signs or themes only.
-- Prefer cautious language: "may suggest", "possible early signs of", "themes related to".
+- Speak TO the person in warm second person ("it sounds like you're…", "you're describing…").
+- Be empathetic and validating; acknowledge how hard this may feel without overstating certainty.
+- Prefer cautious language: "may relate to", "themes that can overlap with", "it sounds like".
 - If evidence is weak or ambiguous, raise uncertainty and keep concern lower.
-- If the message is mostly positive/neutral with no distress signs, say so and keep concern Low.
+- If the message is mostly positive/neutral with no distress signs, say so kindly and keep concern Low.
 - If self-harm or suicidal crisis language appears: concern_level=High,
   abstention_status="Abstention triggered — no clinical prediction",
   include "self-harm / suicidal crisis signs" in early_signs, and prioritise crisis steps.
@@ -83,9 +85,9 @@ Return ONLY valid JSON with exactly these keys:
   "uncertainty_level": "Low" | "Medium" | "High",
   "grounding_status": "short status string",
   "abstention_status": "Prediction accepted" | "Abstention triggered — no clinical prediction",
-  "explanation": "2-4 sentences: what early signs you noticed, without diagnosing",
+  "explanation": "2-4 warm second-person sentences reflecting what they shared, without diagnosing",
   "early_signs": ["list of matching themes from the taxonomy above, or closely worded equivalents"],
-  "safe_next_steps": ["3-5 practical, non-clinical next steps"]
+  "safe_next_steps": ["3-5 practical, supportive, non-clinical next steps in second person"]
 }}
 """
 
@@ -193,7 +195,7 @@ def _normalise_result(data: dict[str, Any]) -> AnalyseResult:
     explanation = str(data.get("explanation", "")).strip()
     if not explanation:
         explanation = (
-            "I looked for possible early wellbeing signs in your message. "
+            "I looked for possible early wellbeing themes in what you shared. "
             "This is not a diagnosis. If things feel heavy, support can help."
         )
 
@@ -212,15 +214,15 @@ def _normalise_result(data: dict[str, Any]) -> AnalyseResult:
     steps = _as_str_list(data.get("safe_next_steps"))
     if not steps:
         steps = [
-            "Take a short break and notice how you feel",
-            "Consider speaking to someone you trust",
+            "Take a short break and notice how you're feeling",
+            "If it helps, talk with someone you trust",
             "Explore UWE wellbeing support if you are a student",
         ]
     if concern == "High" or any("suicid" in s.lower() or "self-harm" in s.lower() for s in early_signs):
         crisis_steps = [
-            "If you are in immediate danger, contact emergency services",
-            "Reach out to Samaritans on 116 123 (UK) or local crisis support",
-            "Speak to a trusted person or UWE wellbeing support",
+            "If you are in immediate danger, please contact emergency services",
+            "You can reach Samaritans on 116 123 (UK) or local crisis support",
+            "Please speak to someone you trust or UWE wellbeing support",
         ]
         steps = crisis_steps + [s for s in steps if s not in crisis_steps]
 

@@ -8,12 +8,13 @@ from app.config import settings
 
 
 ABSTENTION_MESSAGE = (
-    "TrustMind abstained because confidence was below the trust threshold — "
-    "this is intentional, not a broken result. Add more detail and try again."
+    "We're holding back a labelled category for now because we aren't confident "
+    "enough yet — that is intentional care, not a broken result. If you can share "
+    "a little more about how you've been feeling, we can try again."
 )
 ABSTENTION_RECOMMENDATION = (
-    "Consider contacting your GP, NHS services or your university wellbeing team "
-    "if you require support."
+    "If you'd like support, consider contacting your GP, NHS services, or your "
+    "university wellbeing team."
 )
 
 # Short check-ins are allowed; longer inputs keep the global trust threshold.
@@ -22,15 +23,15 @@ _SHORT_INPUT_WORD_LIMIT = SHORT_INPUT_WORD_LIMIT  # backward-compatible alias
 
 # Soft tip only (never used as a hard 422 rejection).
 SHORT_INPUT_CLIENT_MESSAGE = (
-    "Tip: a little more detail (how long this has lasted, sleep, study, daily life) "
-    "usually improves assessment quality — short check-ins are still analysed."
+    "Tip: the more you share, the better we can support you — how long this has "
+    "lasted, sleep, study, or daily life often helps. One-word check-ins still work."
 )
 
 # When short inputs somehow still abstain (e.g. missing prediction), keep copy clear.
 ABSTENTION_MESSAGE_SHORT_INPUT = (
-    "This is intentional — not a broken result. Confidence stayed too low even for a "
-    "short check-in, so TrustMind withheld a category label rather than guessing. "
-    "Try adding a sentence or two about how long this has lasted and how it affects you."
+    "We're holding back a labelled category for now rather than guessing — that is "
+    "intentional. Try adding a sentence or two about how long this has lasted and "
+    "how it affects you."
 )
 ABSTENTION_RECOMMENDATION_SHORT_INPUT = (
     "Example: \"I've been feeling stressed for about two weeks. It's hard to sleep "
@@ -39,9 +40,8 @@ ABSTENTION_RECOMMENDATION_SHORT_INPUT = (
 )
 
 LIMITED_CONTEXT_DISCLAIMER = (
-    "Limited context / low confidence: this check-in was very short, so the "
-    "assessment is provisional and not a diagnosis. Adding a little more detail "
-    "usually improves reliability."
+    "You've shared only a little so far, so this read is gentle and provisional — "
+    "not a diagnosis. The more you share, the better we can support you."
 )
 
 # Clear single-word / short-phrase wellbeing cues → research labels (SWMH schema).

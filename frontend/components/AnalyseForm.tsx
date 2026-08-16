@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { Toggle } from "@/components/Toggle";
 import { FileUpload } from "@/components/analysis/FileUpload";
 import { InputReview } from "@/components/analysis/InputReview";
@@ -17,26 +18,14 @@ import { getToken } from "@/lib/auth";
 import { indicatorDisplayName, predictionDisplayName } from "@/lib/displayLabels";
 import { useFileUpload } from "@/hooks/useFileUpload";
 
-const PROCESSING_STEPS_RAG = [
-  "Analysing emotional language",
-  "Checking uncertainty level",
-  "Retrieving evidence-informed support context",
-  "Preparing safe response",
-] as const;
-
-const PROCESSING_STEPS_LLM = [
-  "Analysing emotional language",
-  "Checking uncertainty level",
-  "Preparing model assessment",
-  "Preparing safe response",
-] as const;
-
 const PROCESSING_DURATION_MS = 2600;
 
 /** Soft guidance only — never disables Review/Confirm; one-word check-ins are allowed. */
 const SHORT_INPUT_TIP_WORDS = 12;
+const INPUT_GUIDANCE =
+  "The more you share, the better we can support you. A few sentences about how long this has lasted and how it affects sleep, study, or daily life often helps — one-word check-ins still work.";
 const SHORT_INPUT_TIP =
-  "Optional tip: a little more detail (how long this has lasted, sleep, study, daily life) usually improves quality — one-word check-ins still work.";
+  "Optional tip: adding a little more detail usually improves how well we can reflect what you're going through — short check-ins are still welcome.";
 const SHORT_INPUT_EXAMPLE =
   "I've been feeling stressed for about two weeks. It's hard to sleep and I'm falling behind on coursework. Things feel heavier than usual.";
 
@@ -70,30 +59,12 @@ function Spinner({ className }: { className?: string }) {
   );
 }
 
-function CheckIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 20 20"
-      fill="currentColor"
-      aria-hidden="true"
-    >
-      <path
-        fillRule="evenodd"
-        d="M16.704 5.29a1 1 0 010 1.42l-7.25 7.25a1 1 0 01-1.42 0l-3.25-3.25a1 1 0 111.42-1.42l2.54 2.54 6.54-6.54a1 1 0 011.42 0z"
-        clipRule="evenodd"
-      />
-    </svg>
-  );
-}
-
 export function AnalyseForm() {
   const [text, setText] = useState("");
   const [speechTranscript, setSpeechTranscript] = useState("");
   const [speechDraft, setSpeechDraft] = useState("");
   const [showReview, setShowReview] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [activeStep, setActiveStep] = useState(0);
   const [showResult, setShowResult] = useState(false);
   const [saveToHistory, setSaveToHistory] = useState(false);
   const [analysePrivately, setAnalysePrivately] = useState(true);
@@ -102,7 +73,6 @@ export function AnalyseForm() {
   );
   const [result, setResult] = useState<AnalyseResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [showConfidenceDetails, setShowConfidenceDetails] = useState(false);
   const [showMoreEvidence, setShowMoreEvidence] = useState(false);
   const timersRef = useRef<number[]>([]);
   const files = useFileUpload();
@@ -143,22 +113,9 @@ export function AnalyseForm() {
     }
   }, []);
 
-  const processingSteps =
-    pipelineMode === "rag" ? PROCESSING_STEPS_RAG : PROCESSING_STEPS_LLM;
-  const stepIntervalMs = PROCESSING_DURATION_MS / processingSteps.length;
-
   function clearTimers() {
     timersRef.current.forEach((timer) => window.clearTimeout(timer));
     timersRef.current = [];
-  }
-
-  function startProgressAnimation() {
-    processingSteps.forEach((_, index) => {
-      const stepTimer = window.setTimeout(() => {
-        setActiveStep(index + 1);
-      }, stepIntervalMs * (index + 1));
-      timersRef.current.push(stepTimer);
-    });
   }
 
   async function handleAnalyse() {
@@ -166,14 +123,11 @@ export function AnalyseForm() {
 
     clearTimers();
     setIsProcessing(true);
-    setActiveStep(0);
     setShowResult(false);
     setShowReview(false);
     setError(null);
     setResult(null);
-    setShowConfidenceDetails(false);
     setShowMoreEvidence(false);
-    startProgressAnimation();
 
     const minDelay = new Promise<void>((resolve) => {
       const finishTimer = window.setTimeout(resolve, PROCESSING_DURATION_MS);
@@ -242,10 +196,6 @@ export function AnalyseForm() {
     return () => clearTimers();
   }, []);
 
-  const progressPercent = isProcessing
-    ? Math.min(100, Math.round((activeStep / processingSteps.length) * 100))
-    : 0;
-
   const privacyStatus = analysePrivately
     ? saveToHistory
       ? "Private mode · Metadata saved without raw text"
@@ -288,9 +238,12 @@ export function AnalyseForm() {
           }}
           rows={8}
           disabled={isProcessing || showReview}
-          placeholder="Share what's on your mind — even one word works. A few sentences usually improves quality."
+          placeholder="Share what's on your mind — even one word works."
           className="mt-4 w-full resize-y rounded-xl border border-slate-200 bg-slate-50/50 dark:border-slate-700 dark:bg-slate-800/50 px-4 py-3 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:border-teal-300 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-100 disabled:cursor-not-allowed disabled:opacity-60"
         />
+        <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+          {INPUT_GUIDANCE}
+        </p>
         {showShortInputTip && (
           <div
             className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/60"
@@ -372,7 +325,14 @@ export function AnalyseForm() {
               Assessment mode
             </p>
             <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-              Compare standalone LLM vs LLM with trusted-source retrieval (RAG).
+              Choose a simple model-only read, or one that also draws on trusted
+              wellbeing guidance.{" "}
+              <Link
+                href="/#how-it-works"
+                className="text-teal-700 underline dark:text-teal-300"
+              >
+                How it works
+              </Link>
             </p>
             <div
               className="mt-3 grid grid-cols-2 gap-2"
@@ -393,7 +353,7 @@ export function AnalyseForm() {
               >
                 <span className="block text-sm font-semibold">LLM</span>
                 <span className="mt-0.5 block text-xs opacity-80">
-                  Model only · no retrieval
+                  Model only
                 </span>
               </button>
               <button
@@ -410,7 +370,7 @@ export function AnalyseForm() {
               >
                 <span className="block text-sm font-semibold">LLM+RAG</span>
                 <span className="mt-0.5 block text-xs opacity-80">
-                  Grounded in approved sources
+                  With trusted guidance
                 </span>
               </button>
             </div>
@@ -462,89 +422,26 @@ export function AnalyseForm() {
           aria-live="polite"
           aria-busy="true"
         >
-          <div className="rounded-xl bg-gradient-to-br from-slate-50 to-blue-50/50 dark:from-slate-900 dark:to-slate-800/50 dark:from-slate-900 dark:to-slate-800/50 p-6 sm:p-8">
-            <div className="mb-6 flex items-start gap-3 border-b border-slate-200/60 dark:border-slate-700/60 pb-5">
-              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-100 text-teal-700">
-                <Spinner className="h-5 w-5" />
+          <div className="rounded-xl bg-gradient-to-br from-slate-50 to-blue-50/50 p-8 dark:from-slate-900 dark:to-slate-800/50 sm:p-10">
+            <div className="flex flex-col items-center text-center">
+              <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-teal-100 text-teal-700">
+                <Spinner className="h-6 w-6" />
               </span>
-              <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-                  Analysing safely
-                </h2>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  TrustMind AI is reviewing your text with care. This usually
-                  takes a few seconds; the first request after idle can take up
-                  to about two minutes while the backend wakes up.
-                </p>
-              </div>
+              <h2 className="mt-4 text-lg font-semibold text-slate-800 dark:text-slate-100">
+                Looking at what you&apos;ve shared
+              </h2>
+              <p className="mt-2 max-w-md text-sm text-slate-500 dark:text-slate-400">
+                This usually takes a few seconds. The first request after idle can
+                take longer while the service wakes up.
+              </p>
             </div>
-
-            <div className="mb-6">
-              <div className="mb-2 flex items-center justify-between text-xs font-medium text-slate-500 dark:text-slate-400">
-                <span>Processing</span>
-                <span>{progressPercent}%</span>
-              </div>
-              <div className="h-1.5 overflow-hidden rounded-full bg-slate-200/80">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-teal-500 to-blue-500 transition-all duration-500 ease-out"
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </div>
-            </div>
-
-            <ul className="space-y-3">
-              {processingSteps.map((step, index) => {
-                const isComplete = activeStep > index;
-                const isCurrent = activeStep === index;
-
-                return (
-                  <li
-                    key={step}
-                    className={`flex items-center gap-3 rounded-lg border px-4 py-3 transition-colors ${
-                      isComplete
-                        ? "border-teal-100 bg-teal-50/70"
-                        : isCurrent
-                          ? "border-blue-100 bg-white shadow-sm"
-                          : "border-slate-100 bg-white/60"
-                    }`}
-                  >
-                    <span
-                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
-                        isComplete
-                          ? "bg-teal-600 text-white"
-                          : isCurrent
-                            ? "bg-blue-100 text-blue-600"
-                            : "bg-slate-100 text-slate-400"
-                      }`}
-                    >
-                      {isComplete ? (
-                        <CheckIcon className="h-4 w-4" />
-                      ) : isCurrent ? (
-                        <Spinner className="h-3.5 w-3.5" />
-                      ) : (
-                        <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                      )}
-                    </span>
-                    <span
-                      className={`text-sm ${
-                        isComplete || isCurrent
-                          ? "font-medium text-slate-800 dark:text-slate-100"
-                          : "text-slate-500 dark:text-slate-400"
-                      }`}
-                    >
-                      {step}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
           </div>
         </div>
       )}
 
       {showResult && result && !isProcessing && (
         <div className="animate-fade-in-up rounded-2xl border border-slate-200/80 bg-white dark:border-slate-700/80 dark:bg-slate-900 p-1 shadow-xl shadow-slate-200/50 dark:shadow-slate-950/50">
-          <div className="rounded-xl bg-gradient-to-br from-slate-50 to-blue-50/50 dark:from-slate-900 dark:to-slate-800/50 p-6 sm:p-8">
+          <div className="rounded-xl bg-gradient-to-br from-slate-50 to-blue-50/50 p-6 dark:from-slate-900 dark:to-slate-800/50 sm:p-8">
             {(() => {
               const confidencePct =
                 typeof result.confidence === "number"
@@ -554,9 +451,6 @@ export function AnalyseForm() {
                         : result.confidence,
                     )
                   : Number.parseInt(result.ai_confidence, 10) || 0;
-              const trust = result.trust_signals;
-              const groundingLabel =
-                result.grounding?.label || result.grounding_status;
               const isStandaloneLlm =
                 (result.pipeline_used || "").toUpperCase() === "LLM" ||
                 result.grounding?.status === "not_applicable";
@@ -568,28 +462,6 @@ export function AnalyseForm() {
               const evidenceVisible = showMoreEvidence
                 ? evidenceAll
                 : evidenceAll.slice(0, 3);
-              const formatBreakdownValue = (value: number | null | undefined) =>
-                value === null || value === undefined
-                  ? "Not applicable"
-                  : `${value}%`;
-              const confidenceDetailRows: ReadonlyArray<
-                readonly [keyof NonNullable<AnalyseResponse["confidence_breakdown"]>, string]
-              > = isStandaloneLlm
-                ? [
-                    ["llm_confidence", "LLM confidence"],
-                    ["classification_consistency", "Classification consistency"],
-                    ["input_clarity", "Input clarity"],
-                    ["retrieval_similarity", "Retrieval similarity"],
-                    ["source_agreement", "Source agreement"],
-                    ["retrieval_coverage", "Retrieval coverage"],
-                  ]
-                : [
-                    ["llm_confidence", "LLM confidence"],
-                    ["retrieval_similarity", "Retrieval similarity"],
-                    ["source_agreement", "Source agreement"],
-                    ["classification_consistency", "Classification consistency"],
-                    ["retrieval_coverage", "Retrieval coverage"],
-                  ];
               const indicators =
                 result.potential_indicators?.length
                   ? result.potential_indicators
@@ -598,43 +470,6 @@ export function AnalyseForm() {
                 result.safety_triggered ||
                 (result.support_resources &&
                   result.support_resources.length > 0);
-
-              function TrustBar({
-                label,
-                value,
-              }: {
-                label: string;
-                value: number | null | undefined;
-              }) {
-                const na = value === null || value === undefined;
-                const pct = na ? 0 : Math.max(0, Math.min(100, value));
-                return (
-                  <div className="rounded-lg border border-white/80 bg-white p-4 shadow-sm dark:border-slate-700/80 dark:bg-slate-800">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        {label}
-                      </p>
-                      <p className="text-sm font-semibold tabular-nums text-slate-800 dark:text-slate-100">
-                        {na ? "Not applicable" : `${pct}%`}
-                      </p>
-                    </div>
-                    <div
-                      className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"
-                      role="progressbar"
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                      aria-valuenow={na ? 0 : pct}
-                      aria-label={label}
-                      aria-valuetext={na ? "Not applicable" : `${pct} percent`}
-                    >
-                      <div
-                        className={`h-full rounded-full ${na ? "bg-slate-300 dark:bg-slate-600" : "bg-teal-500"}`}
-                        style={{ width: na ? "100%" : `${pct}%`, opacity: na ? 0.35 : 1 }}
-                      />
-                    </div>
-                  </div>
-                );
-              }
 
               return (
                 <>
@@ -648,8 +483,8 @@ export function AnalyseForm() {
                       </p>
                       <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">
                         If you are in immediate danger, contact emergency services.
-                        Support services below are available regardless of confidence
-                        or retrieval quality — they are not a diagnosis.
+                        Support services below are available whenever you need them —
+                        they are not a diagnosis.
                       </p>
                       {result.support_resources &&
                         result.support_resources.length > 0 && (
@@ -698,12 +533,14 @@ export function AnalyseForm() {
                     </span>
                     <div>
                       <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-                        Analysis result
+                        Your reflection
                       </h2>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
                         {result.saved_to_history ? "Saved to history" : "Not saved"}{" "}
                         · {analysePrivately ? "Private mode" : "Standard mode"}
-                        {` · Pipeline: ${result.pipeline_used || "LLM"}`}
+                        {developerMode
+                          ? ` · Pipeline: ${result.pipeline_used || "LLM"}`
+                          : null}
                       </p>
                     </div>
                   </div>
@@ -714,15 +551,15 @@ export function AnalyseForm() {
                       role="status"
                     >
                       <p className="text-xs font-semibold uppercase tracking-wide text-amber-900 dark:text-amber-100">
-                        Assessment abstained — intentional
+                        We&apos;re pausing a labelled read
                       </p>
                       <p className="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-50">
-                        This is intentional — not a broken result
+                        That&apos;s intentional care — not a broken result
                       </p>
                       <p className="mt-2 text-sm leading-relaxed text-slate-800 dark:text-slate-200">
-                        TrustMind withheld a category label because calibrated
-                        confidence stayed below the trust threshold for this
-                        longer check-in. It chose not to guess.
+                        We held back a category label because we weren&apos;t
+                        confident enough about this longer check-in. We&apos;d
+                        rather not guess about how you&apos;re feeling.
                       </p>
                       {result.message ? (
                         <p className="mt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
@@ -730,11 +567,11 @@ export function AnalyseForm() {
                         </p>
                       ) : null}
                       <p className="mt-3 text-sm text-slate-800 dark:text-slate-200">
-                        Try adding how long this has lasted and how it affects
+                        If you can, add how long this has lasted and how it affects
                         sleep, study, or daily life, then analyse again.
                       </p>
                       <p className="mt-2 rounded-lg border border-amber-300/80 bg-white/80 px-3 py-2 text-sm leading-relaxed text-slate-800 dark:border-amber-800 dark:bg-slate-900/60 dark:text-slate-200">
-                        <span className="font-medium">Example prompt: </span>
+                        <span className="font-medium">Example: </span>
                         {SHORT_INPUT_EXAMPLE}
                       </p>
                       {result.recommendation ? (
@@ -742,119 +579,34 @@ export function AnalyseForm() {
                           {result.recommendation}
                         </p>
                       ) : null}
-                      <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
-                        Calibrated confidence: {confidencePct}% · Uncertainty:{" "}
-                        {result.uncertainty || result.uncertainty_level}
-                      </p>
                     </div>
                   ) : (
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                      <div className="rounded-lg border border-white/80 bg-white p-4 shadow-sm dark:border-slate-700/80 dark:bg-slate-800">
+                    <div className="space-y-4">
+                      <div className="rounded-lg border border-white/80 bg-white p-5 shadow-sm dark:border-slate-700/80 dark:bg-slate-800">
                         <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                          Research category
+                          What it sounds like
                         </p>
-                        <p className="mt-1 text-base font-semibold leading-snug text-amber-600">
+                        <p className="mt-2 text-lg font-semibold leading-snug text-slate-800 dark:text-slate-100">
                           {result.prediction_display ||
                             predictionDisplayName(result.prediction) ||
                             result.concern_level}
                         </p>
-                      </div>
-                      <div className="rounded-lg border border-white/80 bg-white p-4 shadow-sm dark:border-slate-700/80 dark:bg-slate-800">
-                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                          Model confidence
-                        </p>
-                        <p className="mt-1 text-base font-semibold leading-snug text-teal-600">
-                          {confidencePct}%
-                        </p>
-                      </div>
-                      <div className="rounded-lg border border-white/80 bg-white p-4 shadow-sm dark:border-slate-700/80 dark:bg-slate-800">
-                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                          Uncertainty
-                        </p>
-                        <p className="mt-1 text-base font-semibold leading-snug text-blue-600">
-                          {result.uncertainty || result.uncertainty_level}
-                        </p>
-                      </div>
-                      <div className="rounded-lg border border-white/80 bg-white p-4 shadow-sm sm:col-span-2 dark:border-slate-700/80 dark:bg-slate-800 lg:col-span-3">
-                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                          Grounding status
-                        </p>
-                        <p className="mt-1 text-base font-semibold leading-snug text-teal-600">
-                          {groundingLabel}
+                        <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+                          How sure we are: {confidencePct}%
+                          {result.uncertainty || result.uncertainty_level
+                            ? ` · Uncertainty: ${result.uncertainty || result.uncertainty_level}`
+                            : null}
                         </p>
                       </div>
                     </div>
                   )}
-
-                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                    <TrustBar
-                      label="Model confidence"
-                      value={trust?.model_confidence ?? confidencePct}
-                    />
-                    <TrustBar
-                      label="Evidence strength"
-                      value={trust?.evidence_strength ?? null}
-                    />
-                    <TrustBar
-                      label="Retrieval quality"
-                      value={trust?.retrieval_quality ?? null}
-                    />
-                  </div>
-
-                  {result.confidence_breakdown &&
-                    Object.keys(result.confidence_breakdown).length > 0 && (
-                      <div className="mt-4">
-                        <button
-                          type="button"
-                          className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 text-left text-sm font-medium text-slate-800 shadow-sm transition hover:border-teal-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                          aria-expanded={showConfidenceDetails}
-                          aria-controls="confidence-details-panel"
-                          id="confidence-details-trigger"
-                          onClick={() =>
-                            setShowConfidenceDetails((open) => !open)
-                          }
-                        >
-                          <span>Show confidence details</span>
-                          <span aria-hidden="true" className="text-slate-400">
-                            {showConfidenceDetails ? "−" : "+"}
-                          </span>
-                        </button>
-                        {showConfidenceDetails && (
-                          <div
-                            id="confidence-details-panel"
-                            role="region"
-                            aria-labelledby="confidence-details-trigger"
-                            className="mt-2 rounded-lg border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-800/60"
-                          >
-                            <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                              Confidence details
-                            </p>
-                            <ul className="mt-3 space-y-2">
-                              {confidenceDetailRows.map(([key, label]) => (
-                                <li
-                                  key={key}
-                                  className="flex items-center justify-between text-sm text-slate-700 dark:text-slate-300"
-                                >
-                                  <span>{label}</span>
-                                  <span className="font-medium tabular-nums">
-                                    {formatBreakdownValue(
-                                      result.confidence_breakdown?.[key],
-                                    )}
-                                  </span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    )}
 
                   <div className="mt-6 space-y-4">
                     {result.status !== "abstained" &&
                       indicators.length > 0 && (
                         <div className="rounded-lg border border-white/80 bg-white p-4 shadow-sm dark:border-slate-700/80 dark:bg-slate-800">
                           <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                            Potential wellbeing indicators
+                            Themes that came through
                           </p>
                           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                             Themes only — not a clinical diagnosis
@@ -874,7 +626,7 @@ export function AnalyseForm() {
 
                     <div className="rounded-lg border border-white/80 bg-white p-4 shadow-sm dark:border-slate-700/80 dark:bg-slate-800">
                       <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        Explanation / reasoning
+                        A gentle reflection
                       </p>
                       <p className="mt-2 leading-relaxed text-slate-700 dark:text-slate-300">
                         {result.reasoning || result.explanation}
@@ -886,7 +638,7 @@ export function AnalyseForm() {
                       evidenceVisible.length > 0 && (
                         <div className="rounded-lg border border-white/80 bg-white p-4 shadow-sm dark:border-slate-700/80 dark:bg-slate-800">
                           <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                            Evidence used
+                            Helpful guidance we looked at
                           </p>
                           <ul className="mt-3 space-y-4">
                             {evidenceVisible.map((item) => (
@@ -896,11 +648,18 @@ export function AnalyseForm() {
                                     `${item.organisation} — ${item.title}`}
                                 </p>
                                 <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-                                  <span className="font-medium text-slate-700 dark:text-slate-300">
-                                    Why it was relevant:{" "}
-                                  </span>
                                   {item.reason_retrieved}
                                 </p>
+                                {item.url ? (
+                                  <a
+                                    href={item.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="mt-1 inline-block text-sm text-teal-700 underline dark:text-teal-300"
+                                  >
+                                    View source
+                                  </a>
+                                ) : null}
                                 {developerMode && (
                                   <p className="mt-1 text-xs text-slate-400">
                                     ID: {item.source_id}
@@ -928,62 +687,12 @@ export function AnalyseForm() {
                         </div>
                       )}
 
-                    {result.status !== "abstained" &&
-                      !isStandaloneLlm &&
-                      (result.sources_detail?.length ||
-                        result.sources?.length) && (
-                        <div className="rounded-lg border border-white/80 bg-white p-4 shadow-sm dark:border-slate-700/80 dark:bg-slate-800">
-                          <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                            Retrieved sources
-                          </p>
-                          <ul className="mt-3 space-y-3">
-                            {(result.sources_detail?.length
-                              ? result.sources_detail
-                              : evidenceAll
-                            ).map((item) => (
-                              <li
-                                key={`src-${item.source_id}`}
-                                className="text-sm text-slate-700 dark:text-slate-300"
-                              >
-                                <p className="font-medium">
-                                  {item.display_label ||
-                                    `${item.organisation} — ${item.title}`}
-                                </p>
-                                {item.topic ? (
-                                  <p className="text-xs text-slate-500">
-                                    Topic: {item.topic}
-                                  </p>
-                                ) : null}
-                                {item.url ? (
-                                  <a
-                                    href={item.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="mt-1 inline-block text-teal-700 underline dark:text-teal-300"
-                                  >
-                                    View source
-                                  </a>
-                                ) : null}
-                                {developerMode && (
-                                  <p className="mt-1 text-xs text-slate-400">
-                                    {item.source_id}
-                                    {typeof item.retrieval_score === "number"
-                                      ? ` · ${item.retrieval_score.toFixed(3)}`
-                                      : ""}
-                                  </p>
-                                )}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-
                     {!showSafety &&
                       result.support_resources &&
                       result.support_resources.length > 0 && (
                         <div className="rounded-lg border border-rose-100 bg-rose-50/70 p-4 dark:border-rose-900 dark:bg-rose-950/30">
                           <p className="text-xs font-medium uppercase tracking-wide text-rose-700 dark:text-rose-300">
-                            Available support services
+                            Support if you need it
                           </p>
                           <ul className="mt-3 space-y-3">
                             {result.support_resources.map((resource) => (
@@ -1026,7 +735,7 @@ export function AnalyseForm() {
 
                     <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-800/60">
                       <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        Ethics &amp; transparency
+                        A note on care
                       </p>
                       <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300">
                         {result.disclaimer ||
@@ -1037,6 +746,17 @@ export function AnalyseForm() {
                       </p>
                       <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">
                         {result.privacy_notice}
+                      </p>
+                      <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+                        Curious about confidence, grounding, or how LLM vs LLM+RAG
+                        works?{" "}
+                        <Link
+                          href="/#how-it-works"
+                          className="text-teal-700 underline dark:text-teal-300"
+                        >
+                          See How it works
+                        </Link>
+                        .
                       </p>
                     </div>
 
@@ -1072,6 +792,11 @@ export function AnalyseForm() {
                             {result.debug.grounding_evidence_strength_min}
                           </li>
                         </ul>
+                        {result.confidence_breakdown && (
+                          <pre className="mt-3 overflow-x-auto whitespace-pre-wrap">
+                            {JSON.stringify(result.confidence_breakdown, null, 2)}
+                          </pre>
+                        )}
                       </div>
                     )}
                   </div>
