@@ -1,0 +1,113 @@
+{
+  "experiment": "llm_rag_bm25_local_proxy",
+  "model_name": "gpt-4.1",
+  "embedding_model": "n/a (BM25-only retrieval; FAISS hybrid needs online embeddings)",
+  "retrieval_mode": "bm25_top5_curated_kb",
+  "sample_size": 100,
+  "random_seed": 42,
+  "temperature": "product_default (~0.2)",
+  "top_k": 3,
+  "api_proxy": "http://127.0.0.1:8000/api/v1/analyse",
+  "timestamp_utc": "2026-08-16T11:22:18.070555+00:00",
+  "metrics": {
+    "n_samples": 100,
+    "n_valid_predictions": 100,
+    "n_invalid_predictions": 0,
+    "accuracy": 0.83,
+    "precision_macro": 0.8712250712250713,
+    "recall_macro": 0.8211031746031747,
+    "f1_macro": 0.8290841281486916,
+    "labels": [
+      "depression",
+      "SuicideWatch",
+      "Anxiety",
+      "bipolar",
+      "offmychest"
+    ],
+    "confusion_matrix": [
+      [
+        16,
+        0,
+        5,
+        0,
+        0
+      ],
+      [
+        2,
+        23,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        20,
+        0,
+        0
+      ],
+      [
+        2,
+        0,
+        1,
+        13,
+        0
+      ],
+      [
+        6,
+        0,
+        1,
+        0,
+        11
+      ]
+    ],
+    "classification_report": {
+      "depression": {
+        "precision": 0.6153846153846154,
+        "recall": 0.7619047619047619,
+        "f1-score": 0.6808510638297872,
+        "support": 21.0
+      },
+      "SuicideWatch": {
+        "precision": 1.0,
+        "recall": 0.92,
+        "f1-score": 0.9583333333333334,
+        "support": 25.0
+      },
+      "Anxiety": {
+        "precision": 0.7407407407407407,
+        "recall": 1.0,
+        "f1-score": 0.851063829787234,
+        "support": 20.0
+      },
+      "bipolar": {
+        "precision": 1.0,
+        "recall": 0.8125,
+        "f1-score": 0.896551724137931,
+        "support": 16.0
+      },
+      "offmychest": {
+        "precision": 1.0,
+        "recall": 0.6111111111111112,
+        "f1-score": 0.7586206896551724,
+        "support": 18.0
+      },
+      "accuracy": 0.83,
+      "macro avg": {
+        "precision": 0.8712250712250713,
+        "recall": 0.8211031746031747,
+        "f1-score": 0.8290841281486916,
+        "support": 100.0
+      },
+      "weighted avg": {
+        "precision": 0.8673789173789173,
+        "recall": 0.83,
+        "f1-score": 0.8327748226950357,
+        "support": 100.0
+      }
+    },
+    "classification_report_text": "              precision    recall  f1-score   support\n\n  depression       0.62      0.76      0.68        21\nSuicideWatch       1.00      0.92      0.96        25\n     Anxiety       0.74      1.00      0.85        20\n     bipolar       1.00      0.81      0.90        16\n  offmychest       1.00      0.61      0.76        18\n\n    accuracy                           0.83       100\n   macro avg       0.87      0.82      0.83       100\nweighted avg       0.87      0.83      0.83       100\n"
+  },
+  "n_extract_theme_map": 0,
+  "n_invalid": 0
+}

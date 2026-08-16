@@ -328,7 +328,7 @@ compared with a standalone LLM?
 | Control | Value |
 |---------|-------|
 | Model (local backend) | gpt-4.1 (product OpenAI path used as API proxy) |
-| Sample | Synthetic test, **n=100**, **seed=42** (same posts as baseline CSV) |
+| Sample | Synthetic test, **n={baseline.get("sample_size", rag.get("sample_size", "?"))}**, **seed={baseline.get("random_seed", 42)}** |
 | Labels | depression, SuicideWatch, Anxiety, bipolar, offmychest |
 | LLM arm | Same 5-class instruction; **no** retrieved passages |
 | RAG arm | Same 5-class instruction + **BM25 top-{TOP_K}** curated KB passages |
@@ -403,40 +403,64 @@ LLM-only exposes only parametric reasoning. Explainability therefore improves **
 
 
 def main() -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--sample-size",
+        type=int,
+        default=100,
+        help="Number of test rows to sample (use 500 for full synthetic test set).",
+    )
+    parser.add_argument("--seed", type=int, default=42)
+    args = parser.parse_args()
+    sample_size = max(1, int(args.sample_size))
+    seed = int(args.seed)
+
     results = ROOT / "research" / "results"
     figures = ROOT / "research" / "figures"
     results.mkdir(parents=True, exist_ok=True)
     figures.mkdir(parents=True, exist_ok=True)
 
     cfg = get_rag_config()
-    print("Loading sample n=100 seed=42...")
-    sample = load_and_sample_test(cfg.test_csv, 100, 42)
+    print(f"Loading sample n={sample_size} seed={seed} from {cfg.test_csv}...")
+    sample = load_and_sample_test(cfg.test_csv, sample_size, seed)
+    print(f"Loaded {len(sample)} rows")
 
     base_csv = results / "llm_baseline_predictions.csv"
-    if base_csv.exists():
+    if base_csv.exists() and sample_size == 100:
         b = pd.read_csv(base_csv)
         if set(zip(b["text"].astype(str), b["true_label"].astype(str))) != set(
             zip(sample["text"].astype(str), sample["true_label"].astype(str))
         ):
             raise RuntimeError("Sample posts do not match llm_baseline_predictions.csv")
         print("Sample parity OK vs existing baseline posts.")
+    elif base_csv.exists():
+        print("Skipping n=100 baseline parity (different sample size).")
 
     # Probe API
     probe = _http_analyse("Health check: reply with concern_level Low if online.")
     print("Local API probe OK:", list(probe.keys())[:5])
 
-    llm_csv = results / "llm_proxy_predictions.csv"
+    # Distinct artefact names for full-test runs so n=100 results remain archived.
+    tag = f"n{len(sample)}"
+    llm_csv = results / f"llm_proxy_predictions_{tag}.csv"
+    rag_csv = results / f"rag_predictions_{tag}.csv"
+    if tag == "n100":
+        llm_csv = results / "llm_proxy_predictions.csv"
+        rag_csv = results / "rag_predictions.csv"
+
     if llm_csv.exists() and len(pd.read_csv(llm_csv)) == len(sample):
-        print("\n=== Arm A: reusing existing llm_proxy_predictions.csv ===")
+        print(f"\n=== Arm A: reusing existing {llm_csv.name} ===")
         llm_df = pd.read_csv(llm_csv)
     else:
-        print("\n=== Arm A: LLM-only (via local GPT proxy) ===")
+        print(f"\n=== Arm A: LLM-only (via local GPT proxy), n={len(sample)} ===")
         llm_df = _run_arm(sample, with_rag=False)
         llm_df.to_csv(llm_csv, index=False)
 
-    print("\n=== Arm B: LLM+RAG BM25 (via local GPT proxy) ===")
+    print(f"\n=== Arm B: LLM+RAG BM25 (via local GPT proxy), n={len(sample)} ===")
     rag_df = _run_arm(sample, with_rag=True)
-    rag_df.to_csv(results / "rag_predictions.csv", index=False)
+    rag_df.to_csv(rag_csv, index=False)
 
     llm_metrics = compute_metrics(
         llm_df["true_label"].tolist(), llm_df["predicted_label"].tolist()
@@ -448,10 +472,11 @@ def main() -> int:
     llm_payload = {
         "experiment": "llm_only_local_proxy",
         "model_name": "gpt-4.1",
-        "sample_size": 100,
-        "random_seed": 42,
+        "sample_size": len(sample),
+        "random_seed": seed,
         "temperature": "product_default (~0.2)",
         "api_proxy": LOCAL_API,
+        "evaluation_corpus": str(cfg.test_csv),
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "metrics": llm_metrics,
         "n_extract_theme_map": int((llm_df["extract_method"] == "theme_map").sum()),
@@ -462,23 +487,43 @@ def main() -> int:
         "model_name": "gpt-4.1",
         "embedding_model": "n/a (BM25-only retrieval; FAISS hybrid needs online embeddings)",
         "retrieval_mode": "bm25_top5_curated_kb",
-        "sample_size": 100,
-        "random_seed": 42,
+        "sample_size": len(sample),
+        "random_seed": seed,
         "temperature": "product_default (~0.2)",
         "top_k": TOP_K,
         "api_proxy": LOCAL_API,
+        "evaluation_corpus": str(cfg.test_csv),
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "metrics": rag_metrics,
         "n_extract_theme_map": int((rag_df["extract_method"] == "theme_map").sum()),
         "n_invalid": int((~rag_df["parse_ok"]).sum()),
     }
 
-    (results / "llm_proxy_metrics.json").write_text(
-        json.dumps(llm_payload, indent=2), encoding="utf-8"
-    )
-    (results / "rag_metrics.json").write_text(
-        json.dumps(rag_payload, indent=2), encoding="utf-8"
-    )
+    llm_metrics_path = results / f"llm_proxy_metrics_{tag}.json" if tag != "n100" else results / "llm_proxy_metrics.json"
+    rag_metrics_path = results / f"rag_metrics_{tag}.json" if tag != "n100" else results / "rag_metrics.json"
+    # Always also refresh canonical metrics when this is the primary full-test run
+    if tag != "n100":
+        (results / "llm_proxy_metrics.json").write_text(
+            json.dumps(llm_payload, indent=2) + "\n", encoding="utf-8"
+        )
+        (results / "rag_metrics.json").write_text(
+            json.dumps(rag_payload, indent=2) + "\n", encoding="utf-8"
+        )
+        (results / "llm_baseline_metrics.json").write_text(
+            json.dumps(
+                {
+                    **llm_payload,
+                    "experiment": "llm_only_synthetic_baseline",
+                    "note": f"Fair dual-arm LLM arm on synthetic_wellbeing (n={len(sample)}, seed={seed}).",
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+    llm_metrics_path.write_text(json.dumps(llm_payload, indent=2) + "\n", encoding="utf-8")
+    rag_metrics_path.write_text(json.dumps(rag_payload, indent=2) + "\n", encoding="utf-8")
 
     print(
         f"LLM accuracy={llm_metrics['accuracy']:.4f} macroF1={llm_metrics['f1_macro']:.4f}"
@@ -490,35 +535,57 @@ def main() -> int:
     _savefig_confusion(
         llm_metrics["confusion_matrix"],
         list(VALID_LABELS),
-        figures / "llm_proxy_confusion_matrix.png",
-        "LLM-only (local proxy) confusion matrix n=100 seed=42",
+        figures / ("llm_proxy_confusion_matrix.png" if tag == "n100" else f"llm_proxy_confusion_matrix_{tag}.png"),
+        f"LLM-only (local proxy) confusion matrix n={len(sample)} seed={seed}",
     )
     _savefig_confusion(
         rag_metrics["confusion_matrix"],
         list(VALID_LABELS),
-        figures / "rag_confusion_matrix.png",
-        "LLM+RAG BM25 (local proxy) confusion matrix n=100 seed=42",
+        figures / ("rag_confusion_matrix.png" if tag == "n100" else f"rag_confusion_matrix_{tag}.png"),
+        f"LLM+RAG BM25 (local proxy) confusion matrix n={len(sample)} seed={seed}",
     )
+    # Keep canonical figure names updated for full-test primary report
+    if tag != "n100":
+        _savefig_confusion(
+            llm_metrics["confusion_matrix"],
+            list(VALID_LABELS),
+            figures / "llm_proxy_confusion_matrix.png",
+            f"LLM-only (local proxy) confusion matrix n={len(sample)} seed={seed}",
+        )
+        _savefig_confusion(
+            rag_metrics["confusion_matrix"],
+            list(VALID_LABELS),
+            figures / "rag_confusion_matrix.png",
+            f"LLM+RAG BM25 (local proxy) confusion matrix n={len(sample)} seed={seed}",
+        )
 
-    # Side-by-side comparison (use proxy LLM as the fair baseline arm)
     table = comparison_table(llm_payload, rag_payload)
+    cmp_csv = results / ("llm_vs_rag_comparison.csv" if tag == "n100" else f"llm_vs_rag_comparison_{tag}.csv")
+    table.to_csv(cmp_csv, index=False)
     table.to_csv(results / "llm_vs_rag_comparison.csv", index=False)
     summary = {
         "baseline_experiment": llm_payload["experiment"],
         "rag_experiment": rag_payload["experiment"],
+        "sample_size": len(sample),
+        "random_seed": seed,
         "comparison_table": table.to_dict(orient="records"),
-        "retrieval_stats": retrieval_stats(results / "rag_predictions.csv"),
+        "retrieval_stats": retrieval_stats(rag_csv),
         "protocol_notes": {
-            "same_posts_as_notebook_baseline": True,
+            "same_posts_as_notebook_baseline": sample_size == 100,
             "fair_apples_to_apples": "LLM and RAG arms both use local GPT proxy + identical 5-class instruction",
             "evaluation_corpus": "datasets/synthetic_wellbeing/test.csv",
             "notebook_baseline_temp0_reference": str(results / "llm_baseline_metrics.json"),
-            "retrieval": "BM25 top-5 over curated knowledge_base chunks",
+            "retrieval": "BM25 top-k over curated knowledge_base chunks",
         },
     }
     (results / "llm_vs_rag_comparison.json").write_text(
-        json.dumps(summary, indent=2), encoding="utf-8"
+        json.dumps(summary, indent=2) + "\n", encoding="utf-8"
     )
+    if tag != "n100":
+        (results / f"llm_vs_rag_comparison_{tag}.json").write_text(
+            json.dumps(summary, indent=2) + "\n", encoding="utf-8"
+        )
+
     print("Comparison:")
     for row in summary["comparison_table"]:
         print(
@@ -526,50 +593,40 @@ def main() -> int:
             f"Δ={row['delta_rag_minus_baseline']:+.4f}"
         )
 
-    notes = """
+    notes = f"""
 ### Transparency on constraints (ethical research practice)
 
-- Direct `api.openai.com` calls from the Cursor agent environment were blocked (proxy/DNS).
-- Classification therefore used the **local TrustMind backend** as an authenticated OpenAI proxy.
-- Both experimental arms share that path, so **relative** Δ(RAG−LLM) remains a fair estimate.
-- Retrieval for this run is **BM25 top-5** over the curated KB (full hybrid BM25+FAISS+RRF
-  requires online query embeddings; re-run `research/run_rag_vs_llm_eval.py` outside the sandbox
-  for exact hybrid parity when OpenAI network is available).
-- Product temperature (~0.2) may differ slightly from pure research temperature 0.0.
+- Evaluation corpus: `datasets/synthetic_wellbeing/` (no Reddit / SWMH posts).
+- Sample size for this run: **n={len(sample)}** (seed={seed}).
+- Both arms used the local TrustMind backend as an OpenAI proxy (fair relative Δ).
+- Retrieval for this run is BM25 top-k over the curated KB.
+- Larger n improves **stability of the metric estimate**; it does not by itself raise
+  model capability or product trustworthiness.
 """.strip()
 
-    # For summary header, optional notebook baseline reference
-    notebook_acc = None
+    notebook_acc = llm_payload["metrics"].get("accuracy")
     baseline_path = results / "llm_baseline_metrics.json"
-    if baseline_path.exists():
-        notebook_baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
-        notebook_acc = notebook_baseline.get("metrics", {}).get("accuracy")
-    else:
-        # Persist the fair LLM arm as the baseline artefact for this corpus.
+    if not baseline_path.exists():
         baseline_path.write_text(
             json.dumps(
                 {
                     **llm_payload,
                     "experiment": "llm_only_synthetic_baseline",
-                    "note": "Fair dual-arm LLM arm on synthetic_wellbeing (n=100, seed=42).",
+                    "note": f"Fair dual-arm LLM arm (n={len(sample)}, seed={seed}).",
                 },
                 indent=2,
             )
             + "\n",
             encoding="utf-8",
         )
-        notebook_acc = llm_payload["metrics"].get("accuracy")
 
-    extra = ""
-    if notebook_acc is not None:
-        extra = f"\n\nNotebook / fair LLM-arm reference accuracy: {notebook_acc}."
     _write_rq_summary(
         results / "rq_answer_summary.md",
         baseline=llm_payload,
         rag=rag_payload,
         comparison_rows=summary["comparison_table"],
         retrieval=summary["retrieval_stats"],
-        notes=notes + extra,
+        notes=notes + f"\n\nFair LLM-arm reference accuracy: {notebook_acc}.",
     )
     return 0
 

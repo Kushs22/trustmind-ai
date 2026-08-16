@@ -44,17 +44,18 @@ This is **not** clinical diagnosis or a replacement for UWE Wisdom / Health Assu
 
 > To what extent does Retrieval-Augmented Generation (RAG) improve the **trustworthiness, reliability and explainability** of LLM-generated wellbeing assessments compared with a standalone LLM?
 
-### Controlled evaluation (n=100, seed=42, synthetic wellbeing v2 test sample)
+### Controlled evaluation (full synthetic test set, n=500, seed=42)
 
 | Metric | LLM-only | LLM+RAG (BM25) | Δ (RAG − LLM) |
 |--------|----------|----------------|---------------|
-| Accuracy | **0.840** | **0.830** | **−0.010** |
-| Macro-F1 | **0.836** | **0.829** | **−0.006** |
-| Precision (macro) | 0.877 | 0.871 | −0.006 |
-| Recall (macro) | 0.831 | 0.821 | −0.009 |
+| Accuracy | **0.860** | **0.832** | **−0.028** |
+| Macro-F1 | **0.863** | **0.835** | **−0.028** |
+| Precision (macro) | 0.883 | 0.853 | −0.030 |
+| Recall (macro) | 0.860 | 0.832 | −0.028 |
 
-**Corpus:** `datasets/synthetic_wellbeing/` v2 (2,500 fictional posts; ambiguity + overlap; no Reddit scrape).  
-**Interpretation:** reliability is essentially tied / slightly lower with RAG on this harder synthetic set. Absolute scores are more conservative than v1 template data, but still synthetic — do not claim clinical validity. **Trustworthiness and explainability** improve via allow-listed sources.  
+**Corpus:** `datasets/synthetic_wellbeing/` v2 (2,500 posts; eval on **all 500 test** rows).  
+Earlier n=100 pilot: LLM 0.840 / RAG 0.830 (archived under `research/results/archive_n100_v2/`).  
+**Interpretation:** larger n stabilises estimates; RAG still does **not** improve theme-label accuracy. Trust/explainability improve via allow-listed sources.  
 Full write-up: [`research/results/rq_answer_summary.md`](research/results/rq_answer_summary.md).
 
 ---
