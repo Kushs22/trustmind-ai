@@ -337,7 +337,7 @@ class TrustExplainabilityTests(unittest.TestCase):
             self.assertFalse(short_decision.abstained)
             self.assertEqual(short_decision.status, "accepted")
             self.assertEqual(short_wellbeing_heuristic_label("Stressed"), "Anxiety")
-            # Longer low-confidence inputs still abstain under the global 0.75 cut.
+            # Longer inputs with no usable label still abstain.
             long_text = (
                 "I have been feeling off for a couple of weeks now and I am not "
                 "sure what is going on with my mood lately."
@@ -345,7 +345,79 @@ class TrustExplainabilityTests(unittest.TestCase):
             long_decision = apply_abstention(0.5, text=long_text)
             self.assertTrue(long_decision.abstained)
             self.assertIn("intentional", long_decision.message.lower())
+            self.assertNotIn("share a little more", long_decision.message.lower())
+            # A labelled longer check-in is shown unless confidence is Very High.
+            labelled_long = apply_abstention(
+                0.5, text=long_text, prediction="Anxiety"
+            )
+            self.assertFalse(labelled_long.abstained)
+            self.assertTrue(labelled_long.limited_confidence)
             self.assertFalse(should_abstain(0.9))
+
+    def test_detailed_exam_stress_check_in_is_labelled(self) -> None:
+        from app.config import settings
+        from app.services.abstention import LONG_INPUT_MIN_CONFIDENCE
+
+        exam_stress = (
+            "I have my final exam in three days and I genuinely can't focus on "
+            "anything else. My chest feels tight all the time and I keep replaying "
+            "every mistake I think I've made in my revision, like I'm already "
+            "failing before I've even sat the exam. I haven't been sleeping "
+            "properly, my appetite is off, and I snapped at my roommate yesterday "
+            "over something so small. Some part of me knows this is 'just exam "
+            "stress' and it'll pass once it's over, but right now it feels like "
+            "it's taking over everything and I don't know how to switch my brain off."
+        )
+        self.assertGreaterEqual(len(exam_stress.split()), 12)
+        with patch.object(settings, "enable_abstention", True), patch.object(
+            settings, "confidence_threshold", 0.75
+        ):
+            # Typical mixed exam-stress vs anxiety score previously sat under 0.75.
+            mid = apply_abstention(
+                0.62, text=exam_stress, prediction="Anxiety"
+            )
+            self.assertFalse(mid.abstained)
+            self.assertEqual(mid.status, "accepted")
+            self.assertTrue(mid.limited_confidence)
+            high = apply_abstention(
+                0.82, text=exam_stress, prediction="Anxiety"
+            )
+            self.assertFalse(high.abstained)
+            self.assertFalse(high.limited_confidence)
+            # Trust layer remains: Very High uncertainty still withholds.
+            unsure = apply_abstention(
+                LONG_INPUT_MIN_CONFIDENCE - 0.05,
+                text=exam_stress,
+                prediction="Anxiety",
+            )
+            self.assertTrue(unsure.abstained)
+            self.assertLess(LONG_INPUT_MIN_CONFIDENCE - 0.05, 0.75)
+
+            from app.schemas.analyse import AnalyseRequest
+            from app.services.pipeline_controller import run_configured_pipeline
+
+            fake_raw = {
+                "prediction": "Anxiety",
+                "confidence": 0.62,
+                "reasoning": "Exam-related tension, rumination, and disrupted sleep.",
+                "sources": [],
+                "retrieved_passages": [],
+                "pipeline_used": "LLM",
+                "latency_ms": 1.0,
+            }
+            with patch.object(settings, "openai_api_key", "sk-test"), patch.object(
+                settings, "use_rag", False
+            ), patch(
+                "app.services.llm_pipeline.run_llm_pipeline",
+                return_value=fake_raw,
+            ):
+                result = run_configured_pipeline(
+                    AnalyseRequest(text=exam_stress, pipeline_mode="llm")
+                )
+            self.assertEqual(result.status, "accepted")
+            self.assertEqual(result.prediction, "Anxiety")
+            self.assertIsNotNone(result.prediction_display)
+            self.assertIn("limited confidence", result.reasoning.lower())
 
     def test_safety_independent_of_confidence(self) -> None:
         from app.config import settings

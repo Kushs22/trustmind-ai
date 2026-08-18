@@ -19,9 +19,11 @@ Run a trustworthy wellbeing assessment.
 
 The frontend never calls the LLM directly.
 
-**Abstention:** if confidence &lt; `CONFIDENCE_THRESHOLD` (default 0.75) and
-`ENABLE_ABSTENTION=true`, the API returns `status: "abstained"` with
-`prediction: null` and a support recommendation.
+**Abstention:** short check-ins skip abstention. Longer inputs withhold a
+label only when there is no prediction or calibrated confidence is below
+the Very High uncertainty floor (~0.45). Mid-band scores (below the 0.75
+high-confidence cut) still return a label with a limited-confidence note.
+Crisis routing is independent of confidence.
 
 **High-risk:** when the prediction is `SuicideWatch` (or crisis sources are
 retrieved), `support_resources` lists NHS / Samaritans / Student Minds / UWE links.
@@ -73,11 +75,11 @@ These are support services — not a diagnosis.
                             },
                         },
                         "abstained": {
-                            "summary": "Abstention (low confidence)",
+                            "summary": "Abstention (very low confidence)",
                             "value": {
                                 "status": "abstained",
                                 "prediction": None,
-                                "confidence": 0.61,
+                                "confidence": 0.32,
                                 "reasoning": (
                                     "We're holding back a labelled read for now — "
                                     "we'd rather not guess about how you're feeling."

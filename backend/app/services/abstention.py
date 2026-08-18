@@ -9,17 +9,20 @@ from app.config import settings
 
 ABSTENTION_MESSAGE = (
     "We're holding back a labelled category for now because we aren't confident "
-    "enough yet — that is intentional care, not a broken result. If you can share "
-    "a little more about how you've been feeling, we can try again."
+    "enough yet — that is intentional care, not a broken result. Crisis support "
+    "is still available if you need it."
 )
 ABSTENTION_RECOMMENDATION = (
     "If you'd like support, consider contacting your GP, NHS services, or your "
     "university wellbeing team."
 )
 
-# Short check-ins are allowed; longer inputs keep the global trust threshold.
+# Short check-ins skip abstention. Longer inputs keep a trust floor, but only
+# withhold when uncertainty is Very High (< ~45%) or there is no label to show.
 SHORT_INPUT_WORD_LIMIT = 12
 _SHORT_INPUT_WORD_LIMIT = SHORT_INPUT_WORD_LIMIT  # backward-compatible alias
+# Aligns with uncertainty_from_confidence "Very High" (< 0.45).
+LONG_INPUT_MIN_CONFIDENCE = 0.45
 
 # Soft tip only (never used as a hard 422 rejection).
 SHORT_INPUT_CLIENT_MESSAGE = (
@@ -42,6 +45,10 @@ ABSTENTION_RECOMMENDATION_SHORT_INPUT = (
 LIMITED_CONTEXT_DISCLAIMER = (
     "You've shared only a little so far, so this read is gentle and provisional — "
     "not a diagnosis. The more you share, the better we can support you."
+)
+LIMITED_CONFIDENCE_DISCLAIMER = (
+    "We're showing a category from what you wrote, with more limited confidence "
+    "than a fully certain read — this is not a diagnosis."
 )
 
 # Clear single-word / short-phrase wellbeing cues → research labels (SWMH schema).
@@ -79,6 +86,7 @@ class AbstentionDecision:
     status: str  # "accepted" | "abstained"
     message: str
     recommendation: str
+    limited_confidence: bool = False
 
 
 def _word_count(text: str | None) -> int:
@@ -141,6 +149,10 @@ def should_abstain(confidence: float, *, threshold: float | None = None) -> bool
     return value < cut
 
 
+def _has_usable_prediction(prediction: str | None) -> bool:
+    return bool(prediction and str(prediction).strip())
+
+
 def apply_abstention(
     confidence: float,
     *,
@@ -148,13 +160,18 @@ def apply_abstention(
     typed_text: str | None = None,
     speech_transcript: str | None = None,
     file_text: str | None = None,
+    prediction: str | None = None,
 ) -> AbstentionDecision:
     """
     Decide whether to withhold a prediction.
 
-    Long inputs keep the global confidence threshold (default 0.75).
     Very short inputs skip abstention so one-word check-ins still return a label;
     callers should attach a limited-context disclaimer.
+
+    Longer inputs still use the trust layer, but a detailed check-in with a
+    model label is shown unless confidence is in the Very High uncertainty
+    band (below LONG_INPUT_MIN_CONFIDENCE). Mid-band scores keep the label
+    and flag limited confidence instead of withholding entirely.
     """
     short = is_underspecified_input(
         typed_text=typed_text,
@@ -171,16 +188,31 @@ def apply_abstention(
             recommendation="",
         )
 
-    if should_abstain(confidence):
+    if not settings.enable_abstention:
+        return AbstentionDecision(
+            abstained=False,
+            status="accepted",
+            message="",
+            recommendation="",
+        )
+
+    has_label = _has_usable_prediction(prediction)
+    truly_unsure = (not has_label) or should_abstain(
+        confidence, threshold=LONG_INPUT_MIN_CONFIDENCE
+    )
+    if truly_unsure:
         return AbstentionDecision(
             abstained=True,
             status="abstained",
             message=ABSTENTION_MESSAGE,
             recommendation=ABSTENTION_RECOMMENDATION,
         )
+
+    limited = should_abstain(confidence)
     return AbstentionDecision(
         abstained=False,
         status="accepted",
-        message="",
+        message=LIMITED_CONFIDENCE_DISCLAIMER if limited else "",
         recommendation="",
+        limited_confidence=limited,
     )

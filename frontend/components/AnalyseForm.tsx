@@ -558,22 +558,33 @@ export function AnalyseForm() {
                       </p>
                       <p className="mt-2 text-sm leading-relaxed text-slate-800 dark:text-slate-200">
                         We held back a category label because we weren&apos;t
-                        confident enough about this longer check-in. We&apos;d
-                        rather not guess about how you&apos;re feeling.
+                        sure enough to classify this fairly. We&apos;d rather
+                        not guess about how you&apos;re feeling.
                       </p>
                       {result.message ? (
                         <p className="mt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
                           {result.message}
                         </p>
                       ) : null}
-                      <p className="mt-3 text-sm text-slate-800 dark:text-slate-200">
-                        If you can, add how long this has lasted and how it affects
-                        sleep, study, or daily life, then analyse again.
-                      </p>
-                      <p className="mt-2 rounded-lg border border-amber-300/80 bg-white/80 px-3 py-2 text-sm leading-relaxed text-slate-800 dark:border-amber-800 dark:bg-slate-900/60 dark:text-slate-200">
-                        <span className="font-medium">Example: </span>
-                        {SHORT_INPUT_EXAMPLE}
-                      </p>
+                      {countWords(text) < SHORT_INPUT_TIP_WORDS ? (
+                        <>
+                          <p className="mt-3 text-sm text-slate-800 dark:text-slate-200">
+                            If you can, add how long this has lasted and how it
+                            affects sleep, study, or daily life, then analyse
+                            again.
+                          </p>
+                          <p className="mt-2 rounded-lg border border-amber-300/80 bg-white/80 px-3 py-2 text-sm leading-relaxed text-slate-800 dark:border-amber-800 dark:bg-slate-900/60 dark:text-slate-200">
+                            <span className="font-medium">Example: </span>
+                            {SHORT_INPUT_EXAMPLE}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="mt-3 text-sm text-slate-800 dark:text-slate-200">
+                          What you shared was already taken into account.
+                          Support options below remain available if you need
+                          them.
+                        </p>
+                      )}
                       {result.recommendation ? (
                         <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
                           {result.recommendation}
@@ -597,6 +608,13 @@ export function AnalyseForm() {
                             ? ` · Uncertainty: ${result.uncertainty || result.uncertainty_level}`
                             : null}
                         </p>
+                        {confidencePct < 75 &&
+                        countWords(text) >= SHORT_INPUT_TIP_WORDS ? (
+                          <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm leading-relaxed text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+                            Limited confidence — this is a research category
+                            based on what you wrote, not a diagnosis.
+                          </p>
+                        ) : null}
                       </div>
                     </div>
                   )}

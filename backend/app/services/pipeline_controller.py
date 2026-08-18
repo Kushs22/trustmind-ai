@@ -14,6 +14,7 @@ from typing import Any
 from app.config import settings
 from app.schemas.analyse import AnalyseRequest
 from app.services.abstention import (
+    LIMITED_CONFIDENCE_DISCLAIMER,
     LIMITED_CONTEXT_DISCLAIMER,
     apply_abstention,
     is_underspecified_input,
@@ -212,12 +213,20 @@ def run_configured_pipeline(request: AnalyseRequest) -> PipelineResult:
         typed_text=request.typed_text,
         speech_transcript=request.speech_transcript,
         file_text=file_text,
+        prediction=prediction,
     )
     abstained = decision.abstained
     final_prediction = None if abstained else prediction
     if short_input and not abstained and final_prediction:
         if LIMITED_CONTEXT_DISCLAIMER.lower() not in reasoning.lower():
             reasoning = f"{LIMITED_CONTEXT_DISCLAIMER} {reasoning}".strip()
+    elif (
+        not abstained
+        and decision.limited_confidence
+        and final_prediction
+        and LIMITED_CONFIDENCE_DISCLAIMER.lower() not in reasoning.lower()
+    ):
+        reasoning = f"{LIMITED_CONFIDENCE_DISCLAIMER} {reasoning}".strip()
 
     # Safety independent of confidence / RAG success
     support = get_support_resources(
