@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from functools import lru_cache
+from urllib.parse import urlparse
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -9,12 +10,27 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 def normalize_database_url(url: str) -> str:
     """Render/Heroku often emit postgres://; SQLAlchemy needs postgresql+psycopg2://."""
-    cleaned = (url or "").strip()
+    cleaned = (url or "").strip().strip('"').strip("'")
     if cleaned.startswith("postgres://"):
         return "postgresql+psycopg2://" + cleaned[len("postgres://") :]
     if cleaned.startswith("postgresql://") and "+psycopg2" not in cleaned:
         return "postgresql+psycopg2://" + cleaned[len("postgresql://") :]
     return cleaned
+
+
+def database_url_safe_summary(url: str) -> str:
+    """Log-safe DB URL summary (no password)."""
+    cleaned = (url or "").strip()
+    if not cleaned:
+        return "(empty)"
+    try:
+        parsed = urlparse(cleaned)
+        scheme = parsed.scheme or "?"
+        host = parsed.hostname or "?"
+        db = (parsed.path or "/").lstrip("/") or "?"
+        return f"{scheme}://{host}/{db}"
+    except Exception:  # noqa: BLE001
+        return cleaned.split("://", 1)[0] + "://***"
 
 
 class Settings(BaseSettings):
@@ -115,7 +131,16 @@ class Settings(BaseSettings):
 
     @property
     def is_sqlite(self) -> bool:
-        return self.database_url.startswith("sqlite")
+        """True only for SQLite URLs (not Postgres, even if mis-pasted with quotes stripped)."""
+        url = (self.database_url or "").strip().lower()
+        if not url:
+            return True
+        return url.startswith("sqlite:")
+
+    @property
+    def is_postgres(self) -> bool:
+        url = (self.database_url or "").strip().lower()
+        return url.startswith("postgresql") or url.startswith("postgres:")
 
     @property
     def requires_persistent_database(self) -> bool:

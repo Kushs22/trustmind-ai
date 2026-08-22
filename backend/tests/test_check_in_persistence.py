@@ -162,7 +162,7 @@ class CheckInPersistenceTests(unittest.TestCase):
 
 class DatabaseUrlTests(unittest.TestCase):
     def test_normalize_postgres_urls(self) -> None:
-        from app.config import normalize_database_url
+        from app.config import database_url_safe_summary, normalize_database_url
 
         self.assertEqual(
             normalize_database_url("postgres://u:p@host/db"),
@@ -173,9 +173,33 @@ class DatabaseUrlTests(unittest.TestCase):
             "postgresql+psycopg2://u:p@host/db",
         )
         self.assertEqual(
+            normalize_database_url('  "postgres://u:p@host/db"  '),
+            "postgresql+psycopg2://u:p@host/db",
+        )
+        self.assertEqual(
             normalize_database_url("sqlite:///./trustmind.db"),
             "sqlite:///./trustmind.db",
         )
+        summary = database_url_safe_summary(
+            "postgresql+psycopg2://u:secret@dpg-xxx-a/trustmind"
+        )
+        self.assertIn("dpg-xxx-a", summary)
+        self.assertNotIn("secret", summary)
+
+    def test_sqlite_detection_does_not_false_positive_on_postgres(self) -> None:
+        from app.config import Settings
+
+        pg = Settings(
+            database_url="postgres://u:p@dpg-xxx-a/trustmind",
+            _env_file=None,
+        )
+        self.assertFalse(pg.is_sqlite)
+        self.assertTrue(pg.is_postgres)
+        self.assertTrue(pg.database_url.startswith("postgresql+psycopg2://"))
+
+        sq = Settings(database_url="sqlite:///./trustmind.db", _env_file=None)
+        self.assertTrue(sq.is_sqlite)
+        self.assertFalse(sq.is_postgres)
 
 
 if __name__ == "__main__":

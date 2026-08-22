@@ -1,4 +1,6 @@
 from contextlib import asynccontextmanager
+import logging
+import sys
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,10 +9,31 @@ from app.config import settings
 from app.database import init_db
 from app.routers import analyse, auth, check_ins, health, privacy, transcription, uploads
 
+logger = logging.getLogger(__name__)
+
+
+def _configure_logging() -> None:
+    """Ensure app loggers emit on Render (uvicorn may not attach handlers to app.*)."""
+    root = logging.getLogger()
+    if not root.handlers:
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(levelname)s:%(name)s:%(message)s",
+            stream=sys.stdout,
+        )
+    logging.getLogger("app").setLevel(logging.INFO)
+
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    init_db()
+    # Runs before requests are served. Failures here exit the process and look like
+    # Render "Port scan timeout" if the exception is easy to miss in logs.
+    _configure_logging()
+    try:
+        init_db()
+    except Exception:
+        logger.exception("Startup aborted: database init failed")
+        raise
     yield
 
 

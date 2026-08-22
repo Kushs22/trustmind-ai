@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.config import settings
+from app.config import database_url_safe_summary, settings
 
 router = APIRouter(tags=["health"])
 
@@ -72,6 +72,9 @@ def health_check() -> dict[str, object]:
         "service": "trustmind-ai-backend",
         "version": "1.2.1",
         "release_note": "LLM-only GroundingInfo/resolve_grounding fix + self-contained LLM pipeline",
+        "database": database_url_safe_summary(settings.database_url),
+        "database_is_sqlite": settings.is_sqlite,
+        "database_is_postgres": settings.is_postgres,
         "openai_configured": bool(settings.openai_api_key),
         "openai_model": settings.openai_model,
         "use_rag": settings.use_rag,
