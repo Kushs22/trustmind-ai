@@ -28,6 +28,7 @@ from app.services.evidence_presentation import (
     sanitise_reasoning,
 )
 from app.services.support_resources import get_support_resources
+from app.services.support_urgency import compute_support_urgency
 from app.services.trust_signals import (
     compute_trust_signals,
     prediction_display_name,
@@ -87,6 +88,10 @@ class PipelineResult:
     evidence_used: list[dict[str, Any]] = field(default_factory=list)
     sources_detail: list[dict[str, Any]] = field(default_factory=list)
     safety_triggered: bool = False
+    support_urgency: int | None = None
+    support_urgency_band: str | None = None
+    support_urgency_rationale: str | None = None
+    support_urgency_uncertain: bool = False
     debug: dict[str, Any] | None = None
 
 
@@ -373,6 +378,16 @@ def run_configured_pipeline(
             "consistency_runs": settings.consistency_runs,
         }
 
+    urgency = compute_support_urgency(
+        safety_triggered=high_risk,
+        concern_level=concern,
+        confidence=confidence,
+        status=decision.status,
+        prediction=final_prediction or prediction,
+        early_signs=early_signs,
+        support_resources_present=bool(support),
+    )
+
     result = PipelineResult(
         status=decision.status,
         prediction=final_prediction,
@@ -403,6 +418,10 @@ def run_configured_pipeline(
         evidence_used=shown_evidence,
         sources_detail=evidence_dicts,
         safety_triggered=high_risk,
+        support_urgency=urgency.score,
+        support_urgency_band=urgency.band,
+        support_urgency_rationale=urgency.rationale,
+        support_urgency_uncertain=urgency.uncertain,
         debug=debug,
     )
 

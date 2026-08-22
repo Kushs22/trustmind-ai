@@ -83,6 +83,18 @@ class TrustSignalsOut(BaseModel):
     retrieval_quality: int | None = None
 
 
+class SupportUrgencyOut(BaseModel):
+    """
+    Non-clinical 0–100 summary of how strongly support is suggested.
+    Not a diagnosis, suicide-risk, or clinical risk score.
+    """
+
+    score: int = Field(ge=0, le=100)
+    band: Literal["low", "moderate", "elevated", "urgent"]
+    rationale: str = ""
+    uncertain: bool = False
+
+
 class GroundingOut(BaseModel):
     status: str = "not_applicable"
     label: str = "Standalone model response"
@@ -150,6 +162,10 @@ class AnalyseResponse(BaseModel):
     evidence_used: list[EvidenceItemOut] = []
     sources_detail: list[EvidenceItemOut] = []
     safety_triggered: bool = False
+    support_urgency: int | None = None
+    support_urgency_band: Literal["low", "moderate", "elevated", "urgent"] | None = None
+    support_urgency_rationale: str | None = None
+    support_urgency_uncertain: bool = False
     debug: AnalyseDebugOut | None = None
     # Multimodal metadata (attachments are user context, not trusted RAG)
     input_summary: InputSummaryOut | None = None

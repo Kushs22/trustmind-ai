@@ -11,6 +11,7 @@ import {
   type DashboardStats,
 } from "@/lib/api";
 import { isAuthenticated } from "@/lib/auth";
+import { SupportUrgencyMeter } from "@/components/SupportUrgencyMeter";
 
 export function DashboardContent() {
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
@@ -251,6 +252,17 @@ export function DashboardContent() {
                               Abstained
                             </span>
                           )}
+                          {typeof item.support_urgency === "number" &&
+                            item.support_urgency_band && (
+                              <SupportUrgencyMeter
+                                score={item.support_urgency}
+                                band={item.support_urgency_band}
+                                uncertain={Boolean(
+                                  item.support_urgency_uncertain,
+                                )}
+                                compact
+                              />
+                            )}
                           {item.is_private && (
                             <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-400">
                               Private

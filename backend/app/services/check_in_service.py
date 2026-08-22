@@ -18,6 +18,10 @@ from app.schemas.analyse import (
 from app.schemas.multimodal import InputSummaryOut, ProcessedAttachmentOut
 from app.services.analyse_service import run_analysis
 from app.services.continuity_service import load_continuity_context
+from app.services.conversation_service import (
+    dump_conversation,
+    seed_conversation_from_check_in,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +47,25 @@ def analyse_and_optionally_save(
             len(continuity_context),
         )
     result = run_analysis(payload, continuity_context=continuity_context)
+
+    # Guarantee support-urgency fields even if a pipeline path omitted them.
+    if result.support_urgency is None:
+        from app.services.support_urgency import compute_support_urgency
+
+        urgency = compute_support_urgency(
+            safety_triggered=bool(result.safety_triggered),
+            concern_level=result.concern_level,
+            confidence=result.confidence,
+            status=result.status,
+            prediction=result.prediction,
+            early_signs=result.early_signs,
+            support_resources_present=bool(result.support_resources),
+        )
+        result.support_urgency = urgency.score
+        result.support_urgency_band = urgency.band
+        result.support_urgency_rationale = urgency.rationale
+        result.support_urgency_uncertain = urgency.uncertain
+
     saved = False
     check_in_id: str | None = None
 
@@ -57,6 +80,12 @@ def analyse_and_optionally_save(
     if payload.save_to_history:
         if user is None:
             raise PermissionError("Sign in or continue anonymously to save check-ins")
+
+        conversation = seed_conversation_from_check_in(
+            user_text=None if payload.analyse_privately else preview_source,
+            assistant_text=result.explanation or result.reasoning,
+            is_private=payload.analyse_privately,
+        )
 
         check_in = CheckIn(
             id=str(uuid.uuid4()),
@@ -75,6 +104,11 @@ def analyse_and_optionally_save(
             is_private=payload.analyse_privately,
             abstained="abstention" in result.abstention_status.lower()
             or result.status == "abstained",
+            support_urgency=result.support_urgency,
+            support_urgency_band=result.support_urgency_band,
+            support_urgency_rationale=result.support_urgency_rationale,
+            support_urgency_uncertain=bool(result.support_urgency_uncertain),
+            conversation_json=dump_conversation(conversation) if conversation else None,
         )
         db.add(check_in)
         try:
@@ -157,6 +191,10 @@ def analyse_and_optionally_save(
         evidence_used=evidence,
         sources_detail=sources_detail,
         safety_triggered=result.safety_triggered,
+        support_urgency=result.support_urgency,
+        support_urgency_band=result.support_urgency_band,
+        support_urgency_rationale=result.support_urgency_rationale,
+        support_urgency_uncertain=bool(result.support_urgency_uncertain),
         debug=debug,
         input_summary=input_summary,
         processed_attachments=processed,

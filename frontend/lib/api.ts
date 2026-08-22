@@ -120,6 +120,10 @@ export type AnalyseResponse = {
   evidence_used?: EvidenceItem[];
   sources_detail?: EvidenceItem[];
   safety_triggered?: boolean;
+  support_urgency?: number | null;
+  support_urgency_band?: "low" | "moderate" | "elevated" | "urgent" | null;
+  support_urgency_rationale?: string | null;
+  support_urgency_uncertain?: boolean;
   debug?: AnalyseDebug | null;
   input_summary?: InputSummary | null;
   processed_attachments?: ProcessedAttachment[];
@@ -134,6 +138,9 @@ export type CheckIn = {
   preview: string | null;
   is_private: boolean;
   created_at: string;
+  support_urgency?: number | null;
+  support_urgency_band?: "low" | "moderate" | "elevated" | "urgent" | null;
+  support_urgency_uncertain?: boolean;
 };
 
 export type CheckInDetail = {
@@ -151,6 +158,10 @@ export type CheckInDetail = {
   preview: string | null;
   is_private: boolean;
   created_at: string;
+  support_urgency?: number | null;
+  support_urgency_band?: "low" | "moderate" | "elevated" | "urgent" | null;
+  support_urgency_rationale?: string | null;
+  support_urgency_uncertain?: boolean;
 };
 
 export type DashboardStats = {

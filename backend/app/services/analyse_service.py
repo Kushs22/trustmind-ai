@@ -40,6 +40,10 @@ class AnalyseResult:
     evidence_used: list = field(default_factory=list)
     sources_detail: list = field(default_factory=list)
     safety_triggered: bool = False
+    support_urgency: int | None = None
+    support_urgency_band: str | None = None
+    support_urgency_rationale: str | None = None
+    support_urgency_uncertain: bool = False
     debug: dict | None = None
     input_summary: dict | None = None
     processed_attachments: list = field(default_factory=list)
@@ -133,6 +137,25 @@ def _detect_early_signs(text: str) -> list[str]:
     return found
 
 
+def _attach_support_urgency(result: AnalyseResult) -> AnalyseResult:
+    from app.services.support_urgency import compute_support_urgency
+
+    urgency = compute_support_urgency(
+        safety_triggered=result.safety_triggered,
+        concern_level=result.concern_level,
+        confidence=result.confidence,
+        status=result.status,
+        prediction=result.prediction,
+        early_signs=result.early_signs,
+        support_resources_present=bool(result.support_resources),
+    )
+    result.support_urgency = urgency.score
+    result.support_urgency_band = urgency.band
+    result.support_urgency_rationale = urgency.rationale
+    result.support_urgency_uncertain = urgency.uncertain
+    return result
+
+
 def _run_keyword_analysis(request: AnalyseRequest) -> AnalyseResult:
     """Fallback rule-based early-sign detection when LLM is unavailable."""
     text = request.text
@@ -142,7 +165,8 @@ def _run_keyword_analysis(request: AnalyseRequest) -> AnalyseResult:
     if crisis:
         from app.services.support_resources import get_support_resources
 
-        return AnalyseResult(
+        return _attach_support_urgency(
+            AnalyseResult(
             concern_level="High",
             ai_confidence="62%",
             uncertainty_level="Medium",
@@ -178,12 +202,14 @@ def _run_keyword_analysis(request: AnalyseRequest) -> AnalyseResult:
             ),
             pipeline_used="keyword_fallback",
             support_resources=get_support_resources(force=True),
+            safety_triggered=True,
             disclaimer=SAFETY_NOTE,
             privacy_notice=(
                 "No unnecessary storage of personal text. Raw check-in text is only saved when "
                 "you explicitly opt in and disable private mode."
             ),
             human_oversight="This tool should not replace qualified healthcare professionals.",
+            )
         )
 
     n = len(early_signs)
@@ -213,7 +239,8 @@ def _run_keyword_analysis(request: AnalyseRequest) -> AnalyseResult:
         )
         conf_f = 0.85
 
-    return AnalyseResult(
+    return _attach_support_urgency(
+        AnalyseResult(
         concern_level=concern,
         ai_confidence=confidence,
         uncertainty_level=uncertainty,
@@ -235,6 +262,7 @@ def _run_keyword_analysis(request: AnalyseRequest) -> AnalyseResult:
             "you explicitly opt in and disable private mode."
         ),
         human_oversight="This tool should not replace qualified healthcare professionals.",
+        )
     )
 
 
@@ -324,6 +352,10 @@ def run_analysis(
             evidence_used=pipe.evidence_used,
             sources_detail=pipe.sources_detail,
             safety_triggered=pipe.safety_triggered,
+            support_urgency=pipe.support_urgency,
+            support_urgency_band=pipe.support_urgency_band,
+            support_urgency_rationale=pipe.support_urgency_rationale,
+            support_urgency_uncertain=pipe.support_urgency_uncertain,
             debug=pipe.debug,
             input_summary=normalised.input_summary.model_dump(),
             processed_attachments=[

@@ -8,6 +8,7 @@ import {
   type CheckInDetail,
 } from "@/lib/api";
 import { isAuthenticated } from "@/lib/auth";
+import { SupportUrgencyMeter } from "@/components/SupportUrgencyMeter";
 
 export function CheckInDetailContent({ checkInId }: { checkInId: string }) {
   const [detail, setDetail] = useState<CheckInDetail | null>(null);
@@ -123,6 +124,16 @@ export function CheckInDetailContent({ checkInId }: { checkInId: string }) {
           </span>
         )}
       </div>
+
+      {typeof detail.support_urgency === "number" &&
+        detail.support_urgency_band && (
+          <SupportUrgencyMeter
+            score={detail.support_urgency}
+            band={detail.support_urgency_band}
+            rationale={detail.support_urgency_rationale}
+            uncertain={Boolean(detail.support_urgency_uncertain)}
+          />
+        )}
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-8">
         <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">

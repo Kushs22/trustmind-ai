@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -36,6 +36,11 @@ class CheckIn(Base):
     text_preview: Mapped[str | None] = mapped_column(String(280), nullable=True)
     is_private: Mapped[bool] = mapped_column(Boolean, default=True)
     abstained: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Non-clinical 0–100 "how strongly support is suggested" (nullable for older rows)
+    support_urgency: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    support_urgency_band: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    support_urgency_rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
+    support_urgency_uncertain: Mapped[bool] = mapped_column(Boolean, default=False)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 

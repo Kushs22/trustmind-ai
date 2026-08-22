@@ -56,6 +56,10 @@ def _fake_analysis(**overrides):
         "evidence_used": [],
         "sources_detail": [],
         "safety_triggered": False,
+        "support_urgency": 48,
+        "support_urgency_band": "moderate",
+        "support_urgency_rationale": "Moderate concern suggests it may help to use support options.",
+        "support_urgency_uncertain": False,
         "debug": None,
         "input_summary": None,
         "processed_attachments": [],
@@ -119,11 +123,14 @@ class CheckInPersistenceTests(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0].concern_level, "Moderate")
         self.assertEqual(rows[0].ai_confidence, "88%")
+        self.assertEqual(rows[0].support_urgency, 48)
+        self.assertEqual(rows[0].support_urgency_band, "moderate")
         self.assertFalse(rows[0].is_private)
         self.assertIsNotNone(rows[0].text_preview)
 
         history = list_check_ins(self.db, self.user)
         self.assertEqual(len(history), 1)
+        self.assertEqual(history[0].support_urgency, 48)
         stats = dashboard_stats(self.db, self.user)
         self.assertEqual(stats.saved_analyses, 1)
         self.assertEqual(stats.avg_ai_confidence, 88)

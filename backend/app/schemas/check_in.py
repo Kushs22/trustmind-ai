@@ -1,6 +1,7 @@
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class CheckInResponse(BaseModel):
@@ -12,6 +13,9 @@ class CheckInResponse(BaseModel):
     preview: str | None
     is_private: bool
     created_at: datetime
+    support_urgency: int | None = None
+    support_urgency_band: Literal["low", "moderate", "elevated", "urgent"] | None = None
+    support_urgency_uncertain: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -33,6 +37,10 @@ class CheckInDetailResponse(BaseModel):
     preview: str | None
     is_private: bool
     created_at: datetime
+    support_urgency: int | None = Field(default=None, ge=0, le=100)
+    support_urgency_band: Literal["low", "moderate", "elevated", "urgent"] | None = None
+    support_urgency_rationale: str | None = None
+    support_urgency_uncertain: bool = False
 
 
 class DashboardStatsResponse(BaseModel):

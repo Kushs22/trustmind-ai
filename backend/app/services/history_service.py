@@ -51,6 +51,9 @@ def list_check_ins(db: Session, user: User) -> list[CheckInResponse]:
             preview=row.text_preview,
             is_private=row.is_private,
             created_at=row.created_at,
+            support_urgency=row.support_urgency,
+            support_urgency_band=row.support_urgency_band,
+            support_urgency_uncertain=bool(row.support_urgency_uncertain),
         )
         for row in rows
     ]
@@ -79,6 +82,10 @@ def get_check_in(db: Session, user: User, check_in_id: str) -> CheckInDetailResp
         preview=row.text_preview,
         is_private=row.is_private,
         created_at=row.created_at,
+        support_urgency=row.support_urgency,
+        support_urgency_band=row.support_urgency_band,
+        support_urgency_rationale=row.support_urgency_rationale,
+        support_urgency_uncertain=bool(row.support_urgency_uncertain),
     )
 
 

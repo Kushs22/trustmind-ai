@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Toggle } from "@/components/Toggle";
+import { SupportUrgencyMeter } from "@/components/SupportUrgencyMeter";
+import { ChatThread } from "@/components/ChatThread";
 import { FileUpload } from "@/components/analysis/FileUpload";
 import { InputReview } from "@/components/analysis/InputReview";
 import { VoiceInput } from "@/components/analysis/VoiceInput";
@@ -10,10 +12,14 @@ import {
   analyseText,
   ApiError,
   createAnonymousSession,
+  getCheckIn,
   getCheckIns,
+  sendChatFollowUp,
   type AnalyseResponse,
+  type ChatMessage,
   type EvidenceItem,
   type PipelineMode,
+  type SupportResource,
 } from "@/lib/api";
 import { AUTH_CHANGED_EVENT, getToken, isAuthenticated, isRegisteredUser } from "@/lib/auth";
 import { indicatorDisplayName, predictionDisplayName } from "@/lib/displayLabels";
@@ -79,6 +85,17 @@ export function AnalyseForm() {
   const [error, setError] = useState<string | null>(null);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [showMoreEvidence, setShowMoreEvidence] = useState(false);
+  const [chatMode, setChatMode] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [chatDraft, setChatDraft] = useState("");
+  const [chatSending, setChatSending] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [activeCheckInId, setActiveCheckInId] = useState<string | null>(null);
+  const [chatSupportResources, setChatSupportResources] = useState<
+    SupportResource[]
+  >([]);
+  const [chatPrivateLocked, setChatPrivateLocked] = useState(false);
+  const [loadingThread, setLoadingThread] = useState(false);
   const timersRef = useRef<number[]>([]);
   const files = useFileUpload();
 
@@ -123,6 +140,86 @@ export function AnalyseForm() {
     return () => {
       window.removeEventListener(AUTH_CHANGED_EVENT, syncAuthDefaults);
       window.removeEventListener("storage", syncAuthDefaults);
+    };
+  }, []);
+
+  // ?check_in=<id> opens the saved check-in as a ChatGPT-style thread.
+  useEffect(() => {
+    let cancelled = false;
+    async function loadThreadFromQuery() {
+      let checkInId: string | null = null;
+      try {
+        checkInId = new URLSearchParams(window.location.search).get("check_in");
+      } catch {
+        checkInId = null;
+      }
+      if (!checkInId) return;
+      if (!isAuthenticated()) {
+        setError("Please log in to continue a saved check-in chat.");
+        return;
+      }
+      setLoadingThread(true);
+      setError(null);
+      try {
+        const detail = await getCheckIn(checkInId);
+        if (cancelled) return;
+        const seeded: ChatMessage[] =
+          detail.messages && detail.messages.length > 0
+            ? detail.messages
+            : [
+                ...(detail.preview && !detail.is_private
+                  ? [{ role: "user" as const, content: detail.preview }]
+                  : []),
+                ...(detail.explanation
+                  ? [
+                      {
+                        role: "assistant" as const,
+                        content: detail.explanation,
+                      },
+                    ]
+                  : []),
+              ];
+        setMessages(seeded);
+        setActiveCheckInId(detail.id);
+        setChatPrivateLocked(Boolean(detail.is_private));
+        setChatMode(true);
+        setShowResult(false);
+        setResult({
+          id: detail.id,
+          status: detail.abstained ? "abstained" : "accepted",
+          prediction: null,
+          confidence: 0,
+          reasoning: detail.explanation,
+          sources: [],
+          pipeline_used: "LLM",
+          concern_level: detail.concern,
+          ai_confidence: detail.confidence,
+          uncertainty_level: detail.uncertainty_level,
+          grounding_status: detail.grounding_status,
+          abstention_status: detail.abstention_status,
+          explanation: detail.explanation,
+          safe_next_steps: detail.safe_next_steps,
+          safety_note: detail.safety_note,
+          saved_to_history: true,
+          support_urgency: detail.support_urgency,
+          support_urgency_band: detail.support_urgency_band,
+          support_urgency_rationale: detail.support_urgency_rationale,
+          support_urgency_uncertain: detail.support_urgency_uncertain,
+        });
+      } catch (err) {
+        if (cancelled) return;
+        setError(
+          err instanceof ApiError
+            ? err.message
+            : "Unable to load that check-in conversation.",
+        );
+      } finally {
+        if (!cancelled) setLoadingThread(false);
+      }
+    }
+    void loadThreadFromQuery();
+    return () => {
+      cancelled = true;
     };
   }, []);
 
@@ -241,6 +338,23 @@ export function AnalyseForm() {
       setResult(analysis);
       setShowResult(true);
 
+      const userOpening =
+        text.trim() ||
+        speechTranscript.trim() ||
+        "Shared a multimodal check-in";
+      const assistantOpening =
+        analysis.reasoning || analysis.explanation || analysis.message || "";
+      setMessages([
+        { role: "user", content: userOpening },
+        ...(assistantOpening
+          ? [{ role: "assistant" as const, content: assistantOpening }]
+          : []),
+      ]);
+      setActiveCheckInId(analysis.id || null);
+      setChatPrivateLocked(Boolean(analysePrivately));
+      setChatSupportResources(analysis.support_resources || []);
+      setChatError(null);
+
       if (wantSave && analysis.saved_to_history) {
         const continuityNote = analysis.continuity_used
           ? " We used your recent saved check-ins so this reflection can pick up where you left off."
@@ -263,6 +377,38 @@ export function AnalyseForm() {
       );
     } finally {
       setIsProcessing(false);
+    }
+  }
+
+  async function handleChatSend() {
+    const outgoing = chatDraft.trim();
+    if (!outgoing || chatSending || chatPrivateLocked) return;
+    setChatSending(true);
+    setChatError(null);
+    setChatDraft("");
+    const prior = messages;
+    setMessages([...prior, { role: "user", content: outgoing }]);
+    try {
+      const response = await sendChatFollowUp({
+        message: outgoing,
+        check_in_id: activeCheckInId,
+        history: activeCheckInId ? undefined : prior,
+      });
+      setMessages(response.messages);
+      if (response.check_in_id) setActiveCheckInId(response.check_in_id);
+      if (response.support_resources?.length) {
+        setChatSupportResources(response.support_resources);
+      }
+    } catch (err) {
+      setMessages(prior);
+      setChatDraft(outgoing);
+      setChatError(
+        err instanceof ApiError
+          ? err.message
+          : "Unable to send your follow-up. Please try again.",
+      );
+    } finally {
+      setChatSending(false);
     }
   }
 
@@ -294,7 +440,7 @@ export function AnalyseForm() {
           <p className="font-semibold">{error}</p>
         </div>
       )}
-      {saveNotice && !error && (
+      {saveNotice && !error && !chatMode && (
         <div
           className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-900 dark:border-teal-900 dark:bg-teal-950/40 dark:text-teal-100"
           role="status"
@@ -309,6 +455,69 @@ export function AnalyseForm() {
         </div>
       )}
 
+      {loadingThread && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Loading conversation…
+          </p>
+        </div>
+      )}
+
+      {chatMode && !loadingThread && (
+        <div className="space-y-4">
+          {result &&
+            typeof result.support_urgency === "number" &&
+            result.support_urgency_band && (
+              <SupportUrgencyMeter
+                score={result.support_urgency}
+                band={result.support_urgency_band}
+                rationale={result.support_urgency_rationale}
+                uncertain={Boolean(result.support_urgency_uncertain)}
+              />
+            )}
+          {result && (
+            <div className="rounded-xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-300">
+              <span className="font-medium text-slate-800 dark:text-slate-100">
+                Opening read:{" "}
+              </span>
+              {result.prediction_display ||
+                predictionDisplayName(result.prediction) ||
+                result.concern_level}
+              {result.ai_confidence ? ` · ${result.ai_confidence} confidence` : ""}
+              {activeCheckInId ? (
+                <>
+                  {" · "}
+                  <Link
+                    href={`/dashboard/${activeCheckInId}`}
+                    className="text-teal-700 underline dark:text-teal-300"
+                  >
+                    View saved check-in
+                  </Link>
+                </>
+              ) : null}
+            </div>
+          )}
+          <ChatThread
+            messages={messages}
+            draft={chatDraft}
+            onDraftChange={setChatDraft}
+            onSend={() => void handleChatSend()}
+            isSending={chatSending}
+            error={chatError}
+            supportResources={chatSupportResources}
+            persisted={Boolean(activeCheckInId)}
+            disabled={chatPrivateLocked}
+            disabledReason={
+              chatPrivateLocked
+                ? "This check-in was analysed privately, so the chat thread cannot continue. Start a new chat to share more."
+                : null
+            }
+          />
+        </div>
+      )}
+
+      {!chatMode && !loadingThread && (
+      <>
       <div className="rounded-2xl border border-slate-200/80 bg-white dark:border-slate-700/80 dark:bg-slate-900 p-6 shadow-sm sm:p-8">
         <label
           htmlFor="wellbeing-input"
@@ -746,6 +955,18 @@ export function AnalyseForm() {
                     </div>
                   )}
 
+                  {typeof result.support_urgency === "number" &&
+                    result.support_urgency_band && (
+                      <div className="mt-4">
+                        <SupportUrgencyMeter
+                          score={result.support_urgency}
+                          band={result.support_urgency_band}
+                          rationale={result.support_urgency_rationale}
+                          uncertain={Boolean(result.support_urgency_uncertain)}
+                        />
+                      </div>
+                    )}
+
                   <div className="mt-6 space-y-4">
                     {result.status !== "abstained" &&
                       indicators.length > 0 && (
@@ -950,6 +1171,40 @@ export function AnalyseForm() {
             })()}
           </div>
         </div>
+      )}
+
+      {showResult && result && !isProcessing && messages.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">
+              Continue the conversation
+            </h3>
+            <Link
+              href="/analyse"
+              className="text-sm font-medium text-teal-700 hover:underline dark:text-teal-300"
+            >
+              New chat
+            </Link>
+          </div>
+          <ChatThread
+            messages={messages}
+            draft={chatDraft}
+            onDraftChange={setChatDraft}
+            onSend={() => void handleChatSend()}
+            isSending={chatSending}
+            error={chatError}
+            supportResources={chatSupportResources}
+            persisted={Boolean(activeCheckInId)}
+            disabled={chatPrivateLocked}
+            disabledReason={
+              chatPrivateLocked
+                ? "Private mode check-ins cannot continue as a chat thread. Start a new chat to share more."
+                : null
+            }
+          />
+        </div>
+      )}
+      </>
       )}
     </div>
   );

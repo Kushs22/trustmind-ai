@@ -61,6 +61,32 @@ def assert_production_database() -> None:
         )
 
 
+def _ensure_check_in_support_urgency_columns() -> None:
+    """
+    create_all does not ALTER existing tables. Add support-urgency columns when missing
+    so Render Postgres / long-lived SQLite stay compatible after deploy.
+    """
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(engine)
+    if "check_ins" not in inspector.get_table_names():
+        return
+    existing = {col["name"] for col in inspector.get_columns("check_ins")}
+    additions = [
+        ("support_urgency", "INTEGER"),
+        ("support_urgency_band", "VARCHAR(20)"),
+        ("support_urgency_rationale", "TEXT"),
+        ("support_urgency_uncertain", "BOOLEAN DEFAULT FALSE"),
+    ]
+    missing = [(name, ddl) for name, ddl in additions if name not in existing]
+    if not missing:
+        return
+    with engine.begin() as conn:
+        for name, ddl in missing:
+            conn.execute(text(f"ALTER TABLE check_ins ADD COLUMN {name} {ddl}"))
+            logger.info("Added check_ins.%s column", name)
+
+
 def init_db() -> None:
     from app.models import CheckIn, User  # noqa: F401
 
@@ -75,6 +101,7 @@ def init_db() -> None:
     try:
         assert_production_database()
         Base.metadata.create_all(bind=engine)
+        _ensure_check_in_support_urgency_columns()
     except Exception:
         logger.exception(
             "Database initialisation failed for %s. "
