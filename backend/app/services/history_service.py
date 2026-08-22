@@ -5,10 +5,12 @@ from sqlalchemy.orm import Session
 
 from app.models import CheckIn, User
 from app.schemas.check_in import (
+    ChatMessageOut,
     CheckInDetailResponse,
     CheckInResponse,
     DashboardStatsResponse,
 )
+from app.services.conversation_service import messages_for_row
 
 
 def _format_date(dt) -> str:
@@ -67,6 +69,7 @@ def get_check_in(db: Session, user: User, check_in_id: str) -> CheckInDetailResp
     )
     if row is None:
         return None
+    thread = messages_for_row(row)
     return CheckInDetailResponse(
         id=row.id,
         date=_format_date(row.created_at),
@@ -86,6 +89,15 @@ def get_check_in(db: Session, user: User, check_in_id: str) -> CheckInDetailResp
         support_urgency_band=row.support_urgency_band,
         support_urgency_rationale=row.support_urgency_rationale,
         support_urgency_uncertain=bool(row.support_urgency_uncertain),
+        messages=[
+            ChatMessageOut(
+                role=m["role"],
+                content=m["content"],
+                created_at=m.get("created_at"),
+                safety_triggered=bool(m.get("safety_triggered")),
+            )
+            for m in thread
+        ],
     )
 
 

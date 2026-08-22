@@ -143,6 +143,22 @@ export type CheckIn = {
   support_urgency_uncertain?: boolean;
 };
 
+export type ChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+  created_at?: string | null;
+  safety_triggered?: boolean;
+};
+
+export type ChatFollowUpResponse = {
+  check_in_id: string | null;
+  reply: string;
+  safety_triggered: boolean;
+  support_resources: SupportResource[];
+  messages: ChatMessage[];
+  persisted: boolean;
+};
+
 export type CheckInDetail = {
   id: string;
   date: string;
@@ -162,6 +178,7 @@ export type CheckInDetail = {
   support_urgency_band?: "low" | "moderate" | "elevated" | "urgent" | null;
   support_urgency_rationale?: string | null;
   support_urgency_uncertain?: boolean;
+  messages?: ChatMessage[];
 };
 
 export type DashboardStats = {
@@ -379,6 +396,21 @@ export async function getCheckIns(): Promise<CheckIn[]> {
 export async function getCheckIn(id: string): Promise<CheckInDetail> {
   return request<CheckInDetail>(`/api/v1/check-ins/${encodeURIComponent(id)}`, {
     requireAuth: true,
+  });
+}
+
+export async function sendChatFollowUp(payload: {
+  message: string;
+  check_in_id?: string | null;
+  history?: ChatMessage[];
+}): Promise<ChatFollowUpResponse> {
+  return request<ChatFollowUpResponse>("/api/v1/chat/follow-up", {
+    method: "POST",
+    body: JSON.stringify({
+      message: payload.message,
+      check_in_id: payload.check_in_id || null,
+      history: payload.history || [],
+    }),
   });
 }
 

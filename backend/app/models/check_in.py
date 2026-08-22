@@ -41,6 +41,8 @@ class CheckIn(Base):
     support_urgency_band: Mapped[str | None] = mapped_column(String(20), nullable=True)
     support_urgency_rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
     support_urgency_uncertain: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Multi-turn chat thread as JSON [{role, content, created_at}, ...]
+    conversation_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 

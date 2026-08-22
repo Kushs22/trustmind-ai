@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import init_db
-from app.routers import analyse, auth, check_ins, health, privacy, transcription, uploads
+from app.routers import analyse, auth, chat, check_ins, health, privacy, transcription, uploads
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +65,7 @@ app.include_router(analyse.router)
 app.include_router(transcription.router)
 app.include_router(uploads.router)
 app.include_router(check_ins.router)
+app.include_router(chat.router)
 app.include_router(privacy.router)
 
 

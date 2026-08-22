@@ -185,14 +185,14 @@ export function DashboardContent() {
                   Previous wellbeing check-ins
                 </h2>
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  Open a check-in to re-read the reflection, or continue with
-                  continuity from recent saved history.
+                  Open a check-in to continue the chat thread, or start a new
+                  chat.
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
                 {checkIns.length > 0 && (
                   <Link
-                    href="/analyse?continue=1"
+                    href={`/analyse?check_in=${encodeURIComponent(checkIns[0].id)}`}
                     className="inline-flex h-10 items-center justify-center rounded-lg border border-teal-200 bg-teal-50 px-4 text-sm font-medium text-teal-800 hover:bg-teal-100 dark:border-teal-800 dark:bg-teal-950/40 dark:text-teal-100"
                   >
                     Pick up where I left off
@@ -202,7 +202,7 @@ export function DashboardContent() {
                   href="/analyse"
                   className="inline-flex h-10 items-center justify-center rounded-lg bg-teal-600 px-4 text-sm font-medium text-white hover:bg-teal-700"
                 >
-                  New check-in
+                  New chat
                 </Link>
               </div>
             </div>
@@ -214,7 +214,7 @@ export function DashboardContent() {
                   href="/analyse"
                   className="mt-4 inline-flex text-sm font-medium text-teal-700 hover:underline"
                 >
-                  Start your first analysis
+                  Start your first chat
                 </Link>
               </div>
             ) : (
@@ -222,7 +222,7 @@ export function DashboardContent() {
                 {checkIns.map((item) => (
                   <li key={item.id}>
                     <Link
-                      href={`/dashboard/${item.id}`}
+                      href={`/analyse?check_in=${encodeURIComponent(item.id)}`}
                       className="block rounded-xl border border-slate-100 bg-slate-50/50 p-4 transition-colors hover:border-teal-200 hover:bg-teal-50/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-500 dark:border-slate-700 dark:bg-slate-800/50 dark:hover:border-teal-800 dark:hover:bg-teal-950/30"
                     >
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -237,7 +237,7 @@ export function DashboardContent() {
                                 : "No preview available")}
                           </p>
                           <p className="mt-2 text-xs font-medium text-teal-700 dark:text-teal-300">
-                            Open full reflection →
+                            Continue chat →
                           </p>
                         </div>
                         <div className="flex flex-wrap gap-2">

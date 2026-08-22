@@ -92,7 +92,7 @@ export function CheckInDetailContent({ checkInId }: { checkInId: string }) {
         </div>
         <div className="flex flex-wrap gap-2">
           <Link
-            href="/analyse?continue=1"
+            href={`/analyse?check_in=${encodeURIComponent(checkInId)}`}
             className="inline-flex h-10 items-center justify-center rounded-lg bg-teal-600 px-4 text-sm font-medium text-white hover:bg-teal-700"
           >
             Continue from here
@@ -101,7 +101,7 @@ export function CheckInDetailContent({ checkInId }: { checkInId: string }) {
             href="/analyse"
             className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 px-4 text-sm font-medium text-slate-700 hover:border-teal-200 hover:bg-teal-50/50 dark:border-slate-600 dark:text-slate-200"
           >
-            New check-in
+            New chat
           </Link>
         </div>
       </div>
