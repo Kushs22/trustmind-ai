@@ -188,6 +188,7 @@ def call_openai_json(
     Call OpenAI chat completions and return (response_text, error_message).
 
     Retries on rate limits / transient failures. Never raises for API errors.
+    Does not retry billing / insufficient-quota errors (fail fast).
     """
     last_error = ""
     for attempt in range(max_retries):
@@ -216,6 +217,17 @@ def call_openai_json(
         except Exception as exc:  # noqa: BLE001 — continue pipeline on any API failure
             last_error = f"{type(exc).__name__}: {exc}"
             message = str(exc).lower()
+            # Billing / hard quota — retrying only burns time before keyword fallback.
+            if any(
+                tok in message
+                for tok in (
+                    "insufficient_quota",
+                    "credit_balance",
+                    "exceeded your current quota",
+                    "billing",
+                )
+            ):
+                return "", last_error
             # Rate-limit / transient backoff
             if any(tok in message for tok in ("rate", "429", "timeout", "temporar")):
                 time.sleep(base_sleep * (2**attempt))

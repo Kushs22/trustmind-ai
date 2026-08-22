@@ -167,6 +167,16 @@ def _call_openai_json_local(
         except Exception as exc:  # noqa: BLE001
             last_error = f"{type(exc).__name__}: {exc}"
             message = str(exc).lower()
+            if any(
+                tok in message
+                for tok in (
+                    "insufficient_quota",
+                    "credit_balance",
+                    "exceeded your current quota",
+                    "billing",
+                )
+            ):
+                return "", last_error
             if any(tok in message for tok in ("rate", "429", "timeout", "temporar")):
                 time.sleep(base_sleep * (2**attempt))
             else:
@@ -282,6 +292,8 @@ def run_llm_pipeline(text: str, continuity_context: str = "") -> dict[str, Any]:
             model_name=settings.openai_model,
             prompt=prompt,
             temperature=temp,
+            max_retries=2,
+            base_sleep=1.0,
         )
         if api_error and not response_text:
             last_error = api_error

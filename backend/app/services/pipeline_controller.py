@@ -362,7 +362,21 @@ def run_configured_pipeline(
 
     public_message = decision.message if abstained else ""
     if pipeline_used == "keyword_fallback" and pipeline_error and not public_message:
-        public_message = re.sub(r"sk-[A-Za-z0-9_\-]+", "sk-***", pipeline_error)[:400]
+        err_l = pipeline_error.lower()
+        if any(
+            tok in err_l
+            for tok in (
+                "insufficient_quota",
+                "credit_balance",
+                "exceeded your current quota",
+            )
+        ):
+            public_message = (
+                "AI reflection is temporarily limited (OpenAI billing/credits). "
+                "Showing a basic keyword-based check-in instead."
+            )
+        else:
+            public_message = re.sub(r"sk-[A-Za-z0-9_\-]+", "sk-***", pipeline_error)[:400]
 
     debug: dict[str, Any] | None = None
     if getattr(request, "include_debug", False):

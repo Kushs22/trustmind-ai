@@ -83,6 +83,8 @@ def run_rag_pipeline(text: str, continuity_context: str = "") -> dict[str, Any]:
             model_name=settings.openai_model,
             prompt=prompt,
             temperature=temp,
+            max_retries=2,
+            base_sleep=1.0,
         )
         if api_error and not response_text:
             api_errors.append(api_error)

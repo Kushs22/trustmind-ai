@@ -383,7 +383,7 @@ export function AnalyseForm() {
       setError(
         err instanceof ApiError
           ? err.message
-          : "Unable to reach the analysis service. Is the backend running?",
+          : "Unable to reach the analysis service right now. The API may be waking up or OpenAI credits may be exhausted — wait a moment and try again.",
       );
     } finally {
       setIsProcessing(false);
