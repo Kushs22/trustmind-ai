@@ -264,19 +264,23 @@ Current check-in:
 
 def run_llm_pipeline(text: str, continuity_context: str = "") -> dict[str, Any]:
     """
-    Run GPT-only wellbeing classification (no retrieval).
+    Run LLM-only wellbeing classification (no retrieval).
 
+    Uses OpenAI when available, with Gemini free-tier fallback.
     Uses a standalone confidence formula (not the RAG retrieval formula).
     """
-    call_openai_json, parse_prediction = _resolve_openai_helpers()
-    from openai import OpenAI
+    _openai_helpers, parse_prediction = _resolve_openai_helpers()
+    from app.services.llm_provider import complete_json, llm_configured
 
     started = time.perf_counter()
-    if not settings.openai_api_key:
-        raise RuntimeError("OPENAI_API_KEY is required for the LLM pipeline")
+    if not llm_configured():
+        raise RuntimeError("OPENAI_API_KEY or GEMINI_API_KEY is required for the LLM pipeline")
 
-    client = OpenAI(api_key=settings.openai_api_key)
     prompt = _build_product_llm_prompt(text, continuity_context=continuity_context)
+    system = (
+        "You are a careful wellbeing research assistant. "
+        "Respond with valid JSON only."
+    )
     # Cap consistency runs for product latency (keyword fallback often followed long timeouts).
     configured = max(1, int(settings.consistency_runs)) if settings.enable_confidence_calibration else 1
     n_runs = min(configured, 3)
@@ -285,16 +289,19 @@ def run_llm_pipeline(text: str, continuity_context: str = "") -> dict[str, Any]:
 
     runs: list[dict[str, Any]] = []
     last_error = ""
+    provider_used = ""
     for i in range(n_runs):
         temp = primary_temp if i == 0 else max(primary_temp, consistency_temp)
-        response_text, api_error = call_openai_json(
-            client,
-            model_name=settings.openai_model,
-            prompt=prompt,
+        response_text, api_error, provider = complete_json(
+            system=system,
+            user=prompt,
             temperature=temp,
-            max_retries=2,
-            base_sleep=1.0,
+            max_tokens=700,
+            openai_model=settings.openai_model,
+            gemini_model=settings.gemini_model,
         )
+        if provider:
+            provider_used = provider
         if api_error and not response_text:
             last_error = api_error
             logger.warning("llm_pipeline API error run %s/%s: %s", i + 1, n_runs, api_error)
@@ -304,12 +311,13 @@ def run_llm_pipeline(text: str, continuity_context: str = "") -> dict[str, Any]:
             parsed["error"] = api_error
         runs.append(parsed)
         logger.info(
-            "llm_consistency_run i=%s/%s label=%s llm_conf=%.3f temp=%.2f",
+            "llm_consistency_run i=%s/%s label=%s llm_conf=%.3f temp=%.2f provider=%s",
             i + 1,
             n_runs,
             parsed.get("predicted_label"),
             float(parsed.get("confidence") or 0.0),
             temp,
+            provider_used or "?",
         )
 
     if not runs:
@@ -359,7 +367,8 @@ def run_llm_pipeline(text: str, continuity_context: str = "") -> dict[str, Any]:
         "reasoning": reasoning,
         "sources": [],
         "retrieved_passages": [],
-        "pipeline_used": "LLM",
+        "pipeline_used": f"LLM ({provider_used})" if provider_used else "LLM",
+        "llm_provider": provider_used or "",
         "latency_ms": latency_ms,
         "error": runs[0].get("error") or "",
         "parse_ok": bool(prediction),

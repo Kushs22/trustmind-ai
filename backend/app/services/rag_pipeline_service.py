@@ -36,34 +36,38 @@ def run_rag_pipeline(text: str, continuity_context: str = "") -> dict[str, Any]:
     if str(research) not in sys.path:
         sys.path.insert(0, str(research))
 
-    from llm_baseline import call_openai_json
+    from app.services.llm_provider import complete_json, llm_configured
     from openai import OpenAI
     from rag.config import get_rag_config
     from rag.prompt_builder import build_rag_prompt
     from rag.rag_pipeline import RagPipeline, _parse_rag_response
 
-    if not settings.openai_api_key:
-        raise RuntimeError("OPENAI_API_KEY is required for the RAG pipeline")
+    if not llm_configured():
+        raise RuntimeError("OPENAI_API_KEY or GEMINI_API_KEY is required for the RAG pipeline")
 
     rag_cfg = get_rag_config()
-    rag_cfg.openai_api_key = settings.openai_api_key
+    # Embeddings still use OpenAI when available; generation can fall back to Gemini.
+    rag_cfg.openai_api_key = settings.openai_api_key or "unused"
     rag_cfg.gpt_model = settings.openai_model
     rag_cfg.temperature = settings.openai_temperature
     rag_cfg.top_k = settings.rag_top_k
     rag_cfg.use_rag = True
 
-    client = OpenAI(api_key=settings.openai_api_key)
-    pipeline = RagPipeline(rag_cfg, client=client)
-    started = time.perf_counter()
-
-    try:
-        passages = pipeline.retriever.retrieve(text, top_k=settings.rag_top_k)
-    except Exception as exc:  # noqa: BLE001
-        logger.exception("Retrieval failed in calibrated RAG path")
-        passages = []
-        retrieval_error = f"retrieval_error: {type(exc).__name__}: {exc}"
+    passages: list[Any] = []
+    retrieval_error = ""
+    if settings.openai_api_key:
+        client = OpenAI(api_key=settings.openai_api_key)
+        pipeline = RagPipeline(rag_cfg, client=client)
+        started = time.perf_counter()
+        try:
+            passages = pipeline.retriever.retrieve(text, top_k=settings.rag_top_k)
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Retrieval failed in calibrated RAG path")
+            passages = []
+            retrieval_error = f"retrieval_error: {type(exc).__name__}: {exc}"
     else:
-        retrieval_error = ""
+        started = time.perf_counter()
+        retrieval_error = "retrieval_skipped: OPENAI_API_KEY missing (Gemini generation only)"
 
     prompt = build_rag_prompt(
         text,
@@ -76,16 +80,22 @@ def run_rag_pipeline(text: str, continuity_context: str = "") -> dict[str, Any]:
 
     runs: list[dict[str, Any]] = []
     api_errors: list[str] = []
+    provider_used = ""
     for i in range(n_runs):
         temp = primary_temp if i == 0 else max(primary_temp, consistency_temp)
-        response_text, api_error = call_openai_json(
-            client,
-            model_name=settings.openai_model,
-            prompt=prompt,
+        response_text, api_error, provider = complete_json(
+            system=(
+                "You are a careful wellbeing research assistant. "
+                "Respond with valid JSON only."
+            ),
+            user=prompt,
             temperature=temp,
-            max_retries=2,
-            base_sleep=1.0,
+            max_tokens=800,
+            openai_model=settings.openai_model,
+            gemini_model=settings.gemini_model,
         )
+        if provider:
+            provider_used = provider
         if api_error and not response_text:
             api_errors.append(api_error)
             continue
@@ -94,12 +104,13 @@ def run_rag_pipeline(text: str, continuity_context: str = "") -> dict[str, Any]:
             parsed["error"] = api_error
         runs.append(parsed)
         logger.info(
-            "rag_consistency_run i=%s/%s label=%s llm_conf=%.3f temp=%.2f",
+            "rag_consistency_run i=%s/%s label=%s llm_conf=%.3f temp=%.2f provider=%s",
             i + 1,
             n_runs,
             parsed.get("predicted_label"),
             float(parsed.get("confidence") or 0.0),
             temp,
+            provider_used or "?",
         )
 
     if not runs:
@@ -154,7 +165,10 @@ def run_rag_pipeline(text: str, continuity_context: str = "") -> dict[str, Any]:
         "confidence": confidence,
         "reasoning": reasoning,
         "sources": sources,
-        "pipeline_used": "LLM+RAG",
+        "pipeline_used": (
+            f"LLM+RAG ({provider_used})" if provider_used else "LLM+RAG"
+        ),
+        "llm_provider": provider_used or "",
         "latency_ms": latency_ms,
         "error": error,
         "parse_ok": bool(prediction),

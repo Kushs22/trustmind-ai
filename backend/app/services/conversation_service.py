@@ -199,13 +199,12 @@ def generate_follow_up_reply(
         safety = safety or _looks_like_crisis(audio_prompt_block)
     thread_block = format_thread_for_prompt(prior_messages)
 
-    if not settings.openai_api_key:
+    if not settings.openai_api_key and not settings.gemini_api_key:
         return _fallback_reply(text, safety=safety), safety
 
     try:
-        from openai import OpenAI
+        from app.services.llm_provider import complete_json
 
-        client = OpenAI(api_key=settings.openai_api_key)
         system = (
             "You are TrustMind AI — a warm, careful wellbeing check-in companion "
             "for students. You continue an existing check-in conversation.\n\n"
@@ -232,19 +231,17 @@ def generate_follow_up_reply(
         )
         user_prompt = (f"{thread_block}\n\n" if thread_block else "") + latest
 
-        chat_model = (settings.openai_chat_model or settings.openai_model).strip()
-        response = client.chat.completions.create(
-            model=chat_model,
+        raw, err, provider = complete_json(
+            system=system,
+            user=user_prompt,
             temperature=min(0.7, float(settings.openai_temperature) + 0.15),
             max_tokens=max(64, int(settings.openai_chat_max_tokens)),
-            timeout=float(settings.openai_chat_timeout_seconds),
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user_prompt},
-            ],
+            openai_model=settings.openai_chat_model or settings.openai_model,
+            gemini_model=settings.gemini_chat_model or settings.gemini_model,
         )
-        raw = (response.choices[0].message.content or "").strip()
+        if err and not raw:
+            logger.warning("Follow-up LLM failed (%s): %s", provider or "none", err)
+            return _fallback_reply(text, safety=safety), safety
         parsed = json.loads(raw) if raw else {}
         reply = _clip(str(parsed.get("reply") or "").strip())
         flagged = bool(parsed.get("safety_triggered")) or safety

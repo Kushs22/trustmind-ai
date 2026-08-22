@@ -151,9 +151,11 @@ def run_configured_pipeline(
 
     continuity = (continuity_context or "").strip()
 
-    if not settings.openai_api_key:
-        logger.error("OPENAI_API_KEY is not set on the server — using keyword fallback")
-        raw = _keyword_raw(text, error="OPENAI_API_KEY missing on server")
+    if not settings.openai_api_key and not settings.gemini_api_key:
+        logger.error(
+            "No LLM API key set (OPENAI_API_KEY / GEMINI_API_KEY) — using keyword fallback"
+        )
+        raw = _keyword_raw(text, error="No LLM API key configured on server")
     else:
         raw: dict[str, Any] = {}
         error = ""
@@ -461,6 +463,8 @@ def run_configured_pipeline(
             "use_rag": use_rag,
             "pipeline_mode": mode,
             "openai_configured": bool(settings.openai_api_key),
+            "gemini_configured": bool(settings.gemini_api_key),
+            "llm_provider": settings.llm_provider,
         }
     )
     return result

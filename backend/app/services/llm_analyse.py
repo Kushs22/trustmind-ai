@@ -245,7 +245,9 @@ def _normalise_result(data: dict[str, Any]) -> AnalyseResult:
 
 
 def llm_available() -> bool:
-    return bool(settings.openai_api_key) and settings.analyse_backend in {
+    from app.services.llm_provider import llm_configured
+
+    return llm_configured() and settings.analyse_backend in {
         "llm",
         "auto",
     }

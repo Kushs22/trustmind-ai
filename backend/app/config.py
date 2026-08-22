@@ -47,8 +47,10 @@ class Settings(BaseSettings):
 
     database_url: str = "sqlite:///./trustmind.db"
 
-    # Analyse backend: "auto" uses LLM when OPENAI_API_KEY is set, else keywords
+    # Analyse backend: "auto" uses LLM when any provider key is set, else keywords
     analyse_backend: str = "auto"
+    # auto = OpenAI then Gemini on failure | openai | gemini
+    llm_provider: str = "auto"
     openai_api_key: str = ""
     openai_model: str = "gpt-4.1"
     # Faster model for multi-turn chat follow-ups (product latency).
@@ -56,6 +58,11 @@ class Settings(BaseSettings):
     openai_temperature: float = 0.2
     openai_chat_timeout_seconds: float = 25.0
     openai_chat_max_tokens: int = 320
+
+    # Free-tier Google AI Studio key: https://aistudio.google.com/apikey
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-2.0-flash"
+    gemini_chat_model: str = "gemini-2.0-flash"
 
     # Mode A (false) = standalone LLM | Mode B (true) = hybrid RAG
     use_rag: bool = False
