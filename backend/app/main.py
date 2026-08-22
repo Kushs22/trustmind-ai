@@ -44,6 +44,8 @@ app = FastAPI(
         "**Analyse:** `POST /api/v1/analyse` (alias `/api/analyse`).\n"
         "**Multimodal preprocess:** `/api/v1/transcribe`, `/api/v1/process-image`, "
         "`/api/v1/process-pdf`.\n"
+        "**Chat:** `/api/v1/chat/follow-up`, `/api/v1/chat/follow-up-audio` "
+        "(transcript + soft tone cues).\n"
         "Switch pipelines with `USE_RAG` in `.env`. "
         "See `/docs` for request/response examples including abstention."
     ),
