@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { AUTH_CHANGED_EVENT, isAuthenticated, logout } from "@/lib/auth";
 
 function LogoMark() {
   return (
@@ -27,20 +28,44 @@ function LogoMark() {
   );
 }
 
-const navLinks = [
+const baseNavLinks = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/resources", label: "Resources" },
   { href: "/privacy", label: "Privacy" },
-  { href: "/login", label: "Login" },
 ] as const;
 
 export function Header() {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(false);
+
+  useEffect(() => {
+    function syncAuth() {
+      setLoggedIn(isAuthenticated());
+    }
+    syncAuth();
+    window.addEventListener(AUTH_CHANGED_EVENT, syncAuth);
+    window.addEventListener("storage", syncAuth);
+    return () => {
+      window.removeEventListener(AUTH_CHANGED_EVENT, syncAuth);
+      window.removeEventListener("storage", syncAuth);
+    };
+  }, []);
 
   function sectionHref(id: string) {
     return pathname === "/" ? `#${id}` : `/#${id}`;
   }
+
+  function handleLogout() {
+    logout();
+    setMobileOpen(false);
+    router.push("/");
+  }
+
+  const accountLink = loggedIn
+    ? null
+    : ({ href: "/login", label: "Login" } as const);
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/80 backdrop-blur-md dark:border-slate-800/80 dark:bg-slate-950/80">
@@ -65,7 +90,7 @@ export function Header() {
           >
             Why TrustMind AI
           </a>
-          {navLinks.map((link) => (
+          {baseNavLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
@@ -78,6 +103,26 @@ export function Header() {
               {link.label}
             </Link>
           ))}
+          {accountLink ? (
+            <Link
+              href={accountLink.href}
+              className={`text-sm font-medium transition-colors hover:text-teal-700 dark:hover:text-teal-400 ${
+                pathname === accountLink.href
+                  ? "text-teal-700 dark:text-teal-400"
+                  : "text-slate-600 dark:text-slate-400"
+              }`}
+            >
+              {accountLink.label}
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="text-sm font-medium text-slate-600 transition-colors hover:text-teal-700 dark:text-slate-400 dark:hover:text-teal-400"
+            >
+              Log out
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-3">
@@ -138,7 +183,7 @@ export function Header() {
             >
               Why TrustMind AI
             </a>
-            {navLinks.map((link) => (
+            {baseNavLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
@@ -148,6 +193,23 @@ export function Header() {
                 {link.label}
               </Link>
             ))}
+            {accountLink ? (
+              <Link
+                href={accountLink.href}
+                onClick={() => setMobileOpen(false)}
+                className="text-sm font-medium text-slate-600 dark:text-slate-400"
+              >
+                {accountLink.label}
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="text-left text-sm font-medium text-slate-600 dark:text-slate-400"
+              >
+                Log out
+              </button>
+            )}
             <Link
               href="/analyse"
               onClick={() => setMobileOpen(false)}

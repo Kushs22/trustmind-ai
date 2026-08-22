@@ -9,8 +9,12 @@ services:
     envVars:
       - key: PYTHONPATH
         value: /opt/render/project/src
+      # REQUIRED: attach a Render Postgres instance and link its connection string.
+      # SQLite on the web service disk is ephemeral — check-in history will be lost.
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: trustmind-db
+          property: connectionString
       - key: SECRET_KEY
         generateValue: true
       - key: CORS_ORIGINS
@@ -45,3 +49,9 @@ services:
         value: "50"
       - key: OPENAI_API_KEY
         sync: false
+
+databases:
+  - name: trustmind-db
+    plan: basic-256mb
+    databaseName: trustmind
+    user: trustmind

@@ -221,7 +221,7 @@ Row-level `*_predictions.csv` files are **gitignored** (contain raw Reddit evalu
 
 ```bash
 cd backend
-python -m unittest tests.test_multimodal_input tests.test_trust_explainability -v
+python -m unittest tests.test_multimodal_input tests.test_trust_explainability tests.test_check_in_persistence -v
 ```
 
 ---
@@ -237,6 +237,7 @@ python -m unittest tests.test_multimodal_input tests.test_trust_explainability -
 | `ENABLE_ABSTENTION` / `CONFIDENCE_THRESHOLD` | Fail-soft labelling |
 | `ENABLE_CONFIDENCE_CALIBRATION` / `CONSISTENCY_RUNS` | Multi-run calibration |
 | `CORS_ORIGINS` | Include `https://trustmind-ai.vercel.app` in production |
+| `DATABASE_URL` | **Postgres on Render** (required). SQLite is local-dev only — ephemeral disk loses check-ins |
 | `NEXT_PUBLIC_API_URL` | Frontend → backend URL |
 
 See `backend/.env.example`, `backend/render.yaml`, `frontend/.env.local.example`.
@@ -249,6 +250,9 @@ See `backend/.env.example`, `backend/render.yaml`, `frontend/.env.local.example`
 |--------|--------|
 | **Frontend → Vercel** | Root `frontend/`; set `NEXT_PUBLIC_API_URL=https://trustmind-ai.onrender.com` |
 | **Backend → Render** | `rootDir: backend`; `PYTHONPATH` must include monorepo root for `rag/` and `research/` (see `backend/render.yaml`); set secrets in dashboard |
+| **Database → Render Postgres** | Create a Postgres instance and set `DATABASE_URL` on the API service (blueprint wires `trustmind-db`). Without this, login history cannot persist across redeploys. |
+
+**Logged-in history:** while signed in, Analyse defaults to **Save this check-in to my history**. Dashboard loads `/api/v1/check-ins` with the Bearer token from `localStorage`. Anonymous / private (save off) never writes cross-device history.
 
 Health after deploy: `GET /health` should report a current `version` (e.g. `1.2.1+`).
 

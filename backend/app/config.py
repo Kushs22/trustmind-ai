@@ -1,4 +1,20 @@
+from __future__ import annotations
+
+import os
+from functools import lru_cache
+
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def normalize_database_url(url: str) -> str:
+    """Render/Heroku often emit postgres://; SQLAlchemy needs postgresql+psycopg2://."""
+    cleaned = (url or "").strip()
+    if cleaned.startswith("postgres://"):
+        return "postgresql+psycopg2://" + cleaned[len("postgres://") :]
+    if cleaned.startswith("postgresql://") and "+psycopg2" not in cleaned:
+        return "postgresql+psycopg2://" + cleaned[len("postgresql://") :]
+    return cleaned
 
 
 class Settings(BaseSettings):
@@ -74,6 +90,13 @@ class Settings(BaseSettings):
     # Development: allow logging truncated transcripts (off by default)
     enable_dev_content_logging: bool = False
 
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def _normalize_db_url(cls, value: object) -> object:
+        if isinstance(value, str):
+            return normalize_database_url(value)
+        return value
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
@@ -90,5 +113,19 @@ class Settings(BaseSettings):
     def allowed_pdf_type_list(self) -> list[str]:
         return [x.strip() for x in self.allowed_pdf_types.split(",") if x.strip()]
 
+    @property
+    def is_sqlite(self) -> bool:
+        return self.database_url.startswith("sqlite")
 
-settings = Settings()
+    @property
+    def requires_persistent_database(self) -> bool:
+        """Render (and similar hosts) wipe local disk on redeploy — SQLite loses history."""
+        return bool(os.getenv("RENDER") or os.getenv("TRUSTMIND_REQUIRE_POSTGRES"))
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()
+
+
+settings = get_settings()

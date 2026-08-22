@@ -482,9 +482,8 @@ export function AnalyseForm() {
                         Priority support options
                       </p>
                       <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">
-                        If you are in immediate danger, contact emergency services.
-                        Support services below are available whenever you need them —
-                        they are not a diagnosis.
+                        If you are in immediate danger, call 999 or go to A&E.
+                        Support services below are available whenever you need them.
                       </p>
                       {result.support_resources &&
                         result.support_resources.length > 0 && (
@@ -602,19 +601,27 @@ export function AnalyseForm() {
                             predictionDisplayName(result.prediction) ||
                             result.concern_level}
                         </p>
-                        <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
-                          How sure we are: {confidencePct}%
-                          {result.uncertainty || result.uncertainty_level
-                            ? ` · Uncertainty: ${result.uncertainty || result.uncertainty_level}`
-                            : null}
-                        </p>
-                        {confidencePct < 75 &&
-                        countWords(text) >= SHORT_INPUT_TIP_WORDS ? (
-                          <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm leading-relaxed text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
-                            Limited confidence — this is a research category
-                            based on what you wrote, not a diagnosis.
+                        {showSafety ? (
+                          <p className="mt-3 text-sm font-medium text-rose-700 dark:text-rose-300">
+                            Priority: get support now
                           </p>
-                        ) : null}
+                        ) : (
+                          <>
+                            <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+                              How sure we are: {confidencePct}%
+                              {result.uncertainty || result.uncertainty_level
+                                ? ` · Uncertainty: ${result.uncertainty || result.uncertainty_level}`
+                                : null}
+                            </p>
+                            {confidencePct < 75 &&
+                            countWords(text) >= SHORT_INPUT_TIP_WORDS ? (
+                              <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm leading-relaxed text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+                                Limited confidence — this is a research category
+                                based on what you wrote, not a diagnosis.
+                              </p>
+                            ) : null}
+                          </>
+                        )}
                       </div>
                     </div>
                   )}
