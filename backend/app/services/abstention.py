@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from app.config import settings
@@ -42,9 +43,18 @@ ABSTENTION_RECOMMENDATION_SHORT_INPUT = (
     + ABSTENTION_RECOMMENDATION
 )
 
+# Soft tip for API clients / input UI only — never inject into result reflection copy
+# (the analyse form already shows similar guidance under the input).
 LIMITED_CONTEXT_DISCLAIMER = (
     "You've shared only a little so far, so this read is gentle and provisional — "
     "not a diagnosis. The more you share, the better we can support you."
+)
+# Phrases that must never appear in user-facing result reflections.
+SHORT_INPUT_RESULT_LEAK_PHRASES = (
+    "you've shared only a little so far",
+    "gentle and provisional",
+    "the more you share, the better we can support you",
+    "this read is gentle and provisional",
 )
 LIMITED_CONFIDENCE_DISCLAIMER = (
     "We're showing a category from what you wrote, with more limited confidence "
@@ -135,6 +145,71 @@ def short_wellbeing_heuristic_label(text: str | None) -> str | None:
         if tok in SHORT_WELLBEING_LABELS:
             label = SHORT_WELLBEING_LABELS[tok]
     return label
+
+
+def short_checkin_reflection(label: str | None, *, user_text: str | None = None) -> str:
+    """Warm, useful reflection for short check-ins — never a 'share more' lecture."""
+    key = (label or "").strip().lower().replace(" ", "")
+    text_l = (user_text or "").lower()
+    stressy = any(w in text_l for w in ("stress", "stressed", "overwhelm", "pressure"))
+
+    if key in {"anxiety", "anxiety."} or (stressy and key in {"", "offmychest"}):
+        return (
+            "It sounds like stress has been weighing on you — that can feel really "
+            "heavy. Feeling this way is common when life or study piles up, and you're "
+            "not alone in it. If it helps, take a short break, talk with someone you "
+            "trust, or look at the support options below. This is a gentle reflection, "
+            "not a diagnosis."
+        )
+    if key == "depression":
+        return (
+            "It sounds like things have felt heavier lately. Low mood can creep in "
+            "quietly, and it makes sense that you'd want to check in. Be kind to "
+            "yourself today — a short walk, rest, or talking with someone you trust "
+            "can help a little. Support is available if you need it; this isn't a diagnosis."
+        )
+    if key == "suicidewatch":
+        return (
+            "I'm really sorry you're feeling this way. You're not alone, and reaching "
+            "out matters. Please use the urgent support options below — Samaritans "
+            "(116 123) are there to listen any time, and if you're in immediate danger "
+            "call 999 or go to A&E."
+        )
+    if key == "bipolar":
+        return (
+            "It sounds like your mood or energy has felt up-and-down lately, which can "
+            "be unsettling. You're taking a helpful step by checking in. If it helps, "
+            "note what's changed recently and talk with someone you trust. This is a "
+            "gentle reflection, not a diagnosis."
+        )
+    return (
+        "Thank you for sharing how you're feeling — even a short check-in matters. "
+        "Whatever is on your mind, you don't have to carry it alone. If it helps, "
+        "take a breath, talk with someone you trust, or explore the support options "
+        "below. This is a gentle reflection, not a diagnosis."
+    )
+
+
+def strip_short_input_result_leaks(text: str | None) -> str:
+    """Remove input-helper / provisional lecture copy from result reflections."""
+    if not text:
+        return ""
+    out = str(text)
+    for phrase in SHORT_INPUT_RESULT_LEAK_PHRASES:
+        # Case-insensitive removal of known leak phrases (and the full disclaimer).
+        pattern = re.compile(re.escape(phrase), re.IGNORECASE)
+        out = pattern.sub("", out)
+    if LIMITED_CONTEXT_DISCLAIMER.lower() in out.lower():
+        # Fallback exact-ish wipe if wording drifted slightly.
+        out = re.sub(
+            r"You've shared only a little so far[^.]*\.",
+            "",
+            out,
+            flags=re.IGNORECASE,
+        )
+    out = re.sub(r"\s{2,}", " ", out).strip()
+    out = re.sub(r"\s+([,.])", r"\1", out)
+    return out.strip(" -—")
 
 
 def should_abstain(confidence: float, *, threshold: float | None = None) -> bool:

@@ -84,6 +84,21 @@ class CheckInPersistenceTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.db.close()
 
+    def test_strip_short_input_result_leaks(self) -> None:
+        from app.services.abstention import (
+            LIMITED_CONTEXT_DISCLAIMER,
+            short_checkin_reflection,
+            strip_short_input_result_leaks,
+        )
+
+        polluted = f"{LIMITED_CONTEXT_DISCLAIMER} It sounds like stress is hard."
+        cleaned = strip_short_input_result_leaks(polluted)
+        self.assertNotIn("shared only a little", cleaned.lower())
+        self.assertIn("stress", cleaned.lower())
+        warm = short_checkin_reflection("Anxiety", user_text="I feel stressed")
+        self.assertIn("stress", warm.lower())
+        self.assertNotIn("share more", warm.lower())
+
     def test_authenticated_analyse_creates_check_in(self) -> None:
         payload = AnalyseRequest(
             typed_text="I feel really happy today after finishing my exams.",

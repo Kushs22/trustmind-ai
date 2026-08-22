@@ -250,7 +250,7 @@ See `backend/.env.example`, `backend/render.yaml`, `frontend/.env.local.example`
 |--------|--------|
 | **Frontend → Vercel** | Root `frontend/`; set `NEXT_PUBLIC_API_URL=https://trustmind-ai.onrender.com` |
 | **Backend → Render** | `rootDir: backend`; `PYTHONPATH` must include monorepo root for `rag/` and `research/` (see `backend/render.yaml`); set secrets in dashboard |
-| **Database → Render Postgres** | Create a Postgres instance and set `DATABASE_URL` on the API service (blueprint wires `trustmind-db`). Without this, login history cannot persist across redeploys. |
+| **Database → Render Postgres** | Create a Postgres instance and set `DATABASE_URL` on the API service (blueprint wires `trustmind-db`). Without this, login history cannot persist across redeploys. Startup runs `create_all` — no manual migration step. If the API fails to boot after a DB change, check Render logs for `Database initialisation failed`. |
 
 **Logged-in history:** while signed in, Analyse defaults to **Save this check-in to my history**. Dashboard loads `/api/v1/check-ins` with the Bearer token from `localStorage`. Anonymous / private (save off) never writes cross-device history.
 

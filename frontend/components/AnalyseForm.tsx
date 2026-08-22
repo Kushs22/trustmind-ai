@@ -14,7 +14,7 @@ import {
   type EvidenceItem,
   type PipelineMode,
 } from "@/lib/api";
-import { getToken } from "@/lib/auth";
+import { AUTH_CHANGED_EVENT, getToken, isAuthenticated } from "@/lib/auth";
 import { indicatorDisplayName, predictionDisplayName } from "@/lib/displayLabels";
 import { useFileUpload } from "@/hooks/useFileUpload";
 
@@ -66,6 +66,7 @@ export function AnalyseForm() {
   const [showReview, setShowReview] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showResult, setShowResult] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(false);
   const [saveToHistory, setSaveToHistory] = useState(false);
   const [analysePrivately, setAnalysePrivately] = useState(true);
   const [pipelineMode, setPipelineMode] = useState<Exclude<PipelineMode, "auto">>(
@@ -73,9 +74,30 @@ export function AnalyseForm() {
   );
   const [result, setResult] = useState<AnalyseResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [showMoreEvidence, setShowMoreEvidence] = useState(false);
   const timersRef = useRef<number[]>([]);
   const files = useFileUpload();
+
+  // Logged-in users default Save ON (and private off) so Dashboard history works
+  // without hunting for a toggle. Anonymous stays opt-in.
+  useEffect(() => {
+    function syncAuthDefaults() {
+      const authed = isAuthenticated();
+      setLoggedIn(authed);
+      if (authed) {
+        setSaveToHistory(true);
+        setAnalysePrivately(false);
+      }
+    }
+    syncAuthDefaults();
+    window.addEventListener(AUTH_CHANGED_EVENT, syncAuthDefaults);
+    window.addEventListener("storage", syncAuthDefaults);
+    return () => {
+      window.removeEventListener(AUTH_CHANGED_EVENT, syncAuthDefaults);
+      window.removeEventListener("storage", syncAuthDefaults);
+    };
+  }, []);
 
   const hasContent = Boolean(
     text.trim() ||
@@ -126,6 +148,7 @@ export function AnalyseForm() {
     setShowResult(false);
     setShowReview(false);
     setError(null);
+    setSaveNotice(null);
     setResult(null);
     setShowMoreEvidence(false);
 
@@ -134,8 +157,10 @@ export function AnalyseForm() {
       timersRef.current.push(finishTimer);
     });
 
+    const wantSave = saveToHistory;
+
     try {
-      if (saveToHistory && !getToken()) {
+      if (wantSave && !getToken()) {
         await createAnonymousSession();
       }
 
@@ -164,7 +189,7 @@ export function AnalyseForm() {
           speech_transcript: speechTranscript.trim(),
           image_context,
           pdf_context,
-          save_to_history: saveToHistory,
+          save_to_history: wantSave,
           analyse_privately: analysePrivately,
           pipeline_mode: pipelineMode,
           include_debug: developerMode,
@@ -174,6 +199,14 @@ export function AnalyseForm() {
 
       setResult(analysis);
       setShowResult(true);
+
+      if (wantSave && analysis.saved_to_history) {
+        setSaveNotice("Saved to your history — you can review it on the Dashboard.");
+      } else if (wantSave && !analysis.saved_to_history) {
+        setError(
+          "Analysis completed, but saving to history failed. Please try again or check you are still signed in.",
+        );
+      }
     } catch (err) {
       clearTimers();
       setError(
@@ -212,6 +245,14 @@ export function AnalyseForm() {
           role="alert"
         >
           <p className="font-semibold">{error}</p>
+        </div>
+      )}
+      {saveNotice && !error && (
+        <div
+          className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-900 dark:border-teal-900 dark:bg-teal-950/40 dark:text-teal-100"
+          role="status"
+        >
+          <p className="font-medium">{saveNotice}</p>
         </div>
       )}
 
@@ -377,8 +418,16 @@ export function AnalyseForm() {
           </div>
           <Toggle
             id="save-history"
-            label="Save this check-in to my history"
-            description="Store a summary in your dashboard for future reference. Original audio, images and PDFs are never saved."
+            label={
+              loggedIn
+                ? "Save this check-in to my history (on by default while signed in)"
+                : "Save this check-in to my history"
+            }
+            description={
+              loggedIn
+                ? "Stores a summary on your Dashboard. Turn off if you do not want this check-in saved. Original audio, images and PDFs are never saved."
+                : "Store a summary in your dashboard for future reference. Original audio, images and PDFs are never saved."
+            }
             checked={saveToHistory}
             onChange={setSaveToHistory}
             disabled={isProcessing}
@@ -386,7 +435,7 @@ export function AnalyseForm() {
           <Toggle
             id="analyse-privately"
             label="Analyse privately"
-            description="Process without storing raw text, transcripts, or file contents."
+            description="Process without storing raw text, transcripts, or file contents. When save is on, only metadata is kept."
             checked={analysePrivately}
             onChange={setAnalysePrivately}
             disabled={isProcessing}

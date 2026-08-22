@@ -1,4 +1,5 @@
 import json
+import logging
 import uuid
 
 from sqlalchemy.orm import Session
@@ -16,6 +17,8 @@ from app.schemas.analyse import (
 )
 from app.schemas.multimodal import InputSummaryOut, ProcessedAttachmentOut
 from app.services.analyse_service import run_analysis
+
+logger = logging.getLogger(__name__)
 
 
 def _text_preview(text: str, max_len: int = 120) -> str:
@@ -59,10 +62,24 @@ def analyse_and_optionally_save(
             or result.status == "abstained",
         )
         db.add(check_in)
-        db.commit()
-        db.refresh(check_in)
+        try:
+            db.commit()
+            db.refresh(check_in)
+        except Exception:
+            db.rollback()
+            logger.exception(
+                "Failed to save check-in for user_id=%s (save_to_history=True)",
+                user.id,
+            )
+            raise
         saved = True
         check_in_id = check_in.id
+        logger.info(
+            "Saved check-in id=%s user_id=%s private=%s",
+            check_in_id,
+            user.id,
+            payload.analyse_privately,
+        )
 
     breakdown = None
     if result.confidence_breakdown:

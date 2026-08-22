@@ -299,6 +299,8 @@ class TrustExplainabilityTests(unittest.TestCase):
         self.assertEqual(items[0].retrieval_score, 0.95)
         self.assertTrue(items[0].url.startswith("https://"))
         self.assertIn("—", format_display_label("NHS", "Depression overview"))
+        self.assertIn("We included this", items[0].reason_retrieved)
+        self.assertNotIn("does not prove a diagnosis", items[0].reason_retrieved.lower())
 
     def test_diagnostic_language_avoided(self) -> None:
         out = sanitise_reasoning("This proves you have depression.")
@@ -312,7 +314,7 @@ class TrustExplainabilityTests(unittest.TestCase):
     def test_internal_evaluation_label_unchanged(self) -> None:
         self.assertEqual(
             prediction_display_name("bipolar"),
-            "It sounds like you may be experiencing mood-swing themes",
+            "It sounds like your mood or energy has felt up-and-down lately",
         )
         # Research/storage label remains the SWMH class string.
         self.assertEqual("bipolar", "bipolar")
@@ -440,20 +442,90 @@ class TrustExplainabilityTests(unittest.TestCase):
     def test_prediction_display_names(self) -> None:
         self.assertEqual(
             prediction_display_name("depression"),
-            "It sounds like you may be experiencing low-mood themes",
+            "It sounds like low mood may be weighing on you",
         )
         self.assertEqual(
             prediction_display_name("Anxiety"),
-            "It sounds like you may be experiencing anxiety-related themes",
+            "It sounds like stress or worry has been weighing on you",
         )
         self.assertEqual(
             prediction_display_name("SuicideWatch"),
-            "It sounds like you may need urgent safety support",
+            "I'm really sorry you're feeling this way — please get support now",
         )
         self.assertEqual(
             prediction_display_name("bipolar"),
-            "It sounds like you may be experiencing mood-swing themes",
+            "It sounds like your mood or energy has felt up-and-down lately",
         )
+
+    def test_short_stress_gets_warm_reflection_not_share_more(self) -> None:
+        from app.config import settings
+        from app.schemas.analyse import AnalyseRequest
+        from app.services import pipeline_controller as pc
+
+        fake = {
+            "prediction": "Anxiety",
+            "confidence": 0.7,
+            "reasoning": "ok",
+            "sources": [],
+            "retrieved_passages": [],
+            "pipeline_used": "LLM",
+            "latency_ms": 5.0,
+            "uncertainty": "Medium",
+        }
+        req = AnalyseRequest(
+            text="I feel stressed",
+            typed_text="I feel stressed",
+            pipeline_mode="llm",
+            analyse_privately=True,
+        )
+        with patch("app.services.llm_pipeline.run_llm_pipeline", return_value=fake), patch.object(
+            pc.settings, "openai_api_key", "sk-test"
+        ), patch.object(settings, "enable_abstention", True):
+            result = pc.run_configured_pipeline(req)
+
+        self.assertEqual(result.prediction, "Anxiety")
+        self.assertNotIn("shared only a little", result.reasoning.lower())
+        self.assertNotIn("more you share", result.reasoning.lower())
+        self.assertNotIn("gentle and provisional", result.reasoning.lower())
+        self.assertIn("stress", result.reasoning.lower())
+        self.assertIn("stress", (result.prediction_display or "").lower())
+
+    def test_short_input_does_not_inject_provisional_disclaimer(self) -> None:
+        """Input-area tip must not be duplicated into result reflection copy."""
+        from app.config import settings
+        from app.schemas.analyse import AnalyseRequest
+        from app.services import pipeline_controller as pc
+
+        fake = {
+            "prediction": "SuicideWatch",
+            "confidence": 0.8,
+            "reasoning": (
+                "I'm really sorry you're feeling this way. You're not alone, "
+                "and reaching out is an important step."
+            ),
+            "sources": [],
+            "retrieved_passages": [],
+            "pipeline_used": "LLM",
+            "latency_ms": 5.0,
+            "uncertainty": "Low",
+        }
+        req = AnalyseRequest(
+            text="I'm feeling suicidal",
+            typed_text="I'm feeling suicidal",
+            pipeline_mode="llm",
+            analyse_privately=True,
+        )
+        with patch("app.services.llm_pipeline.run_llm_pipeline", return_value=fake), patch.object(
+            pc.settings, "openai_api_key", "sk-test"
+        ), patch.object(settings, "enable_abstention", True):
+            result = pc.run_configured_pipeline(req)
+
+        self.assertEqual(result.prediction, "SuicideWatch")
+        self.assertNotIn("shared only a little", result.reasoning.lower())
+        self.assertNotIn("more you share", result.reasoning.lower())
+        self.assertIn("really sorry", result.prediction_display.lower())
+        self.assertTrue(result.safety_triggered)
+        self.assertIn("999", " ".join(result.safe_next_steps))
 
     def test_standalone_llm_controller_does_not_keyword_fallback(self) -> None:
         """Regression: missing GroundingInfo import caused NameError → keyword path."""
@@ -495,7 +567,7 @@ class TrustExplainabilityTests(unittest.TestCase):
 
         self.assertEqual(result.pipeline_used, "LLM")
         self.assertEqual(result.prediction, "Anxiety")
-        self.assertEqual(result.prediction_display, "It sounds like you may be experiencing anxiety-related themes")
+        self.assertEqual(result.prediction_display, "It sounds like stress or worry has been weighing on you")
         self.assertEqual(result.grounding_status, "Standalone model response")
         self.assertEqual(result.grounding.get("status"), "not_applicable")
         self.assertNotIn("keyword", (result.grounding_status or "").lower())

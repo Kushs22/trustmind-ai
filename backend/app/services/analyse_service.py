@@ -149,14 +149,14 @@ def _run_keyword_analysis(request: AnalyseRequest) -> AnalyseResult:
             grounding_status="Crisis support resources recommended",
             abstention_status="Abstention triggered — no clinical prediction",
             explanation=(
-                "It sounds like you may be in a lot of distress right now. "
-                "TrustMind AI does not diagnose or provide crisis counselling — "
-                "please consider the urgent support options below."
+                "I'm really sorry you're feeling this way. You're not alone, "
+                "and reaching out matters. TrustMind AI can't provide crisis "
+                "counselling — please use the urgent support options below."
             ),
             safe_next_steps=[
-                "If you are in immediate danger, please contact emergency services",
-                "You can reach Samaritans (116 123) or local crisis support",
-                "Please speak to someone you trust or UWE wellbeing support",
+                "If you are in immediate danger, call 999 or go to A&E",
+                "You can reach Samaritans on 116 123 (UK) any time — they're there to listen",
+                "Please speak to someone you trust, or contact UWE wellbeing support",
             ],
             safety_note=SAFETY_NOTE,
             early_signs=early_signs or ["self-harm / suicidal crisis signs"],
@@ -164,13 +164,13 @@ def _run_keyword_analysis(request: AnalyseRequest) -> AnalyseResult:
             prediction=None,
             confidence=0.62,
             reasoning=(
-                "It sounds like you may need urgent safety support right now — "
-                "we've paused a labelled category and highlighted help options instead."
+                "I'm really sorry you're feeling this way. We've prioritised "
+                "support options so you can reach someone who can help right now."
             ),
             sources=[],
             message=(
-                "We're holding back a labelled assessment and prioritising support "
-                "options for you."
+                "We've prioritised support options for you rather than a labelled "
+                "assessment."
             ),
             recommendation=(
                 "If you'd like support, consider contacting your GP, NHS services, "
@@ -192,15 +192,16 @@ def _run_keyword_analysis(request: AnalyseRequest) -> AnalyseResult:
         explanation = (
             "It sounds like several themes may be coming through in what you shared "
             f"(for example: {', '.join(early_signs[:3])}). "
-            "This is not a diagnosis — supportive resources may still help."
+            "You're taking a helpful step by checking in — support is available if you need it."
         )
         conf_f = 0.74
     elif n >= 1:
         concern, confidence, uncertainty = "Low", "78%", "Medium"
         explanation = (
-            "It sounds like you may be experiencing some early wellbeing themes "
+            "It sounds like you may be noticing some early wellbeing themes "
             f"({', '.join(early_signs)}). "
-            "This is not a diagnosis. Gentle support and another check-in later can still help."
+            "Be kind to yourself — a short break or talking with someone you trust can help. "
+            "This isn't a diagnosis."
         )
         conf_f = 0.78
     else:
@@ -208,7 +209,7 @@ def _run_keyword_analysis(request: AnalyseRequest) -> AnalyseResult:
         early_signs = []
         explanation = (
             "From what you've shared, there aren't strong early distress themes coming through. "
-            "This is not a diagnosis. You're welcome to check in again if how you feel changes."
+            "You're welcome to check in again anytime if how you feel changes."
         )
         conf_f = 0.85
 

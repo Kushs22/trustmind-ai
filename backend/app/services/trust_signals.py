@@ -138,11 +138,13 @@ def resolve_grounding(
 
 
 PREDICTION_DISPLAY: dict[str, str] = {
-    "depression": "It sounds like you may be experiencing low-mood themes",
-    "anxiety": "It sounds like you may be experiencing anxiety-related themes",
-    "suicidewatch": "It sounds like you may need urgent safety support",
-    "bipolar": "It sounds like you may be experiencing mood-swing themes",
-    "offmychest": "It sounds like you're sharing something that's been on your mind",
+    "depression": "It sounds like low mood may be weighing on you",
+    "anxiety": "It sounds like stress or worry has been weighing on you",
+    "suicidewatch": (
+        "I'm really sorry you're feeling this way — please get support now"
+    ),
+    "bipolar": "It sounds like your mood or energy has felt up-and-down lately",
+    "offmychest": "It sounds like something's been sitting heavy on your mind",
 }
 
 

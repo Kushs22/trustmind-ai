@@ -15,10 +15,11 @@ from app.config import settings
 from app.schemas.analyse import AnalyseRequest
 from app.services.abstention import (
     LIMITED_CONFIDENCE_DISCLAIMER,
-    LIMITED_CONTEXT_DISCLAIMER,
     apply_abstention,
     is_underspecified_input,
+    short_checkin_reflection,
     short_wellbeing_heuristic_label,
+    strip_short_input_result_leaks,
 )
 from app.services.analyse_logging import log_analyse_run
 from app.services.confidence_calibration import uncertainty_from_confidence
@@ -108,9 +109,9 @@ def _confidence_percent(confidence: float) -> str:
 def _default_next_steps(high_risk: bool) -> list[str]:
     if high_risk:
         return [
-            "If you are in immediate danger, please contact emergency services",
-            "You can reach Samaritans on 116 123 (UK) any time",
-            "Please speak to someone you trust or UWE wellbeing support",
+            "If you are in immediate danger, call 999 or go to A&E",
+            "You can reach Samaritans on 116 123 (UK) any time — they're there to listen",
+            "Please speak to someone you trust, or contact UWE wellbeing support",
         ]
     return [
         "If it helps, talk with someone you trust about how you're feeling",
@@ -201,11 +202,28 @@ def run_configured_pipeline(request: AnalyseRequest) -> PipelineResult:
             prediction = heuristic
             if confidence < 0.55:
                 confidence = 0.55
-            if not reasoning:
-                reasoning = (
-                    f"Short check-in matched a clear wellbeing cue mapped to "
-                    f"{heuristic} for research classification (not a diagnosis)."
+            if not reasoning or "matched a clear wellbeing cue" in reasoning.lower():
+                reasoning = short_checkin_reflection(
+                    heuristic,
+                    user_text=request.typed_text or request.speech_transcript or text,
                 )
+    elif short_input and prediction:
+        # Prefer a warm short reflection over thin / lecture-y model copy.
+        thin = len((reasoning or "").split()) < 18
+        lecturey = any(
+            p in (reasoning or "").lower()
+            for p in (
+                "shared only a little",
+                "more you share",
+                "matched a clear wellbeing cue",
+                "for research classification",
+            )
+        )
+        if thin or lecturey or not reasoning:
+            reasoning = short_checkin_reflection(
+                prediction,
+                user_text=request.typed_text or request.speech_transcript or text,
+            )
 
     decision = apply_abstention(
         confidence,
@@ -217,10 +235,9 @@ def run_configured_pipeline(request: AnalyseRequest) -> PipelineResult:
     )
     abstained = decision.abstained
     final_prediction = None if abstained else prediction
-    if short_input and not abstained and final_prediction:
-        if LIMITED_CONTEXT_DISCLAIMER.lower() not in reasoning.lower():
-            reasoning = f"{LIMITED_CONTEXT_DISCLAIMER} {reasoning}".strip()
-    elif (
+    # Short-input tip lives under the prompt/input UI — never repeat it in results.
+    reasoning = strip_short_input_result_leaks(reasoning)
+    if (
         not abstained
         and decision.limited_confidence
         and final_prediction
@@ -327,6 +344,9 @@ def run_configured_pipeline(request: AnalyseRequest) -> PipelineResult:
             next_steps = kw.safe_next_steps
             explanation = kw.explanation
             concern = kw.concern_level
+
+    explanation = strip_short_input_result_leaks(explanation)
+    reasoning = strip_short_input_result_leaks(reasoning)
 
     public_message = decision.message if abstained else ""
     if pipeline_used == "keyword_fallback" and pipeline_error and not public_message:

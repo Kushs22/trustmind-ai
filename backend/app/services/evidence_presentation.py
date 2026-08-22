@@ -120,21 +120,22 @@ def _reason_retrieved(
 ) -> str:
     """Cautious one-to-two sentence explanation — no diagnostic claims."""
     overlap = sorted(_tokens(user_text) & _tokens(passage_text))
-    theme = (topic or "").strip() or (prediction or "wellbeing")
+    theme = (
+        (topic or "").strip().replace("_", " ")
+        or (prediction or "wellbeing")
+    )
     org = (organisation or "Trusted guidance").strip()
 
     if overlap:
         shown = ", ".join(overlap[:4])
         return (
-            f"This {org} guidance may be helpful because it touches themes that "
-            f"overlap with what you shared (for example: {shown}). "
-            f"It offers general information related to {theme} — it does not "
-            f"prove a diagnosis."
+            f"We included this {org} guidance because it relates to what you "
+            f"shared (for example: {shown}). It offers general information on "
+            f"{theme} that may be useful alongside your check-in."
         )
     return (
-        f"This {org} guidance was included as related support on {theme}. "
-        f"It can sit alongside what you shared as cautious context — not a "
-        f"clinical conclusion."
+        f"We included this {org} guidance as related support on {theme}. "
+        f"It can sit alongside what you shared as gentle context."
     )
 
 
