@@ -26,7 +26,8 @@ import { AUTH_CHANGED_EVENT, getToken, isAuthenticated, isRegisteredUser } from 
 import { indicatorDisplayName, predictionDisplayName } from "@/lib/displayLabels";
 import { useFileUpload } from "@/hooks/useFileUpload";
 
-const PROCESSING_DURATION_MS = 2600;
+/** Soft UX floor only — never pad beyond the real API latency. */
+const PROCESSING_DURATION_MS = 350;
 
 /** Soft guidance only — never disables Review/Confirm; one-word check-ins are allowed. */
 const SHORT_INPUT_TIP_WORDS = 12;

@@ -25,6 +25,8 @@ logger = logging.getLogger(__name__)
 ChatRole = Literal["user", "assistant"]
 
 MAX_THREAD_MESSAGES = 40
+# Keep chat prompts short so follow-ups stay snappy.
+MAX_PROMPT_MESSAGES = 12
 MAX_MESSAGE_CHARS = 4000
 _CRISIS_PATTERNS = (
     r"\bsuicid",
@@ -135,9 +137,10 @@ def format_thread_for_prompt(messages: list[dict[str, Any]]) -> str:
     if not messages:
         return ""
     lines = ["Conversation so far (for continuity — not a diagnosis record):"]
-    for msg in messages[-MAX_THREAD_MESSAGES:]:
+    for msg in messages[-MAX_PROMPT_MESSAGES:]:
         label = "User" if msg.get("role") == "user" else "TrustMind"
-        lines.append(f"{label}: {msg.get('content', '')}")
+        content = _clip(str(msg.get("content") or ""), 900)
+        lines.append(f"{label}: {content}")
     lines.append(
         "Continuity rules: Acknowledge earlier turns briefly when helpful. "
         "Prioritise the latest user message. Do not invent history. "
@@ -229,9 +232,12 @@ def generate_follow_up_reply(
         )
         user_prompt = (f"{thread_block}\n\n" if thread_block else "") + latest
 
+        chat_model = (settings.openai_chat_model or settings.openai_model).strip()
         response = client.chat.completions.create(
-            model=settings.openai_model,
+            model=chat_model,
             temperature=min(0.7, float(settings.openai_temperature) + 0.15),
+            max_tokens=max(64, int(settings.openai_chat_max_tokens)),
+            timeout=float(settings.openai_chat_timeout_seconds),
             response_format={"type": "json_object"},
             messages=[
                 {"role": "system", "content": system},

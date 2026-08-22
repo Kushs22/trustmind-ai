@@ -82,7 +82,8 @@ def infer_tone_cues(
             "safety_hint": False,
         }
 
-    if not settings.openai_api_key:
+    # Product path: skip a second LLM round-trip (Whisper + reply is enough).
+    if not settings.openai_api_key or not settings.enable_llm_audio_tone:
         return _fallback_tone(text, duration_seconds)
 
     try:
@@ -100,9 +101,12 @@ def infer_tone_cues(
             "Note soft tone cues only (how this may have sounded). "
             "Not a diagnosis."
         )
+        chat_model = (settings.openai_chat_model or settings.openai_model).strip()
         response = client.chat.completions.create(
-            model=settings.openai_model,
+            model=chat_model,
             temperature=min(0.5, float(settings.openai_temperature)),
+            max_tokens=180,
+            timeout=float(settings.openai_chat_timeout_seconds),
             response_format={"type": "json_object"},
             messages=[
                 {"role": "system", "content": _TONE_SYSTEM},

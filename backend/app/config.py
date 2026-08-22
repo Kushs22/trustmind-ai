@@ -51,7 +51,11 @@ class Settings(BaseSettings):
     analyse_backend: str = "auto"
     openai_api_key: str = ""
     openai_model: str = "gpt-4.1"
+    # Faster model for multi-turn chat follow-ups (product latency).
+    openai_chat_model: str = "gpt-4.1-mini"
     openai_temperature: float = 0.2
+    openai_chat_timeout_seconds: float = 25.0
+    openai_chat_max_tokens: int = 320
 
     # Mode A (false) = standalone LLM | Mode B (true) = hybrid RAG
     use_rag: bool = False
@@ -64,10 +68,14 @@ class Settings(BaseSettings):
     enable_support_resources: bool = True
 
     # Evidence-based confidence calibration (dissertation)
+    # Product default is 1 run for latency; set CONSISTENCY_RUNS=3 for offline evals.
     enable_confidence_calibration: bool = True
-    consistency_runs: int = 3
+    consistency_runs: int = 1
     # Slight temperature for multi-run consistency when primary temp is near 0
     consistency_temperature: float = 0.3
+
+    # Extra LLM tone pass after Whisper — off by default (heuristic cues are enough).
+    enable_llm_audio_tone: bool = False
 
     # Grounding status thresholds (0–100 trust-signal scale)
     grounding_retrieval_quality_min: int = 55

@@ -50,12 +50,24 @@ class AudioToneServiceTests(unittest.TestCase):
     def test_infer_tone_fallback_without_api_key(self) -> None:
         with patch("app.services.audio_tone_service.settings") as mock_settings:
             mock_settings.openai_api_key = ""
+            mock_settings.enable_llm_audio_tone = False
             result = infer_tone_cues(
                 transcript="I am stressed about deadlines.",
                 duration_seconds=4.0,
             )
         self.assertIn("tone_summary", result)
         self.assertIn(result["uncertainty"], ("low", "medium", "high"))
+        self.assertFalse(result["safety_hint"])
+
+    def test_infer_tone_uses_heuristic_when_llm_tone_disabled(self) -> None:
+        with patch("app.services.audio_tone_service.settings") as mock_settings:
+            mock_settings.openai_api_key = "sk-test"
+            mock_settings.enable_llm_audio_tone = False
+            result = infer_tone_cues(
+                transcript="Things have been a bit heavy lately.",
+                duration_seconds=5.0,
+            )
+        self.assertTrue(result["tone_summary"])
         self.assertFalse(result["safety_hint"])
 
     def test_process_chat_audio_wires_transcript_and_tone(self) -> None:
