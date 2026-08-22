@@ -16,6 +16,25 @@ class CheckInResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class CheckInDetailResponse(BaseModel):
+    """Full saved check-in for dashboard detail / resume."""
+
+    id: str
+    date: str
+    concern: str
+    confidence: str
+    uncertainty_level: str
+    grounding_status: str
+    abstention_status: str
+    abstained: bool
+    explanation: str
+    safe_next_steps: list[str]
+    safety_note: str
+    preview: str | None
+    is_private: bool
+    created_at: datetime
+
+
 class DashboardStatsResponse(BaseModel):
     saved_analyses: int
     avg_ai_confidence: int | None

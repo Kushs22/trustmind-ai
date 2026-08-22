@@ -174,6 +174,148 @@ class CheckInPersistenceTests(unittest.TestCase):
         self.assertFalse(response.saved_to_history)
         self.assertEqual(self.db.query(CheckIn).count(), 0)
 
+    def test_continuity_injected_for_authenticated_with_history(self) -> None:
+        prior = CheckIn(
+            id=str(uuid.uuid4()),
+            user_id=self.user.id,
+            concern_level="Moderate",
+            ai_confidence="70%",
+            uncertainty_level="Medium",
+            grounding_status="Standalone",
+            abstention_status="Prediction accepted",
+            explanation="It sounds like stress has been weighing on you.",
+            safe_next_steps='["Talk with someone you trust"]',
+            safety_note="Not a diagnosis.",
+            text_preview="I've been really stressed about exams lately.",
+            is_private=False,
+            abstained=False,
+        )
+        self.db.add(prior)
+        self.db.commit()
+
+        payload = AnalyseRequest(
+            typed_text="Still feeling stressed, but a bit better today.",
+            save_to_history=True,
+            analyse_privately=False,
+            use_past_checkins=True,
+        )
+        with patch(
+            "app.services.check_in_service.run_analysis",
+            return_value=_fake_analysis(),
+        ) as mocked:
+            response = analyse_and_optionally_save(self.db, payload, self.user)
+
+        self.assertTrue(response.continuity_used)
+        kwargs = mocked.call_args.kwargs
+        context = kwargs.get("continuity_context") or ""
+        self.assertIn("Prior check-ins", context)
+        self.assertIn("stressed about exams", context)
+
+    def test_continuity_skipped_when_private(self) -> None:
+        prior = CheckIn(
+            id=str(uuid.uuid4()),
+            user_id=self.user.id,
+            concern_level="Moderate",
+            ai_confidence="70%",
+            uncertainty_level="Medium",
+            grounding_status="Standalone",
+            abstention_status="Prediction accepted",
+            explanation="Prior reflection.",
+            safe_next_steps="[]",
+            safety_note="",
+            text_preview="Prior stress note.",
+            is_private=False,
+            abstained=False,
+        )
+        self.db.add(prior)
+        self.db.commit()
+
+        payload = AnalyseRequest(
+            typed_text="Feeling anxious.",
+            save_to_history=True,
+            analyse_privately=True,
+            use_past_checkins=True,
+        )
+        with patch(
+            "app.services.check_in_service.run_analysis",
+            return_value=_fake_analysis(),
+        ) as mocked:
+            response = analyse_and_optionally_save(self.db, payload, self.user)
+
+        self.assertFalse(response.continuity_used)
+        self.assertEqual(mocked.call_args.kwargs.get("continuity_context"), "")
+
+    def test_continuity_skipped_for_anonymous(self) -> None:
+        anon = User(
+            id=str(uuid.uuid4()),
+            email=None,
+            hashed_password=None,
+            is_anonymous=True,
+        )
+        self.db.add(anon)
+        self.db.commit()
+        prior = CheckIn(
+            id=str(uuid.uuid4()),
+            user_id=anon.id,
+            concern_level="Low",
+            ai_confidence="60%",
+            uncertainty_level="Medium",
+            grounding_status="Standalone",
+            abstention_status="Prediction accepted",
+            explanation="Prior.",
+            safe_next_steps="[]",
+            safety_note="",
+            text_preview="Earlier check-in text.",
+            is_private=False,
+            abstained=False,
+        )
+        self.db.add(prior)
+        self.db.commit()
+
+        payload = AnalyseRequest(
+            typed_text="Hello again.",
+            save_to_history=True,
+            analyse_privately=False,
+            use_past_checkins=True,
+        )
+        with patch(
+            "app.services.check_in_service.run_analysis",
+            return_value=_fake_analysis(),
+        ) as mocked:
+            response = analyse_and_optionally_save(self.db, payload, anon)
+
+        self.assertFalse(response.continuity_used)
+        self.assertEqual(mocked.call_args.kwargs.get("continuity_context"), "")
+
+    def test_get_check_in_detail(self) -> None:
+        from app.services.history_service import get_check_in
+
+        row = CheckIn(
+            id=str(uuid.uuid4()),
+            user_id=self.user.id,
+            concern_level="Low",
+            ai_confidence="65%",
+            uncertainty_level="Medium",
+            grounding_status="Standalone model response",
+            abstention_status="Prediction accepted",
+            explanation="It sounds like you're feeling stressed right now.",
+            safe_next_steps='["Talk with someone you trust", "Explore UWE wellbeing support"]',
+            safety_note="Not a diagnosis.",
+            text_preview="I feel stressed about deadlines.",
+            is_private=False,
+            abstained=False,
+        )
+        self.db.add(row)
+        self.db.commit()
+
+        detail = get_check_in(self.db, self.user, row.id)
+        self.assertIsNotNone(detail)
+        assert detail is not None
+        self.assertEqual(detail.explanation, row.explanation)
+        self.assertEqual(len(detail.safe_next_steps), 2)
+        self.assertEqual(detail.preview, "I feel stressed about deadlines.")
+        self.assertIsNone(get_check_in(self.db, self.user, "missing-id"))
+
 
 class DatabaseUrlTests(unittest.TestCase):
     def test_normalize_postgres_urls(self) -> None:

@@ -1,4 +1,4 @@
-import { clearToken, getToken, setToken } from "@/lib/auth";
+import { clearToken, getToken, setAnonymousFlag, setToken } from "@/lib/auth";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ??
@@ -112,6 +112,7 @@ export type AnalyseResponse = {
   early_signs?: string[];
   potential_indicators?: string[];
   saved_to_history: boolean;
+  continuity_used?: boolean;
   confidence_breakdown?: ConfidenceBreakdown | null;
   uncertainty?: string;
   trust_signals?: TrustSignals | null;
@@ -130,6 +131,23 @@ export type CheckIn = {
   concern: string;
   confidence: string;
   abstained: boolean;
+  preview: string | null;
+  is_private: boolean;
+  created_at: string;
+};
+
+export type CheckInDetail = {
+  id: string;
+  date: string;
+  concern: string;
+  confidence: string;
+  uncertainty_level: string;
+  grounding_status: string;
+  abstention_status: string;
+  abstained: boolean;
+  explanation: string;
+  safe_next_steps: string[];
+  safety_note: string;
   preview: string | null;
   is_private: boolean;
   created_at: string;
@@ -197,6 +215,7 @@ async function request<T>(
 
 function storeAuth(response: TokenResponse): TokenResponse {
   setToken(response.access_token);
+  setAnonymousFlag(Boolean(response.is_anonymous));
   return response;
 }
 
@@ -255,6 +274,7 @@ export async function analyseText(payload: {
   }>;
   save_to_history: boolean;
   analyse_privately: boolean;
+  use_past_checkins?: boolean;
   pipeline_mode?: PipelineMode;
   include_debug?: boolean;
 }): Promise<AnalyseResponse> {
@@ -343,6 +363,12 @@ export async function processPdfFile(file: File) {
 
 export async function getCheckIns(): Promise<CheckIn[]> {
   return request<CheckIn[]>("/api/v1/check-ins", { requireAuth: true });
+}
+
+export async function getCheckIn(id: string): Promise<CheckInDetail> {
+  return request<CheckInDetail>(`/api/v1/check-ins/${encodeURIComponent(id)}`, {
+    requireAuth: true,
+  });
 }
 
 export async function getDashboardStats(): Promise<DashboardStats> {

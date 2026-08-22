@@ -33,7 +33,11 @@ def format_retrieved_context(passages: Sequence[RetrievedPassage]) -> str:
     return "\n\n".join(blocks)
 
 
-def build_rag_prompt(user_post: str, passages: Sequence[RetrievedPassage]) -> str:
+def build_rag_prompt(
+    user_post: str,
+    passages: Sequence[RetrievedPassage],
+    continuity_context: str = "",
+) -> str:
     """
     Build the RAG classification prompt.
 
@@ -42,6 +46,12 @@ def build_rag_prompt(user_post: str, passages: Sequence[RetrievedPassage]) -> st
     """
     context = format_retrieved_context(passages)
     label_lines = "\n".join(f"- {label}" for label in CLASS_LABELS)
+    continuity_section = ""
+    if (continuity_context or "").strip():
+        continuity_section = f"""
+{continuity_context.strip()}
+
+"""
     return f"""You are TrustMind AI — a warm, careful wellbeing check-in assistant.
 
 Use ONLY the retrieved context when explaining your reasoning. Do not invent clinical
@@ -49,8 +59,8 @@ facts beyond the user post and the retrieved passages. This is NOT a medical dia
 
 Retrieved Context:
 {context}
-
-User Post:
+{continuity_section}
+Current check-in:
 {user_post}
 
 Classify into EXACTLY ONE of these labels (use the exact spelling):
@@ -77,7 +87,11 @@ Rules:
       (e.g. "I'm really sorry you're feeling this way"), validate reaching out, and
       encourage getting support now — clear and human, not clinical.
   (5) Link themes in the retrieved guidance gently, without inventing clinical facts.
-  (6) End with at most one gentle non-diagnostic reminder; do not repeat "not a diagnosis"
+  (6) If prior check-ins are provided, briefly acknowledge continuity when helpful
+      (e.g. "last time you mentioned…"); do not over-quote or guilt about gaps.
+      Prioritise the CURRENT message if it conflicts with older ones. Never invent
+      clinical diagnoses from prior check-ins.
+  (7) End with at most one gentle non-diagnostic reminder; do not repeat "not a diagnosis"
       in every sentence. Do not lecture about short inputs or ask them to share more.
   Do NOT include citation markers like [1], [2], source IDs, or phrases such as
   "Retrieved sources" or "according to source". Do NOT say "you have", "this proves",

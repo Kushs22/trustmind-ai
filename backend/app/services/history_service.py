@@ -4,7 +4,11 @@ from datetime import UTC
 from sqlalchemy.orm import Session
 
 from app.models import CheckIn, User
-from app.schemas.check_in import CheckInResponse, DashboardStatsResponse
+from app.schemas.check_in import (
+    CheckInDetailResponse,
+    CheckInResponse,
+    DashboardStatsResponse,
+)
 
 
 def _format_date(dt) -> str:
@@ -14,6 +18,20 @@ def _format_date(dt) -> str:
 def _parse_confidence(value: str) -> int | None:
     digits = "".join(ch for ch in value if ch.isdigit())
     return int(digits) if digits else None
+
+
+def _parse_next_steps(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    try:
+        parsed = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return [raw] if raw.strip() else []
+    if isinstance(parsed, list):
+        return [str(item).strip() for item in parsed if str(item).strip()]
+    if isinstance(parsed, str) and parsed.strip():
+        return [parsed.strip()]
+    return []
 
 
 def list_check_ins(db: Session, user: User) -> list[CheckInResponse]:
@@ -36,6 +54,32 @@ def list_check_ins(db: Session, user: User) -> list[CheckInResponse]:
         )
         for row in rows
     ]
+
+
+def get_check_in(db: Session, user: User, check_in_id: str) -> CheckInDetailResponse | None:
+    row = (
+        db.query(CheckIn)
+        .filter(CheckIn.id == check_in_id, CheckIn.user_id == user.id)
+        .first()
+    )
+    if row is None:
+        return None
+    return CheckInDetailResponse(
+        id=row.id,
+        date=_format_date(row.created_at),
+        concern=row.concern_level,
+        confidence=row.ai_confidence,
+        uncertainty_level=row.uncertainty_level,
+        grounding_status=row.grounding_status,
+        abstention_status=row.abstention_status,
+        abstained=row.abstained,
+        explanation=row.explanation or "",
+        safe_next_steps=_parse_next_steps(row.safe_next_steps),
+        safety_note=row.safety_note or "",
+        preview=row.text_preview,
+        is_private=row.is_private,
+        created_at=row.created_at,
+    )
 
 
 def dashboard_stats(db: Session, user: User) -> DashboardStatsResponse:

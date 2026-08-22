@@ -120,12 +120,17 @@ def _default_next_steps(high_risk: bool) -> list[str]:
     ]
 
 
-def run_configured_pipeline(request: AnalyseRequest) -> PipelineResult:
+def run_configured_pipeline(
+    request: AnalyseRequest,
+    *,
+    continuity_context: str = "",
+) -> PipelineResult:
     """
     Execute Mode A (LLM) or Mode B (RAG).
 
     Per-request `pipeline_mode` overrides the server `USE_RAG` default when set to
     llm or rag (auto keeps the env setting). Fallback order for RAG: RAG → LLM → keyword.
+    Optional continuity_context is prior saved check-ins for pick-up-where-you-left-off.
     """
     text = re.sub(r"\s+", " ", request.text).strip()
     if not text:
@@ -139,6 +144,8 @@ def run_configured_pipeline(request: AnalyseRequest) -> PipelineResult:
     else:
         use_rag = bool(settings.use_rag)
 
+    continuity = (continuity_context or "").strip()
+
     if not settings.openai_api_key:
         logger.error("OPENAI_API_KEY is not set on the server — using keyword fallback")
         raw = _keyword_raw(text, error="OPENAI_API_KEY missing on server")
@@ -149,11 +156,11 @@ def run_configured_pipeline(request: AnalyseRequest) -> PipelineResult:
             if use_rag:
                 from app.services.rag_pipeline_service import run_rag_pipeline
 
-                raw = run_rag_pipeline(text)
+                raw = run_rag_pipeline(text, continuity_context=continuity)
             else:
                 from app.services.llm_pipeline import run_llm_pipeline
 
-                raw = run_llm_pipeline(text)
+                raw = run_llm_pipeline(text, continuity_context=continuity)
         except Exception as exc:  # noqa: BLE001
             error = f"{type(exc).__name__}: {exc}"
             logger.exception("Primary pipeline failed (%s)", error)
@@ -161,7 +168,7 @@ def run_configured_pipeline(request: AnalyseRequest) -> PipelineResult:
                 try:
                     from app.services.llm_pipeline import run_llm_pipeline
 
-                    raw = run_llm_pipeline(text)
+                    raw = run_llm_pipeline(text, continuity_context=continuity)
                     raw["error"] = f"rag_failed_then_llm: {error}"
                     logger.warning("RAG failed; served LLM-only response")
                 except Exception as llm_exc:  # noqa: BLE001

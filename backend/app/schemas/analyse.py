@@ -28,6 +28,9 @@ class AnalyseRequest(BaseModel):
     pdf_context: list[AttachmentContext] = Field(default_factory=list)
     save_to_history: bool = False
     analyse_privately: bool = True
+    # When True, server may inject last N saved (non-private) check-ins for continuity.
+    # Ignored for anonymous / private mode; history is never trusted from the client body.
+    use_past_checkins: bool = False
     # Per-request pipeline choice for the dissertation demo (overrides USE_RAG when set).
     # auto = honour server USE_RAG; llm = standalone GPT; rag = hybrid BM25+FAISS + GPT
     pipeline_mode: Literal["auto", "llm", "rag"] = "auto"
@@ -138,6 +141,7 @@ class AnalyseResponse(BaseModel):
     early_signs: list[str] = []
     potential_indicators: list[str] = []
     saved_to_history: bool = False
+    continuity_used: bool = False
     # Evidence-based calibration / trust
     confidence_breakdown: ConfidenceBreakdownOut | None = None
     uncertainty: str = ""

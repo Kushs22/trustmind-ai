@@ -238,12 +238,17 @@ def _run_keyword_analysis(request: AnalyseRequest) -> AnalyseResult:
     )
 
 
-def run_analysis(request: AnalyseRequest) -> AnalyseResult:
+def run_analysis(
+    request: AnalyseRequest,
+    *,
+    continuity_context: str = "",
+) -> AnalyseResult:
     """
     Run the configured analyse pipeline (LLM or LLM+RAG).
 
     Frontend never talks to the LLM directly — this is the sole entry point.
     Multimodal fields are normalised into labelled combined text first.
+    Optional continuity_context is prior saved check-ins (server-loaded only).
     """
     from app.config import settings
     from app.services.multimodal_input_service import normalize_multimodal_input
@@ -268,6 +273,7 @@ def run_analysis(request: AnalyseRequest) -> AnalyseResult:
         pdf_context=request.pdf_context,
         save_to_history=request.save_to_history,
         analyse_privately=request.analyse_privately,
+        use_past_checkins=request.use_past_checkins,
         pipeline_mode=request.pipeline_mode,
         include_debug=request.include_debug,
     )
@@ -283,7 +289,10 @@ def run_analysis(request: AnalyseRequest) -> AnalyseResult:
 
     # auto / llm → dissertation LLM or RAG pipelines via controller
     try:
-        pipe = run_configured_pipeline(request)
+        pipe = run_configured_pipeline(
+            request,
+            continuity_context=continuity_context or "",
+        )
         return AnalyseResult(
             concern_level=pipe.concern_level,
             ai_confidence=pipe.ai_confidence,

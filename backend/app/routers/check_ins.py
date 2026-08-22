@@ -1,15 +1,20 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
 
-from app.dependencies import get_current_user
 from app.database import get_db
+from app.dependencies import get_current_user
 from app.models import User
-from app.schemas.check_in import CheckInResponse, DashboardStatsResponse
+from app.schemas.check_in import (
+    CheckInDetailResponse,
+    CheckInResponse,
+    DashboardStatsResponse,
+)
 from app.services.history_service import (
     dashboard_stats,
     delete_all_check_ins,
+    get_check_in,
     list_check_ins,
 )
-from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/api/v1/check-ins", tags=["check-ins"])
 
@@ -28,6 +33,21 @@ def get_stats(
     user: User = Depends(get_current_user),
 ) -> DashboardStatsResponse:
     return dashboard_stats(db, user)
+
+
+@router.get("/{check_in_id}", response_model=CheckInDetailResponse)
+def get_check_in_detail(
+    check_in_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> CheckInDetailResponse:
+    detail = get_check_in(db, user, check_in_id)
+    if detail is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Check-in not found",
+        )
+    return detail
 
 
 @router.delete("")

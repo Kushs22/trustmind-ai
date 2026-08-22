@@ -184,15 +184,26 @@ export function DashboardContent() {
                   Previous wellbeing check-ins
                 </h2>
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  Saved analyses from your account
+                  Open a check-in to re-read the reflection, or continue with
+                  continuity from recent saved history.
                 </p>
               </div>
-              <Link
-                href="/analyse"
-                className="inline-flex h-10 items-center justify-center rounded-lg bg-teal-600 px-4 text-sm font-medium text-white hover:bg-teal-700"
-              >
-                New check-in
-              </Link>
+              <div className="flex flex-wrap gap-2">
+                {checkIns.length > 0 && (
+                  <Link
+                    href="/analyse?continue=1"
+                    className="inline-flex h-10 items-center justify-center rounded-lg border border-teal-200 bg-teal-50 px-4 text-sm font-medium text-teal-800 hover:bg-teal-100 dark:border-teal-800 dark:bg-teal-950/40 dark:text-teal-100"
+                  >
+                    Pick up where I left off
+                  </Link>
+                )}
+                <Link
+                  href="/analyse"
+                  className="inline-flex h-10 items-center justify-center rounded-lg bg-teal-600 px-4 text-sm font-medium text-white hover:bg-teal-700"
+                >
+                  New check-in
+                </Link>
+              </div>
             </div>
 
             {checkIns.length === 0 ? (
@@ -208,41 +219,46 @@ export function DashboardContent() {
             ) : (
               <ul className="space-y-4">
                 {checkIns.map((item) => (
-                  <li
-                    key={item.id}
-                    className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 transition-colors hover:border-teal-100 hover:bg-teal-50/30 dark:border-slate-700 dark:bg-slate-800/50 dark:hover:border-teal-800 dark:hover:bg-teal-950/30"
-                  >
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                          {item.date}
-                        </p>
-                        <p className="mt-1 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
-                          {item.preview ??
-                            (item.is_private
-                              ? "Private check-in · raw text not stored"
-                              : "No preview available")}
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
-                          {item.concern}
-                        </span>
-                        <span className="rounded-full bg-teal-50 px-2.5 py-1 text-xs font-medium text-teal-700">
-                          {item.confidence} confidence
-                        </span>
-                        {item.abstained && (
-                          <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
-                            Abstained
+                  <li key={item.id}>
+                    <Link
+                      href={`/dashboard/${item.id}`}
+                      className="block rounded-xl border border-slate-100 bg-slate-50/50 p-4 transition-colors hover:border-teal-200 hover:bg-teal-50/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-500 dark:border-slate-700 dark:bg-slate-800/50 dark:hover:border-teal-800 dark:hover:bg-teal-950/30"
+                    >
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                            {item.date}
+                          </p>
+                          <p className="mt-1 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+                            {item.preview ??
+                              (item.is_private
+                                ? "Private check-in · raw text not stored"
+                                : "No preview available")}
+                          </p>
+                          <p className="mt-2 text-xs font-medium text-teal-700 dark:text-teal-300">
+                            Open full reflection →
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
+                            {item.concern}
                           </span>
-                        )}
-                        {item.is_private && (
-                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-400">
-                            Private
+                          <span className="rounded-full bg-teal-50 px-2.5 py-1 text-xs font-medium text-teal-700">
+                            {item.confidence} confidence
                           </span>
-                        )}
+                          {item.abstained && (
+                            <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
+                              Abstained
+                            </span>
+                          )}
+                          {item.is_private && (
+                            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-400">
+                              Private
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    </Link>
                   </li>
                 ))}
               </ul>

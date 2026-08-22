@@ -189,13 +189,22 @@ def _resolve_openai_helpers() -> tuple[Any, Any]:
         return _call_openai_json_local, _parse_prediction_local
 
 
-def _build_product_llm_prompt(post_text: str) -> str:
+def _build_product_llm_prompt(
+    post_text: str,
+    continuity_context: str = "",
+) -> str:
     """
     Product-facing prompt for standalone LLM mode.
 
     Keeps the same SWMH research labels as the dissertation baseline, with
     warm second-person, non-diagnostic wording for the user-facing reflection.
     """
+    continuity_section = ""
+    if (continuity_context or "").strip():
+        continuity_section = f"""
+{continuity_context.strip()}
+
+"""
     return f"""You are TrustMind AI — a warm, careful wellbeing check-in assistant for students.
 
 Classify the following check-in into EXACTLY ONE of these research labels
@@ -227,19 +236,23 @@ Reasoning rules (user-facing reflection):
 - If the check-in suggests suicidal distress or crisis (SuicideWatch), lead with genuine care
   (e.g. "I'm really sorry you're feeling this way"), validate that reaching out matters,
   and clearly encourage getting support now — without diagnosing or sounding clinical.
+- If prior check-ins are provided, you may briefly acknowledge continuity when it helps
+  (e.g. "last time you mentioned…"), without over-quoting or guilt about gaps.
+- When prior context conflicts with the current message, prioritise the CURRENT message.
 - Do NOT diagnose. Never say "you have", "this proves", "classic symptoms", or "the diagnosis is".
+- Do NOT invent clinical history from prior check-ins.
 - Do NOT sound clinical or academic; avoid third-person narration about "the user" or "the text".
 - Do NOT lecture about short inputs or ask them to share more in the reflection.
 - End with at most one gentle non-diagnostic reminder (support is available if needed).
 - Keep reasoning to 2–5 short sentences.
-
-Text:
+{continuity_section}
+Current check-in:
 
 {post_text}
 """
 
 
-def run_llm_pipeline(text: str) -> dict[str, Any]:
+def run_llm_pipeline(text: str, continuity_context: str = "") -> dict[str, Any]:
     """
     Run GPT-only wellbeing classification (no retrieval).
 
@@ -253,7 +266,7 @@ def run_llm_pipeline(text: str) -> dict[str, Any]:
         raise RuntimeError("OPENAI_API_KEY is required for the LLM pipeline")
 
     client = OpenAI(api_key=settings.openai_api_key)
-    prompt = _build_product_llm_prompt(text)
+    prompt = _build_product_llm_prompt(text, continuity_context=continuity_context)
     # Cap consistency runs for product latency (keyword fallback often followed long timeouts).
     configured = max(1, int(settings.consistency_runs)) if settings.enable_confidence_calibration else 1
     n_runs = min(configured, 3)

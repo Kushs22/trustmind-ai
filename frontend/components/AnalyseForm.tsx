@@ -10,11 +10,12 @@ import {
   analyseText,
   ApiError,
   createAnonymousSession,
+  getCheckIns,
   type AnalyseResponse,
   type EvidenceItem,
   type PipelineMode,
 } from "@/lib/api";
-import { AUTH_CHANGED_EVENT, getToken, isAuthenticated } from "@/lib/auth";
+import { AUTH_CHANGED_EVENT, getToken, isAuthenticated, isRegisteredUser } from "@/lib/auth";
 import { indicatorDisplayName, predictionDisplayName } from "@/lib/displayLabels";
 import { useFileUpload } from "@/hooks/useFileUpload";
 
@@ -69,6 +70,8 @@ export function AnalyseForm() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [saveToHistory, setSaveToHistory] = useState(false);
   const [analysePrivately, setAnalysePrivately] = useState(true);
+  const [usePastCheckins, setUsePastCheckins] = useState(false);
+  const [hasSavedHistory, setHasSavedHistory] = useState(false);
   const [pipelineMode, setPipelineMode] = useState<Exclude<PipelineMode, "auto">>(
     "rag",
   );
@@ -79,15 +82,39 @@ export function AnalyseForm() {
   const timersRef = useRef<number[]>([]);
   const files = useFileUpload();
 
-  // Logged-in users default Save ON (and private off) so Dashboard history works
-  // without hunting for a toggle. Anonymous stays opt-in.
+  // Authenticated users default Save ON / private off so Dashboard history works.
+  // Continuity memory is registered (non-anonymous) accounts only.
+  // ?continue=1 from Dashboard prefers continuity when history exists.
   useEffect(() => {
     function syncAuthDefaults() {
       const authed = isAuthenticated();
+      const registered = isRegisteredUser();
       setLoggedIn(authed);
       if (authed) {
         setSaveToHistory(true);
         setAnalysePrivately(false);
+      }
+      if (registered) {
+        let preferContinue = false;
+        try {
+          preferContinue =
+            new URLSearchParams(window.location.search).get("continue") === "1";
+        } catch {
+          preferContinue = false;
+        }
+        void getCheckIns()
+          .then((rows) => {
+            const usable = rows.some((r) => !r.is_private && Boolean(r.preview));
+            setHasSavedHistory(usable || rows.length > 0);
+            setUsePastCheckins(usable || preferContinue);
+          })
+          .catch(() => {
+            setHasSavedHistory(false);
+            setUsePastCheckins(preferContinue);
+          });
+      } else {
+        setHasSavedHistory(false);
+        setUsePastCheckins(false);
       }
     }
     syncAuthDefaults();
@@ -98,6 +125,15 @@ export function AnalyseForm() {
       window.removeEventListener("storage", syncAuthDefaults);
     };
   }, []);
+
+  // Continuity is only allowed for registered users with save on and private off.
+  useEffect(() => {
+    if (!isRegisteredUser() || !saveToHistory || analysePrivately) {
+      setUsePastCheckins(false);
+    } else if (hasSavedHistory) {
+      setUsePastCheckins(true);
+    }
+  }, [loggedIn, saveToHistory, analysePrivately, hasSavedHistory]);
 
   const hasContent = Boolean(
     text.trim() ||
@@ -191,6 +227,11 @@ export function AnalyseForm() {
           pdf_context,
           save_to_history: wantSave,
           analyse_privately: analysePrivately,
+          use_past_checkins:
+            wantSave &&
+            !analysePrivately &&
+            usePastCheckins &&
+            isRegisteredUser(),
           pipeline_mode: pipelineMode,
           include_debug: developerMode,
         }),
@@ -201,7 +242,13 @@ export function AnalyseForm() {
       setShowResult(true);
 
       if (wantSave && analysis.saved_to_history) {
-        setSaveNotice("Saved to your history — you can review it on the Dashboard.");
+        const continuityNote = analysis.continuity_used
+          ? " We used your recent saved check-ins so this reflection can pick up where you left off."
+          : "";
+        setSaveNotice(
+          `Saved to your history — you can review it on the Dashboard.${continuityNote}`,
+        );
+        setHasSavedHistory(true);
       } else if (wantSave && !analysis.saved_to_history) {
         setError(
           "Analysis completed, but saving to history failed. Please try again or check you are still signed in.",
@@ -253,6 +300,12 @@ export function AnalyseForm() {
           role="status"
         >
           <p className="font-medium">{saveNotice}</p>
+          <Link
+            href="/dashboard"
+            className="mt-2 inline-flex text-sm font-semibold text-teal-800 underline-offset-2 hover:underline dark:text-teal-200"
+          >
+            Open Dashboard
+          </Link>
         </div>
       )}
 
@@ -435,11 +488,29 @@ export function AnalyseForm() {
           <Toggle
             id="analyse-privately"
             label="Analyse privately"
-            description="Process without storing raw text, transcripts, or file contents. When save is on, only metadata is kept."
+            description="Process without storing raw text, transcripts, or file contents. When save is on, only metadata is kept. Continuity memory is off in private mode."
             checked={analysePrivately}
             onChange={setAnalysePrivately}
             disabled={isProcessing}
           />
+          {isRegisteredUser() && hasSavedHistory && saveToHistory && !analysePrivately && (
+            <div className="rounded-xl border border-teal-100 bg-teal-50/70 px-4 py-3 dark:border-teal-900 dark:bg-teal-950/30">
+              <p className="text-sm text-teal-900 dark:text-teal-100">
+                We&apos;ll remember your recent saved check-ins so you can pick
+                up where you left off.
+              </p>
+              <div className="mt-3">
+                <Toggle
+                  id="use-past-checkins"
+                  label="Use past check-ins"
+                  description="Includes up to your last few non-private saved check-ins as gentle continuity context — not a full chat thread."
+                  checked={usePastCheckins}
+                  onChange={setUsePastCheckins}
+                  disabled={isProcessing}
+                />
+              </div>
+            </div>
+          )}
         </div>
         <div className="mt-6 flex flex-col gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-slate-500 dark:text-slate-400">{privacyStatus}</p>

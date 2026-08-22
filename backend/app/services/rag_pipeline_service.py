@@ -24,11 +24,12 @@ def _ensure_paths() -> None:
         sys.path.insert(0, str(_REPO_ROOT))
 
 
-def run_rag_pipeline(text: str) -> dict[str, Any]:
+def run_rag_pipeline(text: str, continuity_context: str = "") -> dict[str, Any]:
     """
     Run hybrid BM25+FAISS retrieval then GPT classification.
 
     Applies multi-run consistency + calibrated confidence when enabled.
+    Optional continuity_context is prior saved check-ins (server-loaded only).
     """
     _ensure_paths()
     research = _REPO_ROOT / "research"
@@ -64,7 +65,11 @@ def run_rag_pipeline(text: str) -> dict[str, Any]:
     else:
         retrieval_error = ""
 
-    prompt = build_rag_prompt(text, passages)
+    prompt = build_rag_prompt(
+        text,
+        passages,
+        continuity_context=continuity_context or "",
+    )
     n_runs = max(1, int(settings.consistency_runs)) if settings.enable_confidence_calibration else 1
     consistency_temp = float(settings.consistency_temperature)
     primary_temp = float(settings.openai_temperature)

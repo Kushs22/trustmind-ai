@@ -17,6 +17,7 @@ from app.schemas.analyse import (
 )
 from app.schemas.multimodal import InputSummaryOut, ProcessedAttachmentOut
 from app.services.analyse_service import run_analysis
+from app.services.continuity_service import load_continuity_context
 
 logger = logging.getLogger(__name__)
 
@@ -33,12 +34,26 @@ def analyse_and_optionally_save(
     payload: AnalyseRequest,
     user: User | None,
 ) -> AnalyseResponse:
-    result = run_analysis(payload)
+    continuity_context = load_continuity_context(db, user, payload)
+    continuity_used = bool(continuity_context.strip())
+    if continuity_used:
+        logger.info(
+            "Injecting continuity context for user_id=%s (%s chars)",
+            getattr(user, "id", None),
+            len(continuity_context),
+        )
+    result = run_analysis(payload, continuity_context=continuity_context)
     saved = False
     check_in_id: str | None = None
 
     # History stores only an approved preview of combined text — never original files.
-    preview_source = (result.explanation or payload.text or "")[:500]
+    preview_source = (
+        payload.typed_text
+        or payload.text
+        or payload.speech_transcript
+        or result.explanation
+        or ""
+    )[:500]
     if payload.save_to_history:
         if user is None:
             raise PermissionError("Sign in or continue anonymously to save check-ins")
@@ -56,7 +71,7 @@ def analyse_and_optionally_save(
             safety_note=result.safety_note,
             text_preview=None
             if payload.analyse_privately
-            else _text_preview(payload.text or preview_source),
+            else _text_preview(preview_source),
             is_private=payload.analyse_privately,
             abstained="abstention" in result.abstention_status.lower()
             or result.status == "abstained",
@@ -134,6 +149,7 @@ def analyse_and_optionally_save(
         early_signs=result.early_signs,
         potential_indicators=result.potential_indicators,
         saved_to_history=saved,
+        continuity_used=continuity_used,
         confidence_breakdown=breakdown,
         uncertainty=result.uncertainty or result.uncertainty_level,
         trust_signals=trust,
