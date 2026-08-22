@@ -15,6 +15,7 @@ import {
   getCheckIn,
   getCheckIns,
   sendChatFollowUp,
+  sendChatFollowUpAudio,
   type AnalyseResponse,
   type ChatMessage,
   type EvidenceItem,
@@ -94,8 +95,8 @@ export function AnalyseForm() {
   const [chatSupportResources, setChatSupportResources] = useState<
     SupportResource[]
   >([]);
-  const [chatPrivateLocked, setChatPrivateLocked] = useState(false);
   const [loadingThread, setLoadingThread] = useState(false);
+  const [toneDisclaimer, setToneDisclaimer] = useState<string | null>(null);
   const timersRef = useRef<number[]>([]);
   const files = useFileUpload();
 
@@ -180,8 +181,8 @@ export function AnalyseForm() {
                   : []),
               ];
         setMessages(seeded);
-        setActiveCheckInId(detail.id);
-        setChatPrivateLocked(Boolean(detail.is_private));
+        // Private check-ins stay session-only in chat (no server-side append).
+        setActiveCheckInId(detail.is_private ? null : detail.id);
         setChatMode(true);
         setShowResult(false);
         setResult({
@@ -350,8 +351,16 @@ export function AnalyseForm() {
           ? [{ role: "assistant" as const, content: assistantOpening }]
           : []),
       ]);
-      setActiveCheckInId(analysis.id || null);
-      setChatPrivateLocked(Boolean(analysePrivately));
+      // Persist follow-ups only for logged-in, saved, non-private check-ins.
+      // Anonymous / private sessions can still chat; history stays in the browser
+      // for this page only and is not written back to the server.
+      const persistThread = Boolean(
+        analysis.id &&
+          wantSave &&
+          analysis.saved_to_history &&
+          !analysePrivately,
+      );
+      setActiveCheckInId(persistThread ? analysis.id! : null);
       setChatSupportResources(analysis.support_resources || []);
       setChatError(null);
 
@@ -382,20 +391,23 @@ export function AnalyseForm() {
 
   async function handleChatSend() {
     const outgoing = chatDraft.trim();
-    if (!outgoing || chatSending || chatPrivateLocked) return;
+    if (!outgoing || chatSending) return;
     setChatSending(true);
     setChatError(null);
     setChatDraft("");
     const prior = messages;
-    setMessages([...prior, { role: "user", content: outgoing }]);
+    setMessages([...prior, { role: "user", content: outgoing, input_type: "text" }]);
     try {
+      // Ephemeral when no activeCheckInId (anonymous / private / not saved).
       const response = await sendChatFollowUp({
         message: outgoing,
         check_in_id: activeCheckInId,
         history: activeCheckInId ? undefined : prior,
       });
       setMessages(response.messages);
-      if (response.check_in_id) setActiveCheckInId(response.check_in_id);
+      if (response.persisted && response.check_in_id) {
+        setActiveCheckInId(response.check_in_id);
+      }
       if (response.support_resources?.length) {
         setChatSupportResources(response.support_resources);
       }
@@ -411,6 +423,55 @@ export function AnalyseForm() {
       setChatSending(false);
     }
   }
+
+  async function handleChatSendAudio(file: Blob, filename: string) {
+    if (chatSending) return;
+    setChatSending(true);
+    setChatError(null);
+    const prior = messages;
+    setMessages([
+      ...prior,
+      {
+        role: "user",
+        content: "Audio message",
+        input_type: "audio",
+        transcript: "Transcribing…",
+      },
+    ]);
+    try {
+      const response = await sendChatFollowUpAudio({
+        file,
+        filename,
+        check_in_id: activeCheckInId,
+        history: activeCheckInId ? undefined : prior,
+      });
+      setMessages(response.messages);
+      if (response.persisted && response.check_in_id) {
+        setActiveCheckInId(response.check_in_id);
+      }
+      if (response.support_resources?.length) {
+        setChatSupportResources(response.support_resources);
+      }
+      if (response.tone_disclaimer) {
+        setToneDisclaimer(response.tone_disclaimer);
+      }
+    } catch (err) {
+      setMessages(prior);
+      setChatError(
+        err instanceof ApiError
+          ? err.message
+          : "Unable to send your audio message. Please try again or type instead.",
+      );
+    } finally {
+      setChatSending(false);
+    }
+  }
+
+  const chatSubtitle = activeCheckInId
+    ? null
+    : loggedIn
+      ? "Session thread — not saved to your history (private or unsaved check-in)"
+      : "Session only — this chat isn’t saved while you’re signed out";
 
   function handleReviewRequest() {
     if (!hasContent || isProcessing || filesBusy) return;
@@ -502,16 +563,13 @@ export function AnalyseForm() {
             draft={chatDraft}
             onDraftChange={setChatDraft}
             onSend={() => void handleChatSend()}
+            onSendAudio={(file, filename) => void handleChatSendAudio(file, filename)}
             isSending={chatSending}
             error={chatError}
             supportResources={chatSupportResources}
             persisted={Boolean(activeCheckInId)}
-            disabled={chatPrivateLocked}
-            disabledReason={
-              chatPrivateLocked
-                ? "This check-in was analysed privately, so the chat thread cannot continue. Start a new chat to share more."
-                : null
-            }
+            subtitle={chatSubtitle}
+            toneDisclaimer={toneDisclaimer}
           />
         </div>
       )}
@@ -1191,16 +1249,13 @@ export function AnalyseForm() {
             draft={chatDraft}
             onDraftChange={setChatDraft}
             onSend={() => void handleChatSend()}
+            onSendAudio={(file, filename) => void handleChatSendAudio(file, filename)}
             isSending={chatSending}
             error={chatError}
             supportResources={chatSupportResources}
             persisted={Boolean(activeCheckInId)}
-            disabled={chatPrivateLocked}
-            disabledReason={
-              chatPrivateLocked
-                ? "Private mode check-ins cannot continue as a chat thread. Start a new chat to share more."
-                : null
-            }
+            subtitle={chatSubtitle}
+            toneDisclaimer={toneDisclaimer}
           />
         </div>
       )}

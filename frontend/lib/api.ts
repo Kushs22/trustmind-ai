@@ -148,6 +148,10 @@ export type ChatMessage = {
   content: string;
   created_at?: string | null;
   safety_triggered?: boolean;
+  input_type?: "text" | "audio" | null;
+  transcript?: string | null;
+  tone_summary?: string | null;
+  affect_cues?: string[];
 };
 
 export type ChatFollowUpResponse = {
@@ -157,6 +161,7 @@ export type ChatFollowUpResponse = {
   support_resources: SupportResource[];
   messages: ChatMessage[];
   persisted: boolean;
+  tone_disclaimer?: string | null;
 };
 
 export type CheckInDetail = {
@@ -412,6 +417,29 @@ export async function sendChatFollowUp(payload: {
       history: payload.history || [],
     }),
   });
+}
+
+export async function sendChatFollowUpAudio(payload: {
+  file: Blob;
+  filename?: string;
+  check_in_id?: string | null;
+  history?: ChatMessage[];
+}): Promise<ChatFollowUpResponse> {
+  const form = new FormData();
+  const name =
+    payload.filename ||
+    (payload.file.type.includes("mp4") ? "recording.mp4" : "recording.webm");
+  form.append("file", payload.file, name);
+  if (payload.check_in_id) {
+    form.append("check_in_id", payload.check_in_id);
+  }
+  if (!payload.check_in_id && payload.history?.length) {
+    form.append("history", JSON.stringify(payload.history));
+  }
+  return requestMultipart<ChatFollowUpResponse>(
+    "/api/v1/chat/follow-up-audio",
+    form,
+  );
 }
 
 export async function getDashboardStats(): Promise<DashboardStats> {

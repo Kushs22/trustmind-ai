@@ -11,6 +11,10 @@ class ChatMessageOut(BaseModel):
     content: str
     created_at: str | None = None
     safety_triggered: bool = False
+    input_type: Literal["text", "audio"] | None = None
+    transcript: str | None = None
+    tone_summary: str | None = None
+    affect_cues: list[str] = Field(default_factory=list)
 
 
 class CheckInResponse(BaseModel):
@@ -68,6 +72,7 @@ class ChatFollowUpResponse(BaseModel):
     support_resources: list[SupportResourceOut] = Field(default_factory=list)
     messages: list[ChatMessageOut] = Field(default_factory=list)
     persisted: bool = False
+    tone_disclaimer: str | None = None
 
 
 class DashboardStatsResponse(BaseModel):

@@ -63,10 +63,20 @@ export function useVoiceRecorder() {
         Math.floor((Date.now() - startedAtRef.current) / 1000);
       setElapsed(next);
       if (next >= MAX_AUDIO_DURATION_SECONDS) {
-        void stopAndTranscribe();
+        const recorder = mediaRecorderRef.current;
+        if (recorder && recorder.state === "recording") {
+          recorder.pause();
+          elapsedOffsetRef.current = next;
+          clearTimer();
+          setStatus("paused");
+          setWarnings((prev) =>
+            prev.includes("Maximum recording length reached.")
+              ? prev
+              : [...prev, "Maximum recording length reached."],
+          );
+        }
       }
     }, 250);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clearTimer]);
 
   const start = useCallback(async () => {
@@ -132,10 +142,10 @@ export function useVoiceRecorder() {
     setError(null);
   }, [clearTimer, stopTracks]);
 
-  const stopAndTranscribe = useCallback(async () => {
+  const stopAndGetBlob = useCallback(async (): Promise<Blob | null> => {
     const recorder = mediaRecorderRef.current;
     clearTimer();
-    if (!recorder) return;
+    if (!recorder) return null;
 
     const blob: Blob = await new Promise((resolve) => {
       recorder.onstop = () => {
@@ -150,17 +160,28 @@ export function useVoiceRecorder() {
     });
     stopTracks();
     mediaRecorderRef.current = null;
+    chunksRef.current = [];
 
     if (blob.size === 0) {
       setError("No audio captured.");
       setStatus("idle");
-      return;
+      return null;
     }
     if (blob.size > MAX_AUDIO_SIZE_MB * 1024 * 1024) {
       setError(`Recording exceeds ${MAX_AUDIO_SIZE_MB} MB.`);
       setStatus("idle");
-      return;
+      return null;
     }
+
+    setStatus("idle");
+    setElapsed(0);
+    elapsedOffsetRef.current = 0;
+    return blob;
+  }, [clearTimer, stopTracks]);
+
+  const stopAndTranscribe = useCallback(async () => {
+    const blob = await stopAndGetBlob();
+    if (!blob) return;
 
     setStatus("processing");
     try {
@@ -182,7 +203,7 @@ export function useVoiceRecorder() {
       );
       setStatus("idle");
     }
-  }, [clearTimer, stopTracks]);
+  }, [stopAndGetBlob]);
 
   return {
     status,
@@ -197,6 +218,7 @@ export function useVoiceRecorder() {
     resume,
     cancel,
     stopAndTranscribe,
+    stopAndGetBlob,
     maxDurationSeconds: MAX_AUDIO_DURATION_SECONDS,
   };
 }

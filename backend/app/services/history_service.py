@@ -95,6 +95,10 @@ def get_check_in(db: Session, user: User, check_in_id: str) -> CheckInDetailResp
                 content=m["content"],
                 created_at=m.get("created_at"),
                 safety_triggered=bool(m.get("safety_triggered")),
+                input_type=m.get("input_type"),
+                transcript=m.get("transcript"),
+                tone_summary=m.get("tone_summary"),
+                affect_cues=list(m.get("affect_cues") or []),
             )
             for m in thread
         ],

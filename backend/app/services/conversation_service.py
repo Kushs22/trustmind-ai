@@ -84,6 +84,16 @@ def parse_conversation_json(raw: str | None) -> list[dict[str, Any]]:
         }
         if item.get("safety_triggered"):
             entry["safety_triggered"] = True
+        if item.get("input_type") in ("text", "audio"):
+            entry["input_type"] = item["input_type"]
+        if isinstance(item.get("transcript"), str) and item["transcript"].strip():
+            entry["transcript"] = _clip(item["transcript"], 2000)
+        if isinstance(item.get("tone_summary"), str) and item["tone_summary"].strip():
+            entry["tone_summary"] = _clip(item["tone_summary"], 400)
+        if isinstance(item.get("affect_cues"), list):
+            entry["affect_cues"] = [
+                str(c).strip() for c in item["affect_cues"] if str(c).strip()
+            ][:6]
         out.append(entry)
     return out[-MAX_THREAD_MESSAGES:]
 
@@ -167,9 +177,13 @@ def generate_follow_up_reply(
     *,
     user_message: str,
     prior_messages: list[dict[str, Any]],
+    audio_prompt_block: str | None = None,
 ) -> tuple[str, bool]:
     """
     Generate a warm follow-up reflection.
+
+    When audio_prompt_block is set, the model also receives soft tone cues
+    (how the speech may have sounded) — never as a clinical emotion label.
 
     Returns (reply_text, safety_triggered).
     """
@@ -178,6 +192,8 @@ def generate_follow_up_reply(
         raise ValueError("Message cannot be empty.")
 
     safety = _looks_like_crisis(text)
+    if audio_prompt_block:
+        safety = safety or _looks_like_crisis(audio_prompt_block)
     thread_block = format_thread_for_prompt(prior_messages)
 
     if not settings.openai_api_key:
@@ -197,13 +213,21 @@ def generate_follow_up_reply(
             "- Keep replies to 2–5 short sentences.\n"
             "- If the latest message suggests suicidal distress or self-harm, "
             "lead with genuine care and urge getting support now.\n"
+            "- When soft tone cues are provided for spoken audio, gently "
+            "acknowledge how the message may have sounded (e.g. tired, strained, "
+            "calmer) without claiming clinical emotion detection accuracy.\n"
+            "- Prefer \"it sounded like…\" / \"from how that came across…\" "
+            "over \"your mood is…\" or \"we detected…\".\n"
             "- This is not therapy or a clinical service.\n"
             "- Return ONLY valid JSON: "
             '{"reply": "...", "safety_triggered": true|false}'
         )
-        user_prompt = (
-            f"{thread_block}\n\n" if thread_block else ""
-        ) + f"Latest user message:\n{text}"
+        latest = (
+            f"{audio_prompt_block.strip()}\n\nStored/display message:\n{text}"
+            if (audio_prompt_block or "").strip()
+            else f"Latest user message:\n{text}"
+        )
+        user_prompt = (f"{thread_block}\n\n" if thread_block else "") + latest
 
         response = client.chat.completions.create(
             model=settings.openai_model,
@@ -231,9 +255,13 @@ def append_follow_up_to_check_in(
     user: User,
     check_in_id: str,
     message: str,
+    *,
+    audio_meta: dict[str, Any] | None = None,
 ) -> tuple[CheckIn, dict[str, Any], list[dict[str, Any]]]:
     """
     Persist a user follow-up + assistant reply on an owned check-in.
+
+    audio_meta may include transcript, tone_summary, affect_cues, prompt_block.
 
     Returns (row, assistant_message, full_messages).
     """
@@ -251,10 +279,23 @@ def append_follow_up_to_check_in(
         )
 
     prior = messages_for_row(row)
-    user_msg = make_message("user", message)
+    meta = audio_meta or {}
+    user_extra: dict[str, Any] = {}
+    if meta.get("input_type") == "audio":
+        user_extra["input_type"] = "audio"
+        if meta.get("transcript"):
+            user_extra["transcript"] = _clip(str(meta["transcript"]), 2000)
+        if meta.get("tone_summary"):
+            user_extra["tone_summary"] = _clip(str(meta["tone_summary"]), 400)
+        if isinstance(meta.get("affect_cues"), list):
+            user_extra["affect_cues"] = [
+                str(c).strip() for c in meta["affect_cues"] if str(c).strip()
+            ][:6]
+    user_msg = make_message("user", message, **user_extra)
     reply_text, safety = generate_follow_up_reply(
         user_message=message,
         prior_messages=prior,
+        audio_prompt_block=meta.get("prompt_block"),
     )
     assistant_msg = make_message(
         "assistant",
