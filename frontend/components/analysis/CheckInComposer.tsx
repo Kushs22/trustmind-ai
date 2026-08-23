@@ -279,7 +279,7 @@ export function CheckInComposer({
         </div>
         <p className="text-[11px] text-slate-500 dark:text-slate-400">
           Enter to analyse · Shift+Enter for a new line · Mic for speech ·
-          Paperclip for images/PDFs
+          Paperclip for images/PDFs (context only — not a file vault)
         </p>
         {micError && (
           <p className="text-sm text-rose-700 dark:text-rose-300" role="alert">
