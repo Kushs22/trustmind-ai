@@ -38,6 +38,42 @@ const SHORT_INPUT_TIP =
 const SHORT_INPUT_EXAMPLE =
   "I've been feeling stressed for about two weeks. It's hard to sleep and I'm falling behind on coursework. Things feel heavier than usual.";
 
+/** Client fallback when urgency is high but API omitted support_resources. */
+const FALLBACK_SUPPORT_RESOURCES: SupportResource[] = [
+  {
+    name: "NHS Mental Health",
+    description:
+      "NHS guidance on where to get urgent help for mental health.",
+    contact: "NHS 111 (option 2) for urgent mental health support in England",
+    url: "https://www.nhs.uk/nhs-services/mental-health-services/where-to-get-urgent-help-for-mental-health/",
+  },
+  {
+    name: "Samaritans",
+    description: "24/7 listening support if you are struggling to cope.",
+    contact: "Call 116 123 (UK & ROI)",
+    url: "https://www.samaritans.org/",
+  },
+  {
+    name: "Talk to someone (NHS)",
+    description: "Find NHS talking therapies and local mental health services.",
+    contact: "Self-referral available in many areas of England",
+    url: "https://www.nhs.uk/mental-health/talking-therapies/",
+  },
+  {
+    name: "Student Minds",
+    description: "Student mental health charity with advice and peer support.",
+    contact: "See website for support options",
+    url: "https://www.studentminds.org.uk/",
+  },
+  {
+    name: "UWE Student Wellbeing",
+    description:
+      "University of the West of England wellbeing service for students.",
+    contact: "See UWE wellbeing contact page",
+    url: "https://www.uwe.ac.uk/life/health-and-wellbeing/get-wellbeing-support/wellbeing-service",
+  },
+];
+
 function countWords(value: string): number {
   const trimmed = value.trim();
   return trimmed ? trimmed.split(/\s+/).length : 0;
@@ -561,6 +597,178 @@ export function AnalyseForm() {
     : pipelineMode === "llm";
   const canReanalyse = Boolean(lastCheckIn) && !isProcessing;
 
+  const displaySupportResources: SupportResource[] = (() => {
+    if (chatSupportResources.length > 0) return chatSupportResources;
+    if (result?.support_resources?.length) return result.support_resources;
+    const band = result?.support_urgency_band;
+    const concern = (result?.concern_level || "").toLowerCase();
+    const serious =
+      Boolean(result?.safety_triggered) ||
+      band === "urgent" ||
+      band === "elevated" ||
+      concern === "high" ||
+      concern === "moderate";
+    return serious ? FALLBACK_SUPPORT_RESOURCES : [];
+  })();
+
+  const supportResourcesPanel =
+    displaySupportResources.length > 0 ? (
+      <div
+        className="rounded-xl border border-rose-200 bg-rose-50/80 px-4 py-4 dark:border-rose-900 dark:bg-rose-950/40"
+        role="alert"
+      >
+        <p className="text-xs font-medium uppercase tracking-wide text-rose-700 dark:text-rose-300">
+          Support resources
+        </p>
+        <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">
+          If you are in immediate danger, call 999 or go to A&amp;E. These
+          services can help you talk to someone.
+        </p>
+        <ul className="mt-3 space-y-3">
+          {displaySupportResources.map((resource) => (
+            <li
+              key={resource.name}
+              className="text-sm text-slate-700 dark:text-slate-300"
+            >
+              <p className="font-medium text-slate-800 dark:text-slate-100">
+                {resource.name}
+              </p>
+              {resource.description ? (
+                <p className="mt-0.5 text-slate-600 dark:text-slate-400">
+                  {resource.description}
+                </p>
+              ) : null}
+              <p className="text-slate-600 dark:text-slate-400">
+                {resource.contact}
+              </p>
+              <a
+                href={resource.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 inline-block text-teal-700 underline dark:text-teal-300"
+              >
+                Open resource
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    ) : null;
+
+  const pipelineLabel =
+    result?.pipeline_used ||
+    (resultIsStandaloneLlm ? "LLM" : "LLM+RAG");
+
+  const trustDetailsCard = result ? (
+    <div className="rounded-xl border border-slate-200/80 bg-white/90 px-4 py-4 dark:border-slate-700/80 dark:bg-slate-900/90">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Trust details
+          </p>
+          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+            Updates each time you re-analyse — useful for LLM vs LLM+RAG.
+          </p>
+        </div>
+        {activeCheckInId ? (
+          <Link
+            href={`/dashboard/${activeCheckInId}`}
+            className="text-sm text-teal-700 underline dark:text-teal-300"
+          >
+            View saved check-in
+          </Link>
+        ) : null}
+      </div>
+
+      <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+        <div className="sm:col-span-2">
+          <dt className="text-slate-500 dark:text-slate-400">
+            What it sounds like
+          </dt>
+          <dd className="mt-0.5 font-medium text-slate-800 dark:text-slate-100">
+            {result.prediction_display ||
+              predictionDisplayName(result.prediction) ||
+              result.concern_level ||
+              "—"}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-slate-500 dark:text-slate-400">
+            How sure we are
+          </dt>
+          <dd className="mt-0.5 font-medium tabular-nums text-slate-800 dark:text-slate-100">
+            {result.ai_confidence ||
+              (typeof result.confidence === "number"
+                ? `${Math.round(result.confidence * 100)}%`
+                : "—")}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-slate-500 dark:text-slate-400">Uncertainty</dt>
+          <dd className="mt-0.5 font-medium text-slate-800 dark:text-slate-100">
+            {result.uncertainty_level || result.uncertainty || "—"}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-slate-500 dark:text-slate-400">Abstention</dt>
+          <dd className="mt-0.5 font-medium text-slate-800 dark:text-slate-100">
+            {result.abstention_status ||
+              (result.status === "abstained"
+                ? "Paused / abstained"
+                : "Prediction accepted")}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-slate-500 dark:text-slate-400">
+            Grounding status
+          </dt>
+          <dd className="mt-0.5 font-medium text-slate-800 dark:text-slate-100">
+            {result.grounding_status ||
+              result.grounding?.label ||
+              (resultIsStandaloneLlm ? "Not applicable (LLM-only)" : "—")}
+          </dd>
+        </div>
+        <div className="sm:col-span-2">
+          <dt className="text-slate-500 dark:text-slate-400">Pipeline used</dt>
+          <dd className="mt-0.5 font-medium text-slate-800 dark:text-slate-100">
+            {pipelineLabel}
+          </dd>
+        </div>
+      </dl>
+
+      {(result.potential_indicators?.length
+        ? result.potential_indicators
+        : result.early_signs || []
+      ).length > 0 ? (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {(result.potential_indicators?.length
+            ? result.potential_indicators
+            : result.early_signs || []
+          ).map((theme) => (
+            <span
+              key={theme}
+              className="rounded-full border border-teal-200/80 bg-teal-50/70 px-2.5 py-0.5 text-[11px] font-medium text-teal-800 dark:border-teal-800 dark:bg-teal-950/40 dark:text-teal-200"
+            >
+              {theme}
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      {typeof result.support_urgency === "number" &&
+      result.support_urgency_band ? (
+        <div className="mt-4">
+          <SupportUrgencyMeter
+            score={result.support_urgency}
+            band={result.support_urgency_band}
+            rationale={result.support_urgency_rationale}
+            uncertain={Boolean(result.support_urgency_uncertain)}
+          />
+        </div>
+      ) : null}
+    </div>
+  ) : null;
+
   const pipelineCompareBar = (
     <div className="rounded-xl border border-slate-200/80 bg-white/90 px-4 py-3 dark:border-slate-700/80 dark:bg-slate-900/90">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -636,7 +844,7 @@ export function AnalyseForm() {
         <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
           Last run:{" "}
           <span className="font-medium text-slate-700 dark:text-slate-200">
-            {result.pipeline_used || (resultIsStandaloneLlm ? "LLM" : "LLM+RAG")}
+            {pipelineLabel}
           </span>
           {result.grounding_status ? (
             <>
@@ -668,7 +876,11 @@ export function AnalyseForm() {
                     {item.display_label ||
                       `${item.organisation} — ${item.title}`}
                   </p>
-                  {item.reason_retrieved ? (
+                  {item.snippet ? (
+                    <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+                      {item.snippet}
+                    </p>
+                  ) : item.reason_retrieved ? (
                     <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
                       {item.reason_retrieved}
                     </p>
@@ -812,66 +1024,7 @@ export function AnalyseForm() {
 
       {chatMode && !loadingThread && (
         <div className="space-y-4">
-          {result &&
-            typeof result.support_urgency === "number" &&
-            result.support_urgency_band && (
-              <SupportUrgencyMeter
-                score={result.support_urgency}
-                band={result.support_urgency_band}
-                rationale={result.support_urgency_rationale}
-                uncertain={Boolean(result.support_urgency_uncertain)}
-                compact
-              />
-            )}
-          {result && (
-            <div className="rounded-xl border border-slate-200/80 bg-white/90 px-4 py-3 text-sm text-slate-600 dark:border-slate-700/80 dark:bg-slate-900/90 dark:text-slate-300">
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span>
-                  <span className="font-medium text-slate-800 dark:text-slate-100">
-                    What it sounds like:{" "}
-                  </span>
-                  {result.prediction_display ||
-                    predictionDisplayName(result.prediction) ||
-                    result.concern_level}
-                </span>
-                {result.ai_confidence ? (
-                  <>
-                    <span className="text-slate-400 dark:text-slate-500">·</span>
-                    <span>{result.ai_confidence} confidence</span>
-                  </>
-                ) : null}
-                {activeCheckInId ? (
-                  <>
-                    <span className="text-slate-400 dark:text-slate-500">·</span>
-                    <Link
-                      href={`/dashboard/${activeCheckInId}`}
-                      className="text-teal-700 underline dark:text-teal-300"
-                    >
-                      View saved check-in
-                    </Link>
-                  </>
-                ) : null}
-              </div>
-              {(result.potential_indicators?.length
-                ? result.potential_indicators
-                : result.early_signs || []
-              ).length > 0 ? (
-                <div className="mt-2.5 flex flex-wrap gap-1.5">
-                  {(result.potential_indicators?.length
-                    ? result.potential_indicators
-                    : result.early_signs || []
-                  ).map((theme) => (
-                    <span
-                      key={theme}
-                      className="rounded-full border border-teal-200/80 bg-teal-50/70 px-2.5 py-0.5 text-[11px] font-medium text-teal-800 dark:border-teal-800 dark:bg-teal-950/40 dark:text-teal-200"
-                    >
-                      {theme}
-                    </span>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          )}
+          {trustDetailsCard}
           <ChatThread
             messages={messages}
             draft={chatDraft}
@@ -882,7 +1035,11 @@ export function AnalyseForm() {
             }
             isSending={chatSending || isProcessing}
             error={chatError}
-            supportResources={chatSupportResources}
+            supportResources={
+              // Prefer the dedicated panel under Grounded sources; avoid duplicate
+              // crisis cards inside the thread when that panel is shown.
+              supportResourcesPanel ? [] : chatSupportResources
+            }
             persisted={Boolean(activeCheckInId)}
             subtitle={chatSubtitle}
             toneDisclaimer={toneDisclaimer}
@@ -890,6 +1047,7 @@ export function AnalyseForm() {
 
           {pipelineCompareBar}
           {groundedSourcesPanel}
+          {supportResourcesPanel}
 
           {result && (
             <div className="space-y-3">

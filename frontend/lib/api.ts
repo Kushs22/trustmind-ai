@@ -57,6 +57,7 @@ export type EvidenceItem = {
   retrieval_score?: number;
   reason_retrieved?: string;
   display_label?: string;
+  snippet?: string;
 };
 
 export type AnalyseDebug = {
