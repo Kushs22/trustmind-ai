@@ -1335,8 +1335,6 @@ export function AnalyseForm() {
     .replace(/^keyword_fallback$/i, "Basic check-in (AI busy)")
     .trim();
 
-  const breakdown = result?.confidence_breakdown;
-
   const trustDetailsCard = result ? (
     <div className="rounded-xl border border-slate-200/80 bg-white/90 px-4 py-4 dark:border-slate-700/80 dark:bg-slate-900/90">
       <div className="flex flex-wrap items-start justify-between gap-2">
