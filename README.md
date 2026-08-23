@@ -250,7 +250,7 @@ See `backend/.env.example`, `backend/render.yaml`, `frontend/.env.local.example`
 |--------|--------|
 | **Frontend → Vercel** | Root `frontend/`; set `NEXT_PUBLIC_API_URL=https://trustmind-ai.onrender.com` |
 | **Backend → Render** | `rootDir: backend`; `PYTHONPATH` must include monorepo root for `rag/` and `research/` (see `backend/render.yaml`); set secrets in dashboard |
-| **Database → Render Postgres** | Create a Postgres instance and set `DATABASE_URL` on the API service (blueprint wires `trustmind-db`). Without this, login history cannot persist across redeploys. Startup runs `create_all` — no manual migration step. If the API fails to boot after a DB change, check Render logs for `Database initialisation failed`. |
+| **Database → Render Postgres** | Create a Postgres instance and set `DATABASE_URL` on the API service (blueprint wires `trustmind-db`). Without this, login history cannot persist across redeploys. Startup runs `create_all` — no manual migration step. If the API fails to boot after a DB change, check Render logs for `Database initialisation failed`. **Backups:** see [`docs/ops/BACKUPS.md`](docs/ops/BACKUPS.md) (Render plan backups + optional `scripts/dump_postgres.sh`). |
 
 **Logged-in history:** while signed in, Analyse defaults to **Save this check-in to my history**. Dashboard loads `/api/v1/check-ins` with the Bearer token from `localStorage`. Anonymous / private (save off) never writes cross-device history.
 
@@ -260,7 +260,8 @@ Health after deploy: `GET /health` should report a current `version` (e.g. `1.2.
 
 ## Known limitations
 
-- Free Render cold starts can delay the first request.
+- Free Render cold starts can delay the first request (UI surfaces a wake-up message).
+- Free / starter Postgres may lack automated backups — see [`docs/ops/BACKUPS.md`](docs/ops/BACKUPS.md).
 - Evaluation labels are **theme proxies** on a synthetic corpus, not clinical diagnoses.
 - Domain shift: synthetic informal posts vs NHS-style KB.
 - Source-agreement and evidence “why retrieved” text use **heuristics/templates**, not clinician review.

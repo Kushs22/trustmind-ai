@@ -771,8 +771,8 @@ export function AnalyseForm() {
                   Looking at what you&apos;ve shared
                 </h2>
                 <p className="mt-2 max-w-md text-sm text-slate-500 dark:text-slate-400">
-                  This usually takes a few seconds. The first request after idle
-                  can take longer while the service wakes up.
+                  This usually takes a few seconds. If the API was idle, free
+                  hosting may need up to about a minute to wake up first.
                 </p>
               </div>
             ) : (

@@ -210,7 +210,7 @@ export function HeroSection() {
                   {
                     label: "Privacy protection",
                     value: "Active",
-                    detail: "End-to-end encrypted",
+                    detail: "HTTPS · hashed passwords",
                     detailClass: "text-teal-600",
                   },
                 ].map((metric) => (
@@ -301,18 +301,18 @@ export function FeaturesSection() {
 const privacyPoints = [
   {
     icon: LockIcon,
-    title: "End-to-end encryption",
-    description: "Your data is encrypted in transit and at rest.",
+    title: "Secure in transit",
+    description: "Connections use HTTPS. Passwords are stored as hashes, not plain text.",
   },
   {
     icon: EyeOffIcon,
     title: "No training on your data",
-    description: "Personal inputs are never used to train public models.",
+    description: "We do not use your check-ins to train public models on our side.",
   },
   {
     icon: ServerIcon,
-    title: "Regional data residency",
-    description: "Choose where your information is stored and processed.",
+    title: "You control retention",
+    description: "Export or delete saved history from the privacy page anytime.",
   },
 ];
 

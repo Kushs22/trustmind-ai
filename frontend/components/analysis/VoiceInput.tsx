@@ -4,21 +4,14 @@ import { useEffect } from "react";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 
-type VoiceInputProps = {
-  disabled?: boolean;
-  onTranscriptConfirmed: (transcript: string) => void;
-  draftTranscript: string;
-  onDraftChange: (value: string) => void;
-  onDiscard: () => void;
-};
+export type VoiceController = ReturnType<typeof useVoiceController>;
 
-export function VoiceInput({
-  disabled,
-  onTranscriptConfirmed,
-  draftTranscript,
-  onDraftChange,
-  onDiscard,
-}: VoiceInputProps) {
+/** Shared speech state for the analyse composer (mic + transcript panel). */
+export function useVoiceController(
+  transcript: string,
+  onTranscriptChange: (value: string) => void,
+  onClear: () => void,
+) {
   const browserSpeech = useSpeechRecognition();
   const recorder = useVoiceRecorder();
   const useBrowser = browserSpeech.supported;
@@ -27,36 +20,38 @@ export function VoiceInput({
     if (
       !useBrowser &&
       recorder.status === "completed" &&
-      recorder.transcript &&
-      recorder.transcript !== draftTranscript
+      recorder.transcript.trim()
     ) {
-      onDraftChange(recorder.transcript);
+      onTranscriptChange(recorder.transcript.trim());
     }
-  }, [
-    useBrowser,
-    recorder.status,
-    recorder.transcript,
-    draftTranscript,
-    onDraftChange,
-  ]);
+  }, [useBrowser, recorder.status, recorder.transcript, onTranscriptChange]);
 
   const listening = useBrowser
     ? browserSpeech.listening
     : recorder.status === "listening";
   const paused = !useBrowser && recorder.status === "paused";
   const processing = !useBrowser && recorder.status === "processing";
+  const active = listening || paused || processing;
 
-  const statusLabel = processing
-    ? "Processing"
-    : paused
-      ? "Paused"
-      : listening
-        ? "Listening"
-        : draftTranscript
-          ? "Completed"
-          : "Ready";
+  const liveBrowser =
+    `${browserSpeech.finalTranscript} ${browserSpeech.interim}`.trim();
+  const livePreview =
+    transcript || (useBrowser ? liveBrowser : recorder.transcript);
 
-  async function handleStart() {
+  const error = useBrowser ? browserSpeech.error : recorder.error;
+
+  async function handleMicClick() {
+    if (listening || paused) {
+      if (useBrowser) {
+        browserSpeech.stop();
+        const text =
+          `${browserSpeech.finalTranscript} ${browserSpeech.interim}`.trim();
+        if (text) onTranscriptChange(text);
+      } else {
+        await recorder.stopAndTranscribe();
+      }
+      return;
+    }
     if (useBrowser) {
       browserSpeech.start();
     } else {
@@ -64,131 +59,193 @@ export function VoiceInput({
     }
   }
 
-  function handleStop() {
-    if (useBrowser) {
-      browserSpeech.stop();
-      const text =
-        `${browserSpeech.finalTranscript} ${browserSpeech.interim}`.trim();
-      if (text) onDraftChange(text);
-    } else {
-      void recorder.stopAndTranscribe();
-    }
+  function handleCancel() {
+    if (useBrowser) browserSpeech.cancel();
+    else recorder.cancel();
+    onClear();
   }
 
-  const liveBrowser =
-    `${browserSpeech.finalTranscript} ${browserSpeech.interim}`.trim();
-  const displayDraft =
-    draftTranscript || (useBrowser ? liveBrowser : recorder.transcript);
+  return {
+    useBrowser,
+    listening,
+    paused,
+    processing,
+    active,
+    livePreview,
+    error,
+    warnings: recorder.warnings,
+    elapsedLabel: recorder.elapsedLabel,
+    handleMicClick,
+    handleCancel,
+    pause: recorder.pause,
+    resume: recorder.resume,
+    onTranscriptChange,
+  };
+}
 
-  const error = useBrowser ? browserSpeech.error : recorder.error;
+type MicButtonProps = {
+  voice: VoiceController;
+  disabled?: boolean;
+};
+
+export function VoiceMicButton({ voice, disabled }: MicButtonProps) {
+  return (
+    <button
+      type="button"
+      disabled={disabled || voice.processing}
+      onClick={() => void voice.handleMicClick()}
+      className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+        voice.active
+          ? "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/50 dark:text-rose-300"
+          : "border-slate-200 bg-white text-slate-600 hover:border-teal-300 hover:text-teal-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-teal-700 dark:hover:text-teal-200"
+      }`}
+      aria-label={
+        voice.listening || voice.paused
+          ? "Stop recording"
+          : voice.processing
+            ? "Transcribing audio"
+            : "Speak"
+      }
+      title={
+        voice.listening || voice.paused
+          ? "Stop"
+          : voice.processing
+            ? "Transcribing…"
+            : "Speak"
+      }
+    >
+      <MicIcon />
+    </button>
+  );
+}
+
+type TranscriptPanelProps = {
+  voice: VoiceController;
+  disabled?: boolean;
+  hasTranscript: boolean;
+};
+
+export function VoiceTranscriptPanel({
+  voice,
+  disabled,
+  hasTranscript,
+}: TranscriptPanelProps) {
+  if (!voice.livePreview.trim() && !voice.active && !hasTranscript) {
+    return null;
+  }
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-700 dark:bg-slate-800/50">
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          disabled={disabled || listening || processing}
-          onClick={() => void handleStart()}
-          className="inline-flex items-center gap-2 rounded-lg border border-teal-300 bg-white px-3 py-2 text-sm font-medium text-teal-800 shadow-sm transition hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-teal-700 dark:bg-slate-900 dark:text-teal-200"
-          aria-label="Start microphone recording"
-        >
-          <MicIcon />
-          Speak
-        </button>
-        {listening && !useBrowser && (
+    <div className="space-y-1.5">
+      {voice.active && (
+        <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+          <span
+            className="inline-flex h-2 w-2 animate-pulse rounded-full bg-rose-500"
+            aria-hidden
+          />
+          <span aria-live="polite">
+            {voice.processing
+              ? "Transcribing…"
+              : voice.paused
+                ? "Paused"
+                : "Listening"}
+            {!voice.useBrowser && voice.active ? ` · ${voice.elapsedLabel}` : ""}
+          </span>
+          {!voice.useBrowser && voice.listening && (
+            <button
+              type="button"
+              onClick={voice.pause}
+              className="rounded-md border border-slate-200 px-2 py-0.5 dark:border-slate-600"
+            >
+              Pause
+            </button>
+          )}
+          {voice.paused && (
+            <button
+              type="button"
+              onClick={voice.resume}
+              className="rounded-md border border-slate-200 px-2 py-0.5 dark:border-slate-600"
+            >
+              Resume
+            </button>
+          )}
           <button
             type="button"
-            onClick={recorder.pause}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600"
-            aria-label="Pause recording"
-          >
-            Pause
-          </button>
-        )}
-        {paused && (
-          <button
-            type="button"
-            onClick={recorder.resume}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600"
-            aria-label="Resume recording"
-          >
-            Resume
-          </button>
-        )}
-        {(listening || paused) && (
-          <button
-            type="button"
-            onClick={handleStop}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-600"
-            aria-label="Stop recording"
-          >
-            Stop
-          </button>
-        )}
-        {(listening || paused || displayDraft) && (
-          <button
-            type="button"
-            onClick={() => {
-              if (useBrowser) browserSpeech.cancel();
-              else recorder.cancel();
-              onDiscard();
-            }}
-            className="rounded-lg border border-rose-200 px-3 py-2 text-sm text-rose-700 dark:border-rose-800 dark:text-rose-300"
-            aria-label="Cancel recording"
+            onClick={voice.handleCancel}
+            className="rounded-md border border-rose-200 px-2 py-0.5 text-rose-700 dark:border-rose-800 dark:text-rose-300"
           >
             Cancel
           </button>
-        )}
-        <span className="text-xs text-slate-500" aria-live="polite">
-          Status: {statusLabel}
-          {!useBrowser && recorder.status !== "idle"
-            ? ` · ${recorder.elapsedLabel}`
-            : ""}
-        </span>
-      </div>
-      <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-        {useBrowser
-          ? "Using browser speech recognition. Mic access is requested only when you click Speak."
-          : "Browser speech recognition unavailable — audio will be transcribed securely on the server. Audio is not retained in privacy mode."}
-      </p>
-      {error && (
-        <p className="mt-2 text-sm text-rose-700 dark:text-rose-300" role="alert">
-          {error}
+        </div>
+      )}
+
+      {voice.error && (
+        <p className="text-xs text-rose-700 dark:text-rose-300" role="alert">
+          {voice.error}
         </p>
       )}
-      {recorder.warnings.length > 0 && (
-        <ul className="mt-2 list-disc pl-5 text-xs text-amber-700 dark:text-amber-300">
-          {recorder.warnings.map((w) => (
+      {voice.warnings.length > 0 && (
+        <ul className="list-disc pl-4 text-xs text-amber-700 dark:text-amber-300">
+          {voice.warnings.map((w) => (
             <li key={w}>{w}</li>
           ))}
         </ul>
       )}
-      {displayDraft && (
-        <div className="mt-3 space-y-2">
-          <label
-            htmlFor="speech-transcript"
-            className="text-xs font-medium uppercase tracking-wide text-slate-500"
-          >
-            Speech transcript (editable)
-          </label>
+
+      {(voice.livePreview.trim() || voice.active) && (
+        <div className="rounded-xl border border-teal-200/80 bg-teal-50/40 px-3 py-2 dark:border-teal-900 dark:bg-teal-950/30">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-teal-800 dark:text-teal-200">
+              Speech
+            </p>
+            {hasTranscript && !voice.active && (
+              <button
+                type="button"
+                onClick={voice.handleCancel}
+                disabled={disabled}
+                className="text-[11px] font-medium text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-300"
+              >
+                Clear
+              </button>
+            )}
+          </div>
           <textarea
-            id="speech-transcript"
-            value={displayDraft}
-            onChange={(e) => onDraftChange(e.target.value)}
-            rows={3}
-            disabled={disabled || listening || processing}
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-900"
+            value={voice.livePreview}
+            onChange={(e) => voice.onTranscriptChange(e.target.value)}
+            rows={2}
+            disabled={disabled || voice.listening || voice.processing}
+            placeholder={voice.active ? "Listening…" : "Speech transcript"}
+            aria-label="Speech transcript"
+            className="mt-1.5 w-full resize-y rounded-lg border border-transparent bg-white/80 px-2 py-1.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-teal-300 focus:outline-none focus:ring-1 focus:ring-teal-200 disabled:opacity-70 dark:bg-slate-900/80 dark:text-slate-100 dark:focus:ring-teal-900/40"
           />
-          <button
-            type="button"
-            disabled={disabled || !displayDraft.trim()}
-            onClick={() => onTranscriptConfirmed(displayDraft.trim())}
-            className="rounded-lg bg-teal-600 px-3 py-2 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50"
-          >
-            Use transcript
-          </button>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Back-compat wrapper: mic + transcript stacked (unused by AnalyseForm). */
+export function VoiceInput({
+  disabled,
+  transcript,
+  onTranscriptChange,
+  onClear,
+}: {
+  disabled?: boolean;
+  transcript: string;
+  onTranscriptChange: (value: string) => void;
+  onClear: () => void;
+}) {
+  const voice = useVoiceController(transcript, onTranscriptChange, onClear);
+  return (
+    <div className="flex flex-wrap items-start gap-2">
+      <VoiceMicButton voice={voice} disabled={disabled} />
+      <div className="min-w-0 flex-1">
+        <VoiceTranscriptPanel
+          voice={voice}
+          disabled={disabled}
+          hasTranscript={Boolean(transcript.trim())}
+        />
+      </div>
     </div>
   );
 }

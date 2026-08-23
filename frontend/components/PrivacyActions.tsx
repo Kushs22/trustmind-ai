@@ -3,27 +3,73 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ApiError, deleteAccount } from "@/lib/api";
+import { ApiError, deleteAccount, exportMyData } from "@/lib/api";
 import { isAuthenticated } from "@/lib/auth";
 
 export function PrivacyActions() {
   const router = useRouter();
   const [deleted, setDeleted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
-  async function handleDeleteData() {
+  async function handleExport() {
     if (!isAuthenticated()) {
-      setError("Sign in or continue anonymously before deleting your data.");
+      setError("Sign in before exporting your data.");
       return;
     }
 
     setError(null);
+    setNotice(null);
+    setIsExporting(true);
+
+    try {
+      const data = await exportMyData();
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "trustmind-data-export.json";
+      anchor.click();
+      URL.revokeObjectURL(url);
+      setNotice("Download started — keep the file private.");
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "Unable to export your data. Please try again.",
+      );
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
+  async function handleDeleteData() {
+    if (!isAuthenticated()) {
+      setError("Sign in before deleting your account.");
+      return;
+    }
+
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      setNotice(
+        "Click “Delete my account” again to confirm. This cannot be undone.",
+      );
+      return;
+    }
+
+    setError(null);
+    setNotice(null);
     setIsDeleting(true);
 
     try {
       await deleteAccount();
       setDeleted(true);
+      setConfirmDelete(false);
       router.push("/");
     } catch (err) {
       setError(
@@ -37,12 +83,14 @@ export function PrivacyActions() {
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 p-6 shadow-sm">
-      <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Your controls</h2>
+    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+      <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+        Your controls
+      </h2>
       <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-        You can request deletion of stored check-ins and account data at any
-        time. This permanently removes your account and all associated history
-        from the server.
+        Signed-in users can download a JSON export of profile metadata and saved
+        check-ins, or permanently delete the account (cascades all check-ins and
+        clears this browser session).
       </p>
 
       {error && (
@@ -54,27 +102,64 @@ export function PrivacyActions() {
         </div>
       )}
 
+      {notice && !error && (
+        <div
+          className="mt-4 rounded-xl border border-amber-100 bg-amber-50/70 px-4 py-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100"
+          role="status"
+        >
+          {notice}
+        </div>
+      )}
+
       {!isAuthenticated() && !deleted && (
         <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
           <Link href="/login" className="font-medium text-teal-700 hover:underline">
             Log in
           </Link>{" "}
-          or{" "}
+          to export or delete account data. You can still{" "}
           <Link href="/analyse" className="font-medium text-teal-700 hover:underline">
-            continue anonymously
+            analyse anonymously
           </Link>{" "}
-          to manage your data.
+          without saving history.
         </p>
       )}
 
-      <button
-        type="button"
-        onClick={handleDeleteData}
-        disabled={isDeleting || deleted || !isAuthenticated()}
-        className="mt-4 inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 px-5 text-sm font-medium text-slate-700 dark:text-slate-300 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        {isDeleting ? "Deleting…" : "Delete my data"}
-      </button>
+      <div className="mt-4 flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={handleExport}
+          disabled={isExporting || deleted || !isAuthenticated()}
+          className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 px-5 text-sm font-medium text-slate-700 transition-colors hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:text-slate-200"
+        >
+          {isExporting ? "Preparing export…" : "Export my data"}
+        </button>
+
+        <button
+          type="button"
+          onClick={handleDeleteData}
+          disabled={isDeleting || deleted || !isAuthenticated()}
+          className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 px-5 text-sm font-medium text-slate-700 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:text-slate-300"
+        >
+          {isDeleting
+            ? "Deleting…"
+            : confirmDelete
+              ? "Confirm delete my account"
+              : "Delete my account"}
+        </button>
+
+        {confirmDelete && !isDeleting && (
+          <button
+            type="button"
+            onClick={() => {
+              setConfirmDelete(false);
+              setNotice(null);
+            }}
+            className="inline-flex h-11 items-center justify-center rounded-xl px-3 text-sm font-medium text-slate-500 hover:text-slate-700"
+          >
+            Cancel
+          </button>
+        )}
+      </div>
 
       {deleted && (
         <p className="mt-3 text-sm text-teal-700">

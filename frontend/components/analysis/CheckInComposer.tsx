@@ -367,7 +367,7 @@ export function CheckInComposer({
 
       <p className="text-xs text-slate-500 dark:text-slate-400">
         Enter to analyse · Shift+Enter for a new line · Mic for speech · Paperclip
-        for images/PDFs
+        for images/PDFs (context only — files are not kept as a vault)
       </p>
 
       {micError && (

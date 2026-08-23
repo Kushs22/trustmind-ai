@@ -20,8 +20,9 @@ export default function LoginPage() {
               Welcome back
             </h1>
             <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-              Log in to access your dashboard and saved check-ins. UI preview
-              only — authentication is not connected yet.
+              Log in to open your dashboard and saved check-ins. The first
+              request after the API has been idle can take a little longer while
+              it wakes up.
             </p>
           </div>
           <AuthForm mode="login" />

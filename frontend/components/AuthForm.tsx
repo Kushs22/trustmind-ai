@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ApiError, createAnonymousSession, login, register } from "@/lib/api";
 
 type AuthFormProps = {
@@ -16,8 +16,19 @@ export function AuthForm({ mode }: AuthFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAnonymousLoading, setIsAnonymousLoading] = useState(false);
+  const [showWakeHint, setShowWakeHint] = useState(false);
 
   const isLogin = mode === "login";
+  const busy = isSubmitting || isAnonymousLoading;
+
+  useEffect(() => {
+    if (!busy) {
+      setShowWakeHint(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setShowWakeHint(true), 4000);
+    return () => window.clearTimeout(timer);
+  }, [busy]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -35,7 +46,7 @@ export function AuthForm({ mode }: AuthFormProps) {
       setError(
         err instanceof ApiError
           ? err.message
-          : "Unable to connect. Is the backend running?",
+          : "Unable to reach the service right now. It may be waking up — wait a few seconds and try again.",
       );
     } finally {
       setIsSubmitting(false);
@@ -53,7 +64,7 @@ export function AuthForm({ mode }: AuthFormProps) {
       setError(
         err instanceof ApiError
           ? err.message
-          : "Unable to connect. Is the backend running?",
+          : "Unable to reach the service right now. It may be waking up — wait a few seconds and try again.",
       );
     } finally {
       setIsAnonymousLoading(false);
@@ -61,7 +72,7 @@ export function AuthForm({ mode }: AuthFormProps) {
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white dark:border-slate-700/80 dark:bg-slate-900 p-6 shadow-sm sm:p-8">
+    <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm dark:border-slate-700/80 dark:bg-slate-900 sm:p-8">
       {error && (
         <div
           className="mb-5 rounded-xl border border-red-100 bg-red-50/80 px-4 py-3 text-sm text-red-800"
@@ -87,7 +98,7 @@ export function AuthForm({ mode }: AuthFormProps) {
             placeholder="you@example.com"
             required
             disabled={isSubmitting}
-            className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50/50 dark:border-slate-700 dark:bg-slate-800/50 px-4 py-3 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:border-teal-300 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-100 disabled:opacity-60"
+            className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-slate-800 placeholder:text-slate-400 focus:border-teal-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-100 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-100 dark:focus:bg-slate-800"
           />
         </div>
 
@@ -107,7 +118,7 @@ export function AuthForm({ mode }: AuthFormProps) {
             required
             minLength={isLogin ? 1 : 8}
             disabled={isSubmitting}
-            className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50/50 dark:border-slate-700 dark:bg-slate-800/50 px-4 py-3 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:border-teal-300 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-100 disabled:opacity-60"
+            className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-slate-800 placeholder:text-slate-400 focus:border-teal-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-100 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-100 dark:focus:bg-slate-800"
           />
           {!isLogin && (
             <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
@@ -122,21 +133,34 @@ export function AuthForm({ mode }: AuthFormProps) {
           className="inline-flex h-12 w-full items-center justify-center rounded-xl bg-teal-600 text-base font-medium text-white shadow-md shadow-teal-600/20 transition-all hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isSubmitting
-            ? "Please wait…"
+            ? showWakeHint
+              ? "Waking the service…"
+              : "Please wait…"
             : isLogin
               ? "Log in"
               : "Create account"}
         </button>
       </form>
 
+      {showWakeHint && busy && (
+        <p className="mt-3 text-center text-xs text-slate-500 dark:text-slate-400" role="status">
+          First request after idle can take up to a minute while the free API
+          wakes up.
+        </p>
+      )}
+
       <div className="mt-6 space-y-4 border-t border-slate-100 pt-6">
         <button
           type="button"
           onClick={handleAnonymous}
           disabled={isAnonymousLoading || isSubmitting}
-          className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 text-sm font-medium text-slate-700 dark:text-slate-300 transition-colors hover:border-teal-200 hover:bg-teal-50/50 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-700 transition-colors hover:border-teal-200 hover:bg-teal-50/50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
         >
-          {isAnonymousLoading ? "Starting session…" : "Continue anonymously"}
+          {isAnonymousLoading
+            ? showWakeHint
+              ? "Waking the service…"
+              : "Starting session…"
+            : "Continue anonymously"}
         </button>
         <p className="text-center text-sm text-slate-500 dark:text-slate-400">
           {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}

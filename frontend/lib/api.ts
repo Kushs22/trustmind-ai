@@ -258,8 +258,8 @@ async function request<T>(
       throw new ApiError(
         0,
         aborted
-          ? "The analysis service timed out. Please try again in a moment."
-          : "Unable to reach the analysis service right now. It may be waking up — wait a few seconds and try again.",
+          ? "The service timed out while starting. Free hosting can take up to a minute to wake — wait a moment and try again."
+          : "Unable to reach the service right now. It may be waking up from a cold start — wait a few seconds and try again.",
       );
     }
   }
@@ -487,6 +487,25 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 export async function deleteCheckInHistory(): Promise<void> {
   await request<{ deleted: number; message: string }>("/api/v1/check-ins", {
     method: "DELETE",
+    requireAuth: true,
+  });
+}
+
+export type DataExport = {
+  exported_at: string;
+  format_version: number;
+  profile: {
+    id: string;
+    email: string | null;
+    is_anonymous: boolean;
+    created_at: string | null;
+  };
+  check_ins: Array<Record<string, unknown>>;
+};
+
+export async function exportMyData(): Promise<DataExport> {
+  return request<DataExport>("/api/v1/privacy/export", {
+    method: "GET",
     requireAuth: true,
   });
 }
