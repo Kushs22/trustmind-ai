@@ -24,6 +24,14 @@ _QUOTA_TOKENS = (
     "rate_limit_exceeded",
 )
 
+# Tried in order when GEMINI_MODEL is missing/404 (2.0 Flash shut down June 2026).
+_GEMINI_MODEL_FALLBACKS = (
+    "gemini-2.5-flash",
+    "gemini-flash-latest",
+    "gemini-2.5-flash-lite",
+    "gemini-3-flash-preview",
+)
+
 
 def llm_configured() -> bool:
     return bool(settings.openai_api_key or settings.gemini_api_key)
@@ -91,18 +99,14 @@ def _call_openai_json(
         return "", f"{type(exc).__name__}: {exc}"
 
 
-def _call_gemini_json(
+def _call_gemini_json_once(
     *,
+    model_name: str,
     system: str,
     user: str,
     temperature: float,
     max_tokens: int | None,
-    model: str | None,
 ) -> tuple[str, str]:
-    if not settings.gemini_api_key:
-        return "", "GEMINI_API_KEY missing"
-
-    model_name = (model or settings.gemini_model or "gemini-2.0-flash").strip()
     url = (
         "https://generativelanguage.googleapis.com/v1beta/models/"
         f"{model_name}:generateContent?key={settings.gemini_api_key}"
@@ -145,6 +149,43 @@ def _call_gemini_json(
         return "", "empty_response"
     return text, ""
 
+
+def _call_gemini_json(
+    *,
+    system: str,
+    user: str,
+    temperature: float,
+    max_tokens: int | None,
+    model: str | None,
+) -> tuple[str, str]:
+    if not settings.gemini_api_key:
+        return "", "GEMINI_API_KEY missing"
+
+    preferred = (model or settings.gemini_model or "gemini-2.5-flash").strip()
+    candidates: list[str] = []
+    for name in (preferred, *_GEMINI_MODEL_FALLBACKS):
+        if name and name not in candidates:
+            candidates.append(name)
+
+    errors: list[str] = []
+    for model_name in candidates:
+        text, err = _call_gemini_json_once(
+            model_name=model_name,
+            system=system,
+            user=user,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        if text and not err:
+            if model_name != preferred:
+                logger.info("Gemini fallback model succeeded: %s", model_name)
+            return text, ""
+        if err:
+            errors.append(f"{model_name}: {err}")
+            # Only keep trying other models on 404 / not found.
+            if "404" not in err and "not found" not in err.lower():
+                return "", err
+    return "", " | ".join(errors) or "gemini_failure"
 
 def complete_json(
     *,

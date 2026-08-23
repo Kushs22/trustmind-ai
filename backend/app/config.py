@@ -60,9 +60,10 @@ class Settings(BaseSettings):
     openai_chat_max_tokens: int = 320
 
     # Free-tier Google AI Studio key: https://aistudio.google.com/apikey
+    # gemini-2.0-flash was shut down mid-2026 — use a current Flash model.
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.0-flash"
-    gemini_chat_model: str = "gemini-2.0-flash"
+    gemini_model: str = "gemini-2.5-flash"
+    gemini_chat_model: str = "gemini-2.5-flash"
 
     # Mode A (false) = standalone LLM | Mode B (true) = hybrid RAG
     use_rag: bool = False
