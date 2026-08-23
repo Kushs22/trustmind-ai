@@ -374,11 +374,20 @@ def run_configured_pipeline(
             )
         ):
             public_message = (
-                "AI reflection is temporarily limited (OpenAI billing/credits). "
-                "Showing a basic keyword-based check-in instead."
+                "Full AI reflection is unavailable (provider credits/quota). "
+                "Showing a basic English keyword check-in instead — "
+                "set GROQ_API_KEY or a working GEMINI_MODEL on the server."
+            )
+        elif "404" in err_l or "not found" in err_l:
+            public_message = (
+                "The configured Gemini model was not found. "
+                "Set GEMINI_MODEL=gemini-2.5-flash on Render, then redeploy."
             )
         else:
-            public_message = re.sub(r"sk-[A-Za-z0-9_\-]+", "sk-***", pipeline_error)[:400]
+            public_message = (
+                "Full AI reflection is temporarily unavailable. "
+                "Showing a basic keyword check-in instead."
+            )
 
     debug: dict[str, Any] | None = None
     if getattr(request, "include_debug", False):

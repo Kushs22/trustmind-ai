@@ -144,7 +144,10 @@ def format_thread_for_prompt(messages: list[dict[str, Any]]) -> str:
     lines.append(
         "Continuity rules: Acknowledge earlier turns briefly when helpful. "
         "Prioritise the latest user message. Do not invent history. "
-        "Never diagnose. Crisis / safety in the CURRENT message always takes priority."
+        "Never diagnose. Crisis / safety in the CURRENT message always takes priority. "
+        "If the latest user message is in another language or asks to switch language, "
+        "reply in that language even if earlier assistant turns were English. "
+        "Never claim you can only speak English."
     )
     return "\n".join(lines)
 
@@ -173,6 +176,82 @@ def _fallback_reply(user_message: str, *, safety: bool) -> str:
     return (
         "Thanks for checking in again. I'm here to listen. Share whatever feels "
         "comfortable — this is wellbeing support information, not a diagnosis."
+    )
+
+
+def _wants_hindi_or_non_english(text: str) -> bool:
+    raw = text or ""
+    lowered = raw.lower()
+    if any(0x0900 <= ord(ch) <= 0x097F for ch in raw):
+        return True
+    if any(
+        phrase in lowered
+        for phrase in (
+            "hindi",
+            "in hindi",
+            "हिंदी",
+            "हिन्दी",
+            "talk in hindi",
+            "speak hindi",
+            "bolna",
+            "baat kar",
+        )
+    ):
+        return True
+    # Common romanised Hindi tokens
+    tokens = set(re.findall(r"[a-zA-Z']+", lowered))
+    hindi_cues = {
+        "mera",
+        "meri",
+        "mera",
+        "naam",
+        "aap",
+        "kaise",
+        "kaisi",
+        "ho",
+        "hai",
+        "hain",
+        "kya",
+        "nahi",
+        "nahin",
+        "bahut",
+        "theek",
+        "thik",
+        "yaar",
+        "bhai",
+        "dost",
+    }
+    return len(tokens & hindi_cues) >= 2
+
+
+def _claims_english_only(reply: str) -> bool:
+    lowered = (reply or "").lower()
+    return any(
+        phrase in lowered
+        for phrase in (
+            "only communicate in english",
+            "only speak english",
+            "can only communicate in english",
+            "i can only communicate in english",
+            "only available in english",
+            "reply in english only",
+            "must use english",
+        )
+    )
+
+
+def _language_override_block(user_message: str) -> str:
+    if not _wants_hindi_or_non_english(user_message):
+        return (
+            "Language: follow the language of the latest user message. "
+            "Never claim you can only speak English."
+        )
+    return (
+        "CRITICAL LANGUAGE OVERRIDE:\n"
+        "- The user is writing in Hindi and/or asked to talk in Hindi.\n"
+        "- Reply in Hindi (Devanagari preferred, or clear Roman Hindi if needed).\n"
+        "- Do NOT say you can only communicate in English.\n"
+        "- Ignore earlier English assistant turns for language choice — switch now."
     )
 
 
@@ -206,22 +285,21 @@ def generate_follow_up_reply(
         from app.services.llm_provider import complete_json
 
         system = (
-            "You are TrustMind AI — a warm, careful wellbeing check-in companion "
-            "for students. You continue an existing check-in conversation.\n\n"
-            "Rules:\n"
-            "- Speak in warm second person.\n"
-            "- Be empathetic and validating; do NOT diagnose.\n"
+            "You are TrustMind AI — a warm, careful multilingual wellbeing "
+            "check-in companion for students. You continue an existing check-in.\n\n"
+            "Hard rules:\n"
+            "- You CAN and MUST reply in the user's language (Hindi, Spanish, "
+            "Marathi, English, etc.). You are not English-only.\n"
+            "- NEVER say \"I can only communicate in English\" or similar.\n"
+            "- If the user asks to switch language, switch immediately even if "
+            "earlier turns were in English.\n"
+            "- Speak in warm second person; be empathetic; do NOT diagnose.\n"
             "- Never say \"you have\", \"this proves\", or \"the diagnosis is\".\n"
             "- Keep replies to 2–5 short sentences.\n"
-            "- Match the user's language: reply in the same language as their latest "
-            "message (e.g. Hindi → Hindi, Spanish → Spanish). If mixed, follow the latest message.\n"
             "- If the latest message suggests suicidal distress or self-harm, "
             "lead with genuine care and urge getting support now.\n"
             "- When soft tone cues are provided for spoken audio, gently "
-            "acknowledge how the message may have sounded (e.g. tired, strained, "
-            "calmer) without claiming clinical emotion detection accuracy.\n"
-            "- Prefer \"it sounded like…\" / \"from how that came across…\" "
-            "over \"your mood is…\" or \"we detected…\".\n"
+            "acknowledge how the message may have sounded without clinical claims.\n"
             "- This is not therapy or a clinical service.\n"
             "- Return ONLY valid JSON: "
             '{"reply": "...", "safety_triggered": true|false}'
@@ -231,25 +309,51 @@ def generate_follow_up_reply(
             if (audio_prompt_block or "").strip()
             else f"Latest user message:\n{text}"
         )
-        user_prompt = (f"{thread_block}\n\n" if thread_block else "") + latest
-
-        raw, err, provider = complete_json(
-            system=system,
-            user=user_prompt,
-            temperature=min(0.7, float(settings.openai_temperature) + 0.15),
-            max_tokens=max(64, int(settings.openai_chat_max_tokens)),
-            openai_model=settings.openai_chat_model or settings.openai_model,
-            gemini_model=settings.gemini_chat_model or settings.gemini_model,
-            groq_model=settings.groq_model,
+        lang_block = _language_override_block(text)
+        user_prompt = (
+            f"{lang_block}\n\n"
+            + (f"{thread_block}\n\n" if thread_block else "")
+            + latest
         )
-        if err and not raw:
-            logger.warning("Follow-up LLM failed (%s): %s", provider or "none", err)
-            return _fallback_reply(text, safety=safety), safety
-        parsed = json.loads(raw) if raw else {}
-        reply = _clip(str(parsed.get("reply") or "").strip())
-        flagged = bool(parsed.get("safety_triggered")) or safety
-        if not reply:
-            reply = _fallback_reply(text, safety=flagged)
+
+        def _once(*, reinforce: bool = False) -> tuple[str, bool]:
+            prompt = user_prompt
+            if reinforce:
+                prompt = (
+                    "RETRY: Your previous draft wrongly claimed English-only. "
+                    "Reply in Hindi now. Never mention an English-only limit.\n\n"
+                    + user_prompt
+                )
+            raw, err, provider = complete_json(
+                system=system,
+                user=prompt,
+                temperature=min(0.7, float(settings.openai_temperature) + 0.15),
+                max_tokens=max(64, int(settings.openai_chat_max_tokens)),
+                openai_model=settings.openai_chat_model or settings.openai_model,
+                gemini_model=settings.gemini_chat_model or settings.gemini_model,
+                groq_model=settings.groq_model,
+            )
+            if err and not raw:
+                logger.warning("Follow-up LLM failed (%s): %s", provider or "none", err)
+                return _fallback_reply(text, safety=safety), safety
+            parsed = json.loads(raw) if raw else {}
+            reply = _clip(str(parsed.get("reply") or "").strip())
+            flagged = bool(parsed.get("safety_triggered")) or safety
+            if not reply:
+                reply = _fallback_reply(text, safety=flagged)
+            return reply, flagged
+
+        reply, flagged = _once()
+        if _wants_hindi_or_non_english(text) and _claims_english_only(reply):
+            logger.warning("Follow-up claimed English-only; retrying with Hindi override")
+            reply, flagged = _once(reinforce=True)
+            if _claims_english_only(reply):
+                # Last resort: do not leave the false English-only claim on screen.
+                reply = (
+                    "Haan, bilkul — main Hindi mein baat kar sakta/sakti hoon. "
+                    "Aap jo feel kar rahe ho, use yahan share kar sakte ho. "
+                    "Main sunne ke liye yahan hoon — ye diagnosis nahi, sirf supportive check-in hai."
+                )
         return reply, flagged
     except Exception:
         logger.exception("Follow-up LLM reply failed; using fallback")

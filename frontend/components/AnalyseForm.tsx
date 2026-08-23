@@ -81,7 +81,7 @@ export function AnalyseForm() {
   const [usePastCheckins, setUsePastCheckins] = useState(false);
   const [hasSavedHistory, setHasSavedHistory] = useState(false);
   const [pipelineMode, setPipelineMode] = useState<Exclude<PipelineMode, "auto">>(
-    "rag",
+    "llm",
   );
   const [result, setResult] = useState<AnalyseResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -365,7 +365,13 @@ export function AnalyseForm() {
       setChatSupportResources(analysis.support_resources || []);
       setChatError(null);
 
-      if (wantSave && analysis.saved_to_history) {
+      const pipeline = (analysis.pipeline_used || "").toLowerCase();
+      if (pipeline.includes("keyword")) {
+        setSaveNotice(
+          analysis.message ||
+            "AI providers were unavailable, so this used a basic keyword check-in. Replies may stay in English until Groq/Gemini is working again.",
+        );
+      } else if (wantSave && analysis.saved_to_history) {
         const continuityNote = analysis.continuity_used
           ? " We used your recent saved check-ins so this reflection can pick up where you left off."
           : "";
@@ -383,7 +389,7 @@ export function AnalyseForm() {
       setError(
         err instanceof ApiError
           ? err.message
-          : "Unable to reach the analysis service right now. The API may be waking up or OpenAI credits may be exhausted — wait a moment and try again.",
+          : "Unable to reach the analysis service right now. It may be waking up — wait a few seconds and try again.",
       );
     } finally {
       setIsProcessing(false);

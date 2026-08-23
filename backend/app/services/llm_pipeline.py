@@ -235,6 +235,9 @@ Return ONLY valid JSON in this format:
 }}
 
 Reasoning rules (user-facing reflection):
+- LANGUAGE: Reply in the SAME language as the user's check-in. If they wrote in Hindi
+  (or Marathi, Spanish, etc.), the reasoning MUST be in that language / script.
+  Do not translate their message into English unless they wrote in English.
 - Speak TO the person in warm second person ("it sounds like you're…", "you're describing…").
 - Be empathetic and validating; acknowledge how hard this may feel without overstating certainty.
 - Reflect observable experiences they shared; use cautious phrasing such as "may relate to",
@@ -255,9 +258,6 @@ Reasoning rules (user-facing reflection):
 - Do NOT lecture about short inputs or ask them to share more in the reflection.
 - End with at most one gentle non-diagnostic reminder (support is available if needed).
 - Keep reasoning to 2–5 short sentences.
-- Match the user's language: if they wrote in Hindi, Marathi, Spanish, etc., write the
-  reasoning reflection in that same language (still warm, second person, non-diagnostic).
-  If mixed languages, prefer the language of their latest message.
 {continuity_section}
 Current check-in:
 

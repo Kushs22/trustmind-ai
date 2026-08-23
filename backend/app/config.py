@@ -49,8 +49,8 @@ class Settings(BaseSettings):
 
     # Analyse backend: "auto" uses LLM when any provider key is set, else keywords
     analyse_backend: str = "auto"
-    # auto = Groq → Gemini → OpenAI | free | groq | gemini | openai
-    llm_provider: str = "auto"
+    # Prefer free providers for product reliability (OpenAI is optional/paid).
+    llm_provider: str = "free"
     openai_api_key: str = ""
     openai_model: str = "gpt-4.1"
     # Faster model for multi-turn chat follow-ups (product latency).

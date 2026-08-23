@@ -56,7 +56,10 @@ def run_rag_pipeline(text: str, continuity_context: str = "") -> dict[str, Any]:
     passages: list[Any] = []
     retrieval_error = ""
     if settings.openai_api_key:
-        client = OpenAI(api_key=settings.openai_api_key)
+        client = OpenAI(
+            api_key=settings.openai_api_key,
+            timeout=12.0,
+        )
         pipeline = RagPipeline(rag_cfg, client=client)
         started = time.perf_counter()
         try:
@@ -65,6 +68,17 @@ def run_rag_pipeline(text: str, continuity_context: str = "") -> dict[str, Any]:
             logger.exception("Retrieval failed in calibrated RAG path")
             passages = []
             retrieval_error = f"retrieval_error: {type(exc).__name__}: {exc}"
+            # Exhausted OpenAI embeddings — continue with generation-only via free providers.
+            if any(
+                tok in str(exc).lower()
+                for tok in (
+                    "insufficient_quota",
+                    "credit_balance",
+                    "exceeded your current quota",
+                    "429",
+                )
+            ):
+                retrieval_error = "retrieval_skipped: openai_quota"
     else:
         started = time.perf_counter()
         retrieval_error = "retrieval_skipped: OPENAI_API_KEY missing (Gemini generation only)"
@@ -86,13 +100,15 @@ def run_rag_pipeline(text: str, continuity_context: str = "") -> dict[str, Any]:
         response_text, api_error, provider = complete_json(
             system=(
                 "You are a careful wellbeing research assistant. "
-                "Respond with valid JSON only."
+                "Respond with valid JSON only. "
+                "LANGUAGE: write reasoning in the same language as the user's check-in."
             ),
             user=prompt,
             temperature=temp,
             max_tokens=800,
             openai_model=settings.openai_model,
             gemini_model=settings.gemini_model,
+            groq_model=settings.groq_model,
         )
         if provider:
             provider_used = provider

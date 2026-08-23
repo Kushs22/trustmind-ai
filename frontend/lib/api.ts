@@ -211,7 +211,7 @@ function parseErrorDetail(detail: unknown): string {
 
 async function request<T>(
   path: string,
-  options: RequestInit & { requireAuth?: boolean } = {},
+  options: RequestInit & { requireAuth?: boolean; timeoutMs?: number } = {},
 ): Promise<T> {
   const headers = new Headers(options.headers);
   headers.set("Content-Type", "application/json");
@@ -223,10 +223,46 @@ async function request<T>(
     throw new ApiError(401, "Authentication required");
   }
 
-  const response = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers,
-  });
+  const timeoutMs = options.timeoutMs ?? 90_000;
+  const { timeoutMs: _ignored, requireAuth: _auth, ...fetchOptions } = options;
+
+  async function once(): Promise<Response> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(`${API_URL}${path}`, {
+        ...fetchOptions,
+        headers,
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  let response: Response;
+  try {
+    response = await once();
+  } catch (err) {
+    // Cold-start / brief network blip: wake the API then retry once.
+    try {
+      await fetch(`${API_URL}/health`, { method: "GET" });
+    } catch {
+      /* ignore */
+    }
+    try {
+      response = await once();
+    } catch {
+      const aborted =
+        err instanceof DOMException && err.name === "AbortError";
+      throw new ApiError(
+        0,
+        aborted
+          ? "The analysis service timed out. Please try again in a moment."
+          : "Unable to reach the analysis service right now. It may be waking up — wait a few seconds and try again.",
+      );
+    }
+  }
 
   if (!response.ok) {
     let message = "Request failed";
