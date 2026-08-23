@@ -177,7 +177,8 @@ export function ChatThread({
   }
 
   async function handleMicClick() {
-    if (!onSendAudio || composerLocked) return;
+    // Do not gate on composerLocked: that includes audioBusy and would block Stop.
+    if (!onSendAudio || isSending || disabled) return;
     if (recorder.status === "listening" || recorder.status === "paused") {
       const blob = await recorder.stopAndGetBlob();
       if (!blob) return;
