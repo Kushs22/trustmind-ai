@@ -1,11 +1,31 @@
 from __future__ import annotations
 
+import logging
 import os
 from functools import lru_cache
 from urllib.parse import urlparse
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
+
+_DEFAULT_CORS = (
+    "http://localhost:3000,http://127.0.0.1:3000,https://trustmind-ai.vercel.app"
+)
+_WEAK_SECRET_VALUES = frozenset(
+    {
+        "",
+        "dev-only-change-me-in-production",
+        "replace-with-a-long-random-secret-key",
+        "replace-with-a-long-random-secret-key-at-least-32-chars",
+        "changeme",
+        "secret",
+        "secret-key",
+        "your-secret-key",
+    }
+)
+_MIN_SECRET_LENGTH = 32
 
 
 def normalize_database_url(url: str) -> str:
@@ -33,14 +53,32 @@ def database_url_safe_summary(url: str) -> str:
         return cleaned.split("://", 1)[0] + "://***"
 
 
+def is_production_runtime() -> bool:
+    """True on Render or when ENVIRONMENT/APP_ENV is production."""
+    if os.getenv("RENDER"):
+        return True
+    env = (os.getenv("ENVIRONMENT") or os.getenv("APP_ENV") or "").strip().lower()
+    return env in {"production", "prod"}
+
+
+def secret_key_is_weak(value: str) -> bool:
+    cleaned = (value or "").strip()
+    if cleaned in _WEAK_SECRET_VALUES:
+        return True
+    if len(cleaned) < _MIN_SECRET_LENGTH:
+        return True
+    return False
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     api_host: str = "127.0.0.1"
     api_port: int = 8000
-    cors_origins: str = (
-        "http://localhost:3000,http://127.0.0.1:3000,https://trustmind-ai.vercel.app"
-    )
+    # Comma-separated allowlist. Never use * in production.
+    cors_origins: str = _DEFAULT_CORS
+    # Optional single frontend origin merged into the allowlist (custom domain).
+    frontend_url: str = ""
 
     secret_key: str = "dev-only-change-me-in-production"
     access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
@@ -61,7 +99,8 @@ class Settings(BaseSettings):
 
     # Free/fast OpenAI-compatible API: https://console.groq.com/keys
     groq_api_key: str = ""
-    groq_model: str = "llama-3.3-70b-versatile"
+    # llama-3.3-70b-versatile was retired Aug 2026; prefer Groq's gpt-oss-120b.
+    groq_model: str = "openai/gpt-oss-120b"
     groq_base_url: str = "https://api.groq.com/openai/v1"
 
     # Free-tier Google AI Studio key: https://aistudio.google.com/apikey
@@ -120,9 +159,17 @@ class Settings(BaseSettings):
     image_processing_timeout_seconds: float = 60.0
     enable_scanned_pdf_ocr: bool = False
 
-    # Upload rate limiting (requests per window per client key)
-    upload_rate_limit_count: int = 30
+    # Rate limiting (requests per window per client IP / action)
+    rate_limit_window_seconds: int = 60
+    # Backward-compatible alias used by older env docs
     upload_rate_limit_window_seconds: int = 60
+    analyse_rate_limit_count: int = 15
+    auth_login_rate_limit_count: int = 5
+    auth_register_rate_limit_count: int = 5
+    auth_anonymous_rate_limit_count: int = 10
+    chat_rate_limit_count: int = 20
+    upload_rate_limit_count: int = 30
+    transcribe_rate_limit_count: int = 20
 
     # Development: allow logging truncated transcripts (off by default)
     enable_dev_content_logging: bool = False
@@ -134,9 +181,55 @@ class Settings(BaseSettings):
             return normalize_database_url(value)
         return value
 
+    @field_validator("frontend_url", mode="before")
+    @classmethod
+    def _strip_frontend_url(cls, value: object) -> object:
+        if isinstance(value, str):
+            return value.strip().rstrip("/")
+        return value
+
+    @model_validator(mode="after")
+    def _enforce_production_secrets_and_cors(self) -> Settings:
+        production = is_production_runtime()
+        if production and secret_key_is_weak(self.secret_key):
+            raise ValueError(
+                "SECRET_KEY is missing or too weak for production. "
+                "Set a random secret of at least 32 characters on Render "
+                '(e.g. `python -c "import secrets; print(secrets.token_urlsafe(48))"`).'
+            )
+        if not production and secret_key_is_weak(self.secret_key):
+            logger.warning(
+                "SECRET_KEY is weak or default — fine for local dev only. "
+                "Set a long random SECRET_KEY before deploying."
+            )
+
+        origins = self.cors_origin_list
+        if production and any(origin == "*" for origin in origins):
+            raise ValueError(
+                "CORS_ORIGINS must not include '*' in production. "
+                "Allowlist https://trustmind-ai.vercel.app and any custom FRONTEND_URL."
+            )
+        if production and not origins:
+            raise ValueError(
+                "CORS_ORIGINS is empty in production. Set an explicit allowlist "
+                "(e.g. https://trustmind-ai.vercel.app)."
+            )
+        return self
+
     @property
     def cors_origin_list(self) -> list[str]:
-        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+        origins: list[str] = []
+        seen: set[str] = set()
+        for raw in self.cors_origins.split(","):
+            origin = raw.strip().rstrip("/")
+            if not origin or origin in seen:
+                continue
+            seen.add(origin)
+            origins.append(origin)
+        frontend = (self.frontend_url or "").strip().rstrip("/")
+        if frontend and frontend not in seen:
+            origins.append(frontend)
+        return origins
 
     @property
     def allowed_audio_type_list(self) -> list[str]:

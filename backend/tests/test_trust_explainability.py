@@ -386,14 +386,27 @@ class TrustExplainabilityTests(unittest.TestCase):
             )
             self.assertFalse(high.abstained)
             self.assertFalse(high.limited_confidence)
-            # Trust layer remains: Very High uncertainty still withholds.
+            # Clear first-person exam-stress / fatigue narratives keep a safe
+            # theme label even in the Very High uncertainty band.
             unsure = apply_abstention(
                 LONG_INPUT_MIN_CONFIDENCE - 0.05,
                 text=exam_stress,
                 prediction="Anxiety",
             )
-            self.assertTrue(unsure.abstained)
+            self.assertFalse(unsure.abstained)
+            self.assertTrue(unsure.limited_confidence)
             self.assertLess(LONG_INPUT_MIN_CONFIDENCE - 0.05, 0.75)
+
+            # Crisis-ambiguous inputs still abstain when confidence is very low.
+            crisis = apply_abstention(
+                LONG_INPUT_MIN_CONFIDENCE - 0.05,
+                text=(
+                    "I keep thinking everyone would be better without me and I "
+                    "don't know how much longer I can keep going like this."
+                ),
+                prediction="SuicideWatch",
+            )
+            self.assertTrue(crisis.abstained)
 
             from app.schemas.analyse import AnalyseRequest
             from app.services.pipeline_controller import run_configured_pipeline
@@ -617,6 +630,85 @@ class TrustExplainabilityTests(unittest.TestCase):
         self.assertIn("how you feel", (result.explanation or "").lower())
         self.assertEqual(result.explanation, LOW_SIGNAL_INVITE_MESSAGE)
         self.assertEqual(result.reasoning, LOW_SIGNAL_INVITE_MESSAGE)
+
+    def test_abstain_still_returns_retrieved_evidence(self) -> None:
+        """Crisis abstention must not hide RAG sources used for transparency."""
+        from app.config import settings
+        from app.schemas.analyse import AnalyseRequest
+        from app.services import pipeline_controller as pc
+
+        crisis = (
+            "I keep thinking everyone would be better without me and I don't "
+            "know how much longer I can keep going like this after exams."
+        )
+        passages = [
+            {
+                "source": "NHS_STRESS_001",
+                "title": "Stress",
+                "organisation": "NHS",
+                "topic": "stress",
+                "text": "Exam stress and pressure are common for students.",
+                "bm25_score": 12.0,
+                "faiss_score": 0.0,
+                "similarity_score": 0.016,
+                "source_url": "https://www.nhs.uk/mental-health/",
+            }
+        ]
+        fake = {
+            "prediction": "SuicideWatch",
+            "confidence": 0.30,
+            "reasoning": "Crisis-adjacent language with exam stress context.",
+            "sources": ["NHS_STRESS_001"],
+            "retrieved_passages": passages,
+            "pipeline_used": "LLM+RAG",
+            "retrieval_mode": "bm25_only",
+            "latency_ms": 5.0,
+            "uncertainty": "Very High",
+            "confidence_breakdown": {
+                "retrieval_similarity": 70,
+                "source_agreement": 40,
+                "llm_confidence": 30,
+                "classification_consistency": 100,
+                "retrieval_coverage": 60,
+            },
+        }
+        req = AnalyseRequest(
+            text=crisis,
+            typed_text=crisis,
+            pipeline_mode="rag",
+            analyse_privately=True,
+        )
+        with patch(
+            "app.services.rag_pipeline_service.run_rag_pipeline", return_value=fake
+        ), patch.object(pc.settings, "openai_api_key", "sk-test"), patch.object(
+            settings, "enable_abstention", True
+        ), patch.object(settings, "enable_source_display", True):
+            result = pc.run_configured_pipeline(req)
+
+        self.assertEqual(result.status, "abstained")
+        self.assertIsNone(result.prediction)
+        self.assertGreaterEqual(len(result.evidence_used), 1)
+        self.assertGreaterEqual(len(result.sources_detail), 1)
+        self.assertNotIn("limited or no supporting evidence", result.explanation.lower())
+        self.assertIn("passages are still shown", result.explanation.lower())
+
+    def test_bm25_similarity_not_near_zero(self) -> None:
+        from app.services.confidence_calibration import score_retrieval_similarity
+
+        passages = [
+            {
+                "bm25_score": 28.0,
+                "faiss_score": 0.0,
+                "similarity_score": 0.016,
+            },
+            {
+                "bm25_score": 22.0,
+                "faiss_score": 0.0,
+                "similarity_score": 0.015,
+            },
+        ]
+        sim = score_retrieval_similarity(passages)
+        self.assertGreaterEqual(sim, 0.5)
 
     def test_consistency_score(self) -> None:
         self.assertAlmostEqual(

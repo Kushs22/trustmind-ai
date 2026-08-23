@@ -80,5 +80,34 @@ class LlmProviderTests(unittest.TestCase):
         self.assertFalse(err)
 
 
+class KeywordFallbackStatusTests(unittest.TestCase):
+    def test_maps_quota_and_model_errors_to_short_labels(self) -> None:
+        self.assertEqual(
+            lp.keyword_fallback_grounding_status(
+                "RuntimeError: gemini 429 {\"error\":{\"code\":429,\"status\":\"RESOURCE_EXHAUSTED\"}}"
+            ),
+            "keyword_fallback (provider_quota)",
+        )
+        self.assertEqual(
+            lp.keyword_fallback_grounding_status(
+                "The model llama-3.3-70b-versatile does not exist"
+            ),
+            "keyword_fallback (model_unavailable)",
+        )
+        self.assertEqual(
+            lp.keyword_fallback_grounding_status("connection timed out"),
+            "keyword_fallback (timeout)",
+        )
+        self.assertEqual(
+            lp.keyword_fallback_grounding_status("weird boom"),
+            "keyword_fallback (provider_error)",
+        )
+        # Never embed the raw payload in the short status.
+        long_body = "x" * 5000
+        status = lp.keyword_fallback_grounding_status(f"RuntimeError: {long_body}")
+        self.assertLess(len(status), 80)
+        self.assertNotIn(long_body[:100], status)
+
+
 if __name__ == "__main__":
     unittest.main()

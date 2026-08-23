@@ -13,6 +13,12 @@ ABSTENTION_MESSAGE = (
     "enough yet — that is intentional care, not a broken result. Crisis support "
     "is still available if you need it."
 )
+ABSTENTION_MESSAGE_WITH_SOURCES = (
+    "We're holding back a labelled category for now because we aren't confident "
+    "enough yet — that is intentional care, not a broken result. Trusted guidance "
+    "passages are still shown below for transparency, and crisis support remains "
+    "available if you need it."
+)
 ABSTENTION_RECOMMENDATION = (
     "If you'd like support, consider contacting your GP, NHS services, or your "
     "university wellbeing team."
@@ -378,6 +384,53 @@ def _has_usable_prediction(prediction: str | None) -> bool:
     return bool(prediction and str(prediction).strip())
 
 
+def _is_crisis_prediction(prediction: str | None) -> bool:
+    key = (prediction or "").strip().lower().replace(" ", "")
+    return key in {"suicidewatch", "self.suicidewatch"}
+
+
+_CRISIS_TEXT_HINTS = (
+    "kill myself",
+    "end my life",
+    "want to die",
+    "suicide",
+    "suicidal",
+    "self harm",
+    "self-harm",
+    "hurt myself",
+    "ending it",
+    "better off without me",
+    "everyone would be better without me",
+)
+
+
+def text_suggests_crisis(text: str | None) -> bool:
+    """True when the check-in itself looks crisis-ambiguous."""
+    lower = (text or "").lower()
+    return any(h in lower for h in _CRISIS_TEXT_HINTS)
+
+
+def prefers_safe_theme_over_abstain(
+    text: str | None,
+    prediction: str | None,
+) -> bool:
+    """
+    Rich first-person stress / mood / loneliness narratives should keep a safe
+    theme label rather than hard-abstaining, unless crisis language is present.
+    """
+    if _is_crisis_prediction(prediction) or text_suggests_crisis(text):
+        return False
+    if not _has_usable_prediction(prediction):
+        return False
+    if _word_count(text) < SHORT_INPUT_WORD_LIMIT:
+        return False
+    # Local import avoids a circular dependency at module load.
+    from app.services.input_kind import classify_input_kind
+
+    kind = classify_input_kind(text)
+    return bool(kind.has_personal_story and kind.emotion_cue_count >= 1)
+
+
 def apply_abstention(
     confidence: float,
     *,
@@ -386,6 +439,7 @@ def apply_abstention(
     speech_transcript: str | None = None,
     file_text: str | None = None,
     prediction: str | None = None,
+    has_retrieved_sources: bool = False,
 ) -> AbstentionDecision:
     """
     Decide whether to withhold a prediction.
@@ -397,6 +451,10 @@ def apply_abstention(
     model label is shown unless confidence is in the Very High uncertainty
     band (below LONG_INPUT_MIN_CONFIDENCE). Mid-band scores keep the label
     and flag limited confidence instead of withholding entirely.
+
+    Clear first-person emotional narratives (exam stress, exhaustion, loneliness,
+    low mood) prefer a safe theme label over hard abstain when not crisis-
+    ambiguous. Crisis-like inputs keep abstention.
     """
     short = is_underspecified_input(
         typed_text=typed_text,
@@ -426,10 +484,25 @@ def apply_abstention(
         confidence, threshold=LONG_INPUT_MIN_CONFIDENCE
     )
     if truly_unsure:
+        # Prefer a safe theme + reflection for clear non-crisis emotional stories.
+        probe = typed_text or speech_transcript or text
+        if prefers_safe_theme_over_abstain(probe, prediction):
+            return AbstentionDecision(
+                abstained=False,
+                status="accepted",
+                message=LIMITED_CONFIDENCE_DISCLAIMER,
+                recommendation="",
+                limited_confidence=True,
+            )
+        message = (
+            ABSTENTION_MESSAGE_WITH_SOURCES
+            if has_retrieved_sources
+            else ABSTENTION_MESSAGE
+        )
         return AbstentionDecision(
             abstained=True,
             status="abstained",
-            message=ABSTENTION_MESSAGE,
+            message=message,
             recommendation=ABSTENTION_RECOMMENDATION,
         )
 

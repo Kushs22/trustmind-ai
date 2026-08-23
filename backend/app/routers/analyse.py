@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -6,6 +6,7 @@ from app.dependencies import get_current_user_optional
 from app.models import User
 from app.schemas.analyse import AnalyseRequest, AnalyseResponse
 from app.services.check_in_service import analyse_and_optionally_save
+from app.services.rate_limit import RateLimitExceeded, enforce_rate_limit
 
 router = APIRouter(tags=["analyse"])
 
@@ -115,9 +116,21 @@ These are support services — not a diagnosis.
 )
 def analyse(
     payload: AnalyseRequest,
+    request: Request,
     db: Session = Depends(get_db),
     user: User | None = Depends(get_current_user_optional),
 ) -> AnalyseResponse:
+    try:
+        enforce_rate_limit(request, action="analyse")
+    except RateLimitExceeded as exc:
+        headers = {}
+        if exc.retry_after_seconds is not None:
+            headers["Retry-After"] = str(exc.retry_after_seconds)
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=str(exc),
+            headers=headers or None,
+        ) from exc
     try:
         return analyse_and_optionally_save(db, payload, user)
     except PermissionError as exc:

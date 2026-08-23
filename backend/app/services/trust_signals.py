@@ -132,9 +132,8 @@ def resolve_grounding(
 
     if rq >= rq_min and ev >= ev_min:
         return GroundingInfo(status="grounded", label=GROUNDING_LABELS["grounded"])
-    if rq > 0 or ev > 0:
-        return GroundingInfo(status="limited", label=GROUNDING_LABELS["limited"])
-    return GroundingInfo(status="ungrounded", label=RAG_UNGROUNDED_LABEL)
+    # Passages were retrieved — never claim the run was ungrounded / empty.
+    return GroundingInfo(status="limited", label=GROUNDING_LABELS["limited"])
 
 
 PREDICTION_DISPLAY: dict[str, str] = {

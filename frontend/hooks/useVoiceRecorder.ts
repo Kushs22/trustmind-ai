@@ -205,6 +205,15 @@ export function useVoiceRecorder() {
     }
   }, [stopAndGetBlob]);
 
+  /** Clear a consumed transcript without tearing down a live recorder. */
+  const consumeTranscript = useCallback(() => {
+    setTranscript("");
+    setWarnings([]);
+    setStatus("idle");
+    setElapsed(0);
+    elapsedOffsetRef.current = 0;
+  }, []);
+
   return {
     status,
     elapsed,
@@ -217,6 +226,7 @@ export function useVoiceRecorder() {
     pause,
     resume,
     cancel,
+    consumeTranscript,
     stopAndTranscribe,
     stopAndGetBlob,
     maxDurationSeconds: MAX_AUDIO_DURATION_SECONDS,

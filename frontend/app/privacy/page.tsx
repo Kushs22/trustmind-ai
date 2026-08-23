@@ -31,6 +31,7 @@ const sections: { title: string; body: string[] }[] = [
     title: "Passwords & access",
     body: [
       "Passwords are hashed before storage. We cannot read your password back.",
+      "New accounts require a password of at least 8 characters with a letter and a number or special character.",
       "API requests use a bearer token after login. Logging out or deleting your account clears the token from this browser.",
     ],
   },
