@@ -181,8 +181,47 @@ def run_rag_pipeline(text: str, continuity_context: str = "") -> dict[str, Any]:
         )
 
     if not runs:
-        error = retrieval_error or (api_errors[0] if api_errors else "empty_response")
-        raise RuntimeError(error)
+        # Keep any BM25/FAISS hits even when every LLM provider fails — Mode B
+        # demos still need grounded sources visible under quota pressure.
+        latency_ms = (time.perf_counter() - started) * 1000.0
+        retrieved_meta = [
+            p.to_dict() if hasattr(p, "to_dict") else p for p in passages
+        ]
+        sources = [p.source for p in passages] if passages else []
+        if settings.enable_source_display is False:
+            sources = []
+        error = retrieval_error or (
+            api_errors[0] if api_errors else "empty_response"
+        )
+        return {
+            "prediction": None,
+            "confidence": 0.3,
+            "reasoning": (
+                "Trusted guidance pages were found for this check-in, but the "
+                "AI reflection providers are temporarily unavailable "
+                "(quota or rate limit). Sources below are still from the "
+                "knowledge base — try re-analyse in a few minutes."
+                if passages
+                else (
+                    "AI reflection providers are temporarily unavailable "
+                    "(quota or rate limit). Try again shortly, or set "
+                    "LLM_PROVIDER=auto with OPENAI_API_KEY as a backstop."
+                )
+            ),
+            "sources": sources,
+            "pipeline_used": "LLM+RAG" if passages else "keyword_fallback",
+            "llm_provider": "",
+            "latency_ms": latency_ms,
+            "error": error,
+            "parse_ok": False,
+            "retrieved_passages": retrieved_meta,
+            "retrieval_mode": retrieval_mode if passages else "none",
+            "confidence_breakdown": {},
+            "uncertainty": "Very High",
+            "calibration": {},
+            "consistency_labels": [],
+            "llm_confidence_raw": 0.0,
+        }
 
     labels = [r.get("predicted_label") or None for r in runs]
     prediction = majority_label(labels) or (runs[0].get("predicted_label") or None)

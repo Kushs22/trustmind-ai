@@ -87,8 +87,9 @@ class Settings(BaseSettings):
 
     # Analyse backend: "auto" uses LLM when any provider key is set, else keywords
     analyse_backend: str = "auto"
-    # Prefer free providers for product reliability (OpenAI is optional/paid).
-    llm_provider: str = "free"
+    # Prefer free providers first; fall through to OpenAI when free quotas die.
+    # Set LLM_PROVIDER=free on Render only if you want to never spend OpenAI credits.
+    llm_provider: str = "auto"
     openai_api_key: str = ""
     openai_model: str = "gpt-4.1"
     # Faster model for multi-turn chat follow-ups (product latency).

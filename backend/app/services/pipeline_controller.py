@@ -230,16 +230,49 @@ def run_configured_pipeline(
             error = f"{type(exc).__name__}: {exc}"
             logger.exception("Primary pipeline failed (%s)", error)
             if use_rag:
+                # Preserve any passages already retrieved before generation failed.
+                prior_passages = list(raw.get("retrieved_passages") or [])
+                prior_mode = str(raw.get("retrieval_mode") or "")
                 try:
                     from app.services.llm_pipeline import run_llm_pipeline
 
                     raw = run_llm_pipeline(text, continuity_context=continuity)
                     raw["error"] = f"rag_failed_then_llm: {error}"
+                    if prior_passages and not raw.get("retrieved_passages"):
+                        raw["retrieved_passages"] = prior_passages
+                        raw["retrieval_mode"] = prior_mode or "bm25_only"
+                        raw["sources"] = list(
+                            raw.get("sources")
+                            or [
+                                (
+                                    p.get("source")
+                                    if isinstance(p, dict)
+                                    else getattr(p, "source", "")
+                                )
+                                for p in prior_passages
+                            ]
+                        )
+                        provider = str(raw.get("llm_provider") or "").strip()
+                        raw["pipeline_used"] = (
+                            f"LLM+RAG ({provider})" if provider else "LLM+RAG"
+                        )
                     logger.warning("RAG failed; served LLM-only response")
                 except Exception as llm_exc:  # noqa: BLE001
                     error = f"{error} | llm_also_failed: {type(llm_exc).__name__}: {llm_exc}"
                     logger.exception("LLM fallback also failed")
                     raw = _keyword_raw(text, error=error)
+                    if prior_passages:
+                        raw["retrieved_passages"] = prior_passages
+                        raw["retrieval_mode"] = prior_mode or "bm25_only"
+                        raw["sources"] = [
+                            (
+                                p.get("source")
+                                if isinstance(p, dict)
+                                else getattr(p, "source", "")
+                            )
+                            for p in prior_passages
+                        ]
+                        raw["pipeline_used"] = "LLM+RAG"
             else:
                 raw = _keyword_raw(text, error=error)
 
@@ -248,8 +281,32 @@ def run_configured_pipeline(
     reasoning = sanitise_reasoning(str(raw.get("reasoning") or ""))
     sources = list(raw.get("sources") or [])
     passages = list(raw.get("retrieved_passages") or [])
+    # Mode B must still surface KB passages when generation fell to keyword
+    # fallback after a quota failure (common on free Groq/Gemini tiers).
+    if use_rag and not passages:
+        try:
+            from rag.config import get_rag_config
+            from rag.retriever import retrieve_bm25_only
+
+            rag_cfg = get_rag_config()
+            rag_cfg.openai_api_key = settings.openai_api_key or ""
+            recovered = retrieve_bm25_only(
+                text, top_k=settings.rag_top_k, config=rag_cfg
+            )
+            if recovered:
+                passages = [p.to_dict() for p in recovered]
+                raw["retrieved_passages"] = passages
+                raw["retrieval_mode"] = str(raw.get("retrieval_mode") or "bm25_only")
+                if not sources:
+                    sources = [p.source for p in recovered]
+                pipeline_now = str(raw.get("pipeline_used") or "")
+                if "RAG" not in pipeline_now.upper():
+                    raw["pipeline_used"] = "LLM+RAG"
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("BM25 recover-after-fallback failed: %s", exc)
     if not settings.enable_source_display:
         sources = []
+        passages = []
 
     # Coaching + feelings: keep classification, but acknowledge the guided-conversation ask.
     if (

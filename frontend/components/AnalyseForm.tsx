@@ -297,18 +297,27 @@ function emptySession(
   };
 }
 
-function isStandaloneLlmPipeline(result: AnalyseResponse): boolean {
-  const pipeline = (result.pipeline_used || "").toUpperCase();
-  if (result.grounding?.status === "not_applicable") return true;
-  // Anything without RAG (LLM-only, keyword fallback, empty) has no retrieved sources.
-  return !pipeline.includes("RAG");
-}
-
-function evidenceFromResult(result: AnalyseResponse): EvidenceItem[] {
-  if (isStandaloneLlmPipeline(result)) return [];
+function evidenceItemsOf(result: AnalyseResponse): EvidenceItem[] {
   if (result.evidence_used?.length) return result.evidence_used;
   if (result.sources_detail?.length) return result.sources_detail;
   return [];
+}
+
+function isStandaloneLlmPipeline(result: AnalyseResponse): boolean {
+  // Real retrieved evidence always means show grounded sources.
+  if (evidenceItemsOf(result).length > 0) return false;
+  if ((result.retrieval_mode || "").trim() && result.retrieval_mode !== "none") {
+    return false;
+  }
+  const pipeline = (result.pipeline_used || "").toUpperCase();
+  if (pipeline.includes("RAG")) return false;
+  if (result.grounding?.status === "not_applicable") return true;
+  // LLM-only or keyword fallback with no passages.
+  return true;
+}
+
+function evidenceFromResult(result: AnalyseResponse): EvidenceItem[] {
+  return evidenceItemsOf(result);
 }
 
 /**
@@ -1231,6 +1240,12 @@ export function AnalyseForm() {
   const resultIsStandaloneLlm = result
     ? isStandaloneLlmPipeline(result)
     : pipelineMode === "llm";
+  const ranAsRagIntent =
+    pipelineMode === "rag" ||
+    (result?.pipeline_used || "").toUpperCase().includes("RAG");
+  const isQuotaFallback = (result?.pipeline_used || "")
+    .toLowerCase()
+    .includes("keyword");
   const canReanalyse =
     Boolean(resolveReanalysePayload()) && !isProcessing;
 
@@ -1311,11 +1326,15 @@ export function AnalyseForm() {
       </div>
     ) : null;
 
-  const pipelineLabel =
+  // Strip provider suffix e.g. "LLM+RAG (groq)" → "LLM+RAG"
+  const pipelineLabel = (
     result?.pipeline_used ||
-    (resultIsStandaloneLlm ? "LLM" : "LLM+RAG");
+    (resultIsStandaloneLlm ? "LLM" : "LLM+RAG")
+  )
+    .replace(/\s*\([^)]*\)\s*$/g, "")
+    .replace(/^keyword_fallback$/i, "Basic check-in (AI busy)")
+    .trim();
 
-  const trustSignals = result?.trust_signals;
   const breakdown = result?.confidence_breakdown;
 
   const trustDetailsCard = result ? (
@@ -1388,9 +1407,18 @@ export function AnalyseForm() {
             Grounding status
           </dt>
           <dd className="mt-0.5 font-medium text-slate-800 dark:text-slate-100">
-            {result.grounding_status ||
-              result.grounding?.label ||
-              (resultIsStandaloneLlm ? "Not applicable (LLM-only)" : "—")}
+            {evidenceAll.length > 0
+              ? "Matched trusted guidance"
+              : isQuotaFallback
+                ? "Basic check-in (AI providers busy)"
+                : resultIsStandaloneLlm && !ranAsRagIntent
+                  ? "Not used in LLM-only mode"
+                  : result.grounding_status &&
+                      !/keyword|llm_only|formula|provider_/i.test(
+                        result.grounding_status,
+                      )
+                    ? result.grounding_status
+                    : "No matching sources this time"}
           </dd>
         </div>
         <div>
@@ -1465,40 +1493,51 @@ export function AnalyseForm() {
 
   const friendlyTrustSummary = (() => {
     if (!result) return "";
-    if (resultIsStandaloneLlm) {
-      return "This check-in used the model on its own — no trusted guidance pages were pulled in. Switch to LLM+RAG on the same text to compare.";
-    }
     if (evidenceAll.length > 0) {
       return `This reflection drew on ${evidenceAll.length} trusted guidance source${
         evidenceAll.length === 1 ? "" : "s"
       } (for example NHS or university wellbeing pages).`;
     }
-    return "We looked for matching guidance pages, but nothing close enough came back this time. A little more detail about how you feel usually helps.";
+    if (ranAsRagIntent && isQuotaFallback) {
+      return "You chose LLM+RAG, but AI providers hit a temporary limit, so this used a basic check-in. Trusted guidance pages should still appear below when the knowledge base matches — or try Re-analyse in a few minutes.";
+    }
+    if (resultIsStandaloneLlm && !ranAsRagIntent) {
+      return "This check-in used the model on its own — no trusted guidance pages were pulled in. Switch to LLM+RAG on the same text to compare.";
+    }
+    if (ranAsRagIntent) {
+      return "LLM+RAG ran, but no matching guidance pages were found for this check-in. A little more detail about how you feel usually helps.";
+    }
+    return "We looked for matching guidance pages, but nothing close enough came back this time.";
   })();
+
+  const showAsStandalonePanel =
+    resultIsStandaloneLlm && !ranAsRagIntent && evidenceAll.length === 0;
 
   const groundingReliabilityPanel = result ? (
     <div
       className={`rounded-xl border px-4 py-4 ${
-        resultIsStandaloneLlm
+        showAsStandalonePanel
           ? "border-amber-200/80 bg-amber-50/50 dark:border-amber-900/70 dark:bg-amber-950/30"
           : "border-indigo-200/70 bg-indigo-50/40 dark:border-indigo-900/70 dark:bg-indigo-950/25"
       }`}
     >
       <p
         className={`text-xs font-medium uppercase tracking-wide ${
-          resultIsStandaloneLlm
+          showAsStandalonePanel
             ? "text-amber-800 dark:text-amber-300"
             : "text-indigo-700 dark:text-indigo-300"
         }`}
       >
-        {resultIsStandaloneLlm
-          ? "LLM-only contrast"
-          : "Grounding & reliability"}
+        {showAsStandalonePanel
+          ? "Standalone model"
+          : isQuotaFallback
+            ? "Grounding (limited)"
+            : "Grounding & reliability"}
       </p>
       <p className="mt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
         {friendlyTrustSummary}
       </p>
-      {!resultIsStandaloneLlm ? (
+      {!showAsStandalonePanel ? (
         <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
           <div>
             <dt className="text-slate-500 dark:text-slate-400">
@@ -1506,10 +1545,12 @@ export function AnalyseForm() {
             </dt>
             <dd className="mt-0.5 font-medium text-slate-800 dark:text-slate-100">
               {evidenceAll.length > 0
-                ? `${evidenceAll.length} trusted passage${
+                ? `${evidenceAll.length} trusted source${
                     evidenceAll.length === 1 ? "" : "s"
                   }`
-                : "None matched this check-in"}
+                : isQuotaFallback
+                  ? "Waiting on AI providers — try re-analyse shortly"
+                  : "None matched this check-in"}
             </dd>
           </div>
           <div>
@@ -1517,41 +1558,14 @@ export function AnalyseForm() {
               Grounding status
             </dt>
             <dd className="mt-0.5 font-medium text-slate-800 dark:text-slate-100">
-              {result.grounding_status &&
-              !/llm_only|formula|bm25|none/i.test(result.grounding_status)
-                ? result.grounding_status
-                : evidenceAll.length > 0
-                  ? "Grounded with retrieved evidence"
-                  : "No matching passages for this check-in"}
+              {evidenceAll.length > 0
+                ? "Matched trusted guidance"
+                : isQuotaFallback
+                  ? "Basic check-in (AI providers busy)"
+                  : "No matching sources this time"}
             </dd>
           </div>
-          {typeof result.confidence_breakdown?.classification_consistency ===
-          "number" ? (
-            <div>
-              <dt className="text-slate-500 dark:text-slate-400">
-                Consistency
-              </dt>
-              <dd className="mt-0.5 font-medium tabular-nums text-slate-800 dark:text-slate-100">
-                {result.confidence_breakdown.classification_consistency}/100
-              </dd>
-            </div>
-          ) : null}
-          {typeof result.confidence_breakdown?.source_agreement === "number" ? (
-            <div>
-              <dt className="text-slate-500 dark:text-slate-400">
-                Source agreement
-              </dt>
-              <dd className="mt-0.5 font-medium tabular-nums text-slate-800 dark:text-slate-100">
-                {result.confidence_breakdown.source_agreement}/100
-              </dd>
-            </div>
-          ) : null}
         </dl>
-      ) : null}
-      {result.calibration_notes && !resultIsStandaloneLlm ? (
-        <p className="mt-3 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
-          Calibration note: {result.calibration_notes}
-        </p>
       ) : null}
     </div>
   ) : null;
@@ -1627,10 +1641,12 @@ export function AnalyseForm() {
           <span className="font-medium text-slate-700 dark:text-slate-200">
             {pipelineLabel}
           </span>
-          {resultIsStandaloneLlm ? (
-            <> · Grounding: not used in this mode</>
-          ) : evidenceAll.length > 0 ? (
+          {evidenceAll.length > 0 ? (
             <> · Grounding: matched trusted guidance</>
+          ) : ranAsRagIntent && isQuotaFallback ? (
+            <> · Grounding: AI providers busy — try again shortly</>
+          ) : resultIsStandaloneLlm && !ranAsRagIntent ? (
+            <> · Grounding: not used in this mode</>
           ) : (
             <> · Grounding: no matching sources this time</>
           )}
@@ -1651,7 +1667,7 @@ export function AnalyseForm() {
             </span>
           ) : null}
         </div>
-        {resultIsStandaloneLlm ? (
+        {showAsStandalonePanel ? (
           <p className="mt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
             This check-in used the model on its own, so no trusted guidance
             pages were pulled in. Switch to{" "}
@@ -1731,10 +1747,9 @@ export function AnalyseForm() {
           </ul>
         ) : (
           <p className="mt-2 text-sm leading-relaxed text-amber-900 dark:text-amber-100">
-            We looked for trusted guidance pages that match what you shared,
-            but nothing close enough came back this time. A little more detail
-            about how you feel — and for how long — usually helps us find
-            useful sources.
+            {ranAsRagIntent && isQuotaFallback
+              ? "You selected LLM+RAG, but AI providers are temporarily limited, so trusted pages could not be fully loaded. Wait a few minutes and press Re-analyse — or set LLM_PROVIDER=auto with OpenAI on the server as a backstop."
+              : "We looked for trusted guidance pages that match what you shared, but nothing close enough came back this time. A little more detail about how you feel — and for how long — usually helps us find useful sources."}
           </p>
         )}
       </div>
