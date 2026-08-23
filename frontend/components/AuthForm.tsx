@@ -4,10 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ApiError, createAnonymousSession, login, register } from "@/lib/api";
-import {
-  MIN_PASSWORD_LENGTH,
-  validatePasswordStrength,
-} from "@/lib/password";
 
 type AuthFormProps = {
   mode: "login" | "signup";
@@ -37,15 +33,6 @@ export function AuthForm({ mode }: AuthFormProps) {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-
-    if (!isLogin) {
-      const passwordError = validatePasswordStrength(password);
-      if (passwordError) {
-        setError(passwordError);
-        return;
-      }
-    }
-
     setIsSubmitting(true);
 
     try {
@@ -58,9 +45,7 @@ export function AuthForm({ mode }: AuthFormProps) {
     } catch (err) {
       setError(
         err instanceof ApiError
-          ? err.status === 429
-            ? err.message || "Too many attempts. Please wait a minute and try again."
-            : err.message
+          ? err.message
           : "Unable to reach the service right now. It may be waking up — wait a few seconds and try again.",
       );
     } finally {
@@ -131,14 +116,13 @@ export function AuthForm({ mode }: AuthFormProps) {
             onChange={(event) => setPassword(event.target.value)}
             placeholder="••••••••"
             required
-            minLength={isLogin ? 1 : MIN_PASSWORD_LENGTH}
+            minLength={isLogin ? 1 : 8}
             disabled={isSubmitting}
             className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-slate-800 placeholder:text-slate-400 focus:border-teal-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-100 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-100 dark:focus:bg-slate-800"
           />
           {!isLogin && (
             <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
-              At least {MIN_PASSWORD_LENGTH} characters, with a letter and a
-              number or special character
+              At least 8 characters
             </p>
           )}
         </div>

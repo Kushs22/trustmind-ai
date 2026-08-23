@@ -43,11 +43,10 @@ export function useVoiceController(
   async function handleMicClick() {
     if (listening || paused) {
       if (useBrowser) {
-        // Prefer refs so stop doesn't race with the last onresult paint.
-        const text = browserSpeech.getSpokenText();
         browserSpeech.stop();
+        const text =
+          `${browserSpeech.finalTranscript} ${browserSpeech.interim}`.trim();
         if (text) onTranscriptChange(text);
-        browserSpeech.clearTranscript();
       } else {
         await recorder.stopAndTranscribe();
       }

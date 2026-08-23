@@ -22,28 +22,8 @@ W_CLASSIFICATION_CONSISTENCY = 0.20
 W_RETRIEVAL_COVERAGE = 0.10
 
 LABEL_HINTS: dict[str, tuple[str, ...]] = {
-    "depression": (
-        "depression",
-        "depressive",
-        "low mood",
-        "low-mood",
-        "sadness",
-        "lonely",
-        "loneliness",
-        "exhaust",
-        "burnout",
-    ),
-    "anxiety": (
-        "anxiety",
-        "anxious",
-        "panic",
-        "worry",
-        "worried",
-        "phobia",
-        "stress",
-        "exam",
-        "student",
-    ),
+    "depression": ("depression", "depressive", "low mood", "low-mood", "sadness"),
+    "anxiety": ("anxiety", "anxious", "panic", "worry", "worried", "phobia"),
     "suicidewatch": (
         "suicid",
         "crisis",
@@ -53,17 +33,7 @@ LABEL_HINTS: dict[str, tuple[str, ...]] = {
         "ending your life",
     ),
     "bipolar": ("bipolar", "mania", "manic", "hypomania"),
-    "offmychest": (
-        "wellbeing",
-        "well-being",
-        "general",
-        "student life",
-        "burnout",
-        "lonely",
-        "loneliness",
-        "exhaust",
-        "stress",
-    ),
+    "offmychest": ("wellbeing", "well-being", "general", "student life", "burnout"),
 }
 
 
@@ -182,48 +152,22 @@ def _passage_supports_label(passage: dict[str, Any] | Any, label: str) -> bool:
 def score_retrieval_similarity(
     passages: Sequence[dict[str, Any] | Any],
 ) -> float:
-    """
-    Average retrieval strength of retrieved chunks (0–1).
-
-    Prefers FAISS/cosine similarity when present. BM25-only runs previously fell
-    back to raw RRF ranks (~0.01–0.02), which falsely tanked calibrated
-    confidence and triggered abstention even when strong lexical hits existed.
-    """
+    """Average cosine / FAISS similarity of retrieved chunks (0–1)."""
     if not passages:
         return 0.0
-    dense_scores: list[float] = []
-    bm25_scores: list[float] = []
-    soft_scores: list[float] = []
+    scores: list[float] = []
     for p in passages:
         d = p.to_dict() if hasattr(p, "to_dict") else dict(p) if isinstance(p, dict) else {}
+        # Prefer true dense similarity; fall back to hybrid score if needed.
+        raw = d.get("faiss_score")
+        if raw is None or float(raw) == 0.0:
+            raw = d.get("similarity_score", 0.0)
         try:
-            faiss = float(d.get("faiss_score") or 0.0)
-        except (TypeError, ValueError):
-            faiss = 0.0
-        if faiss > 0.0:
-            dense_scores.append(_clamp01(faiss))
-            continue
-        try:
-            bm25 = float(d.get("bm25_score") or 0.0)
-        except (TypeError, ValueError):
-            bm25 = 0.0
-        if bm25 > 0.0:
-            bm25_scores.append(bm25)
-            continue
-        try:
-            soft_scores.append(_clamp01(float(d.get("similarity_score") or 0.0)))
+            scores.append(_clamp01(float(raw)))
         except (TypeError, ValueError):
             continue
-
-    scores: list[float] = list(dense_scores)
-    if bm25_scores:
-        peak = max(bm25_scores) or 1.0
-        # Any positive BM25 hit is at least a moderate signal; best hit → 1.0.
-        scores.extend(_clamp01(0.50 + 0.50 * (s / peak)) for s in bm25_scores)
-    scores.extend(s for s in soft_scores if s > 0)
     if not scores:
-        # Passages present but unscored — treat as weak-but-real retrieval.
-        return 0.45 if passages else 0.0
+        return 0.0
     return sum(scores) / len(scores)
 
 

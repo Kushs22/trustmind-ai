@@ -34,17 +34,9 @@ from app.services.evidence_presentation import (
     build_evidence_items,
     sanitise_reasoning,
 )
-from app.services.llm_provider import keyword_fallback_grounding_status
-from app.services.support_resources import (
-    get_support_resources,
-    is_high_risk_prediction,
-    sources_indicate_crisis,
-    user_text_indicates_crisis,
-)
+from app.services.support_resources import get_support_resources
 from app.services.support_urgency import compute_support_urgency
 from app.services.trust_signals import (
-    GROUNDING_LABELS,
-    GroundingInfo,
     compute_trust_signals,
     prediction_display_name,
     resolve_grounding,
@@ -107,43 +99,7 @@ class PipelineResult:
     support_urgency_band: str | None = None
     support_urgency_rationale: str | None = None
     support_urgency_uncertain: bool = False
-    retrieval_mode: str | None = None
-    llm_provider: str | None = None
-    calibration_notes: str | None = None
-    trust_summary: str | None = None
     debug: dict[str, Any] | None = None
-
-
-def _build_trust_summary(
-    *,
-    is_standalone_llm: bool,
-    grounding_label: str,
-    trust: dict[str, Any],
-    n_evidence: int,
-    retrieval_mode: str | None,
-    calibration_notes: str | None,
-) -> str:
-    """Short viva-friendly explanation of why this run is (or isn't) grounded."""
-    if is_standalone_llm:
-        return (
-            "No retrieved guidance — standalone model only. "
-            "Confidence reflects the LLM self-report and consistency, "
-            "not KB grounding."
-        )
-    rq = trust.get("retrieval_quality")
-    ev = trust.get("evidence_strength")
-    mode = (retrieval_mode or "retrieval").replace("_", " ")
-    parts = [
-        f"LLM+RAG used {n_evidence} trusted passage(s) via {mode}.",
-        f"Grounding: {grounding_label}.",
-    ]
-    if rq is not None:
-        parts.append(f"Retrieval quality {rq}/100.")
-    if ev is not None:
-        parts.append(f"Evidence strength {ev}/100.")
-    if calibration_notes:
-        parts.append(str(calibration_notes).strip())
-    return " ".join(parts)
 
 
 def _map_concern(prediction: str | None, abstained: bool) -> str:
@@ -330,7 +286,6 @@ def run_configured_pipeline(
         speech_transcript=request.speech_transcript,
         file_text=file_text,
         prediction=prediction,
-        has_retrieved_sources=bool(passages),
     )
     abstained = decision.abstained
     final_prediction = None if abstained else prediction
@@ -344,43 +299,16 @@ def run_configured_pipeline(
     ):
         reasoning = f"{LIMITED_CONFIDENCE_DISCLAIMER} {reasoning}".strip()
 
-    # Warm reflection when we kept a label on a rich emotional narrative.
-    if (
-        not abstained
-        and final_prediction
-        and kind.rich_first_person
-        and (
-            not reasoning
-            or len(reasoning.split()) < 18
-            or "matched a clear wellbeing cue" in reasoning.lower()
-        )
-    ):
-        reasoning = short_checkin_reflection(
-            final_prediction,
-            user_text=user_probe,
-        )
-        if (
-            decision.limited_confidence
-            and LIMITED_CONFIDENCE_DISCLAIMER.lower() not in reasoning.lower()
-        ):
-            reasoning = f"{LIMITED_CONFIDENCE_DISCLAIMER} {reasoning}".strip()
-
-    concern = _map_concern(final_prediction, abstained)
-
-    # Safety (crisis) independent of confidence / RAG; support links for
-    # Moderate+ concern, depression/anxiety predictions, and serious user language.
-    high_risk = bool(
-        is_high_risk_prediction(prediction)
-        or user_text_indicates_crisis(text)
-        or sources_indicate_crisis(sources, reasoning)
-    )
+    # Safety independent of confidence / RAG success
     support = get_support_resources(
         prediction=prediction,
         sources=sources,
         reasoning=reasoning,
         user_text=text,
-        concern_level=concern,
     )
+    high_risk = bool(support)
+
+    concern = _map_concern(final_prediction, abstained)
     breakdown = dict(raw.get("confidence_breakdown") or {})
     uncertainty = str(raw.get("uncertainty") or "") or uncertainty_from_confidence(confidence)
     if abstained:
@@ -434,49 +362,35 @@ def run_configured_pipeline(
         evidence_dicts = [e.to_dict() for e in evidence_items]
         if evidence_dicts and settings.enable_source_display:
             sources = [e["source_id"] for e in evidence_dicts]
-        # Always keep retrieved sources available for transparency — including
-        # when we abstain from a labelled category (ethics / trustworthiness).
-        shown_evidence = evidence_dicts if settings.enable_source_display else []
+        shown_evidence = []  # set below when not abstained
 
     pred_display = prediction_display_name(final_prediction)
 
     if abstained:
         abstention_status = "Abstention triggered — no clinical prediction"
         explanation = decision.message
-        # Only claim "limited supporting evidence" when retrieval truly found nothing.
-        if not evidence_dicts and grounding_info.status in {"limited", "ungrounded"}:
+        if grounding_info.status in {"limited", "ungrounded"}:
             explanation = (
                 f"{decision.message} Retrieval provided limited or no supporting "
                 f"evidence for a confident assessment."
             )
         grounding_status = grounding_info.label
-        # When passages exist, prefer a grounded/limited label that reflects
-        # retrieval rather than implying the KB was empty.
-        if evidence_dicts and grounding_info.status == "ungrounded":
-            grounding_status = GROUNDING_LABELS.get(
-                "limited", grounding_info.label
-            )
-            grounding_info = GroundingInfo(
-                status="limited",
-                label=grounding_status,
-            )
         early_signs: list[str] = []
         potential_indicators: list[str] = []
         next_steps = [decision.recommendation] + _default_next_steps(high_risk)
-        # Do NOT clear shown_evidence on abstain — sources stay visible.
+        shown_evidence = []
     else:
         abstention_status = "Prediction accepted"
         explanation = reasoning or low_signal_invite_message()
         grounding_status = grounding_info.label
         if pipeline_used == "keyword_fallback" and pipeline_error:
-            logger.warning(
-                "keyword_fallback grounding detail (not stored): %s",
-                pipeline_error[:2000],
-            )
-            grounding_status = keyword_fallback_grounding_status(pipeline_error)
+            safe_err = re.sub(r"sk-[A-Za-z0-9_\-]+", "sk-***", pipeline_error)[:400]
+            grounding_status = f"keyword_fallback ({safe_err})"
         early_signs = [final_prediction] if final_prediction else []
         potential_indicators = [pred_display] if pred_display else list(early_signs)
         next_steps = _default_next_steps(high_risk)
+        if not is_standalone_llm:
+            shown_evidence = evidence_dicts
         if "_keyword" in raw and not low_signal:
             kw = raw["_keyword"]
             early_signs = kw.early_signs
@@ -547,37 +461,6 @@ def run_configured_pipeline(
         early_signs=early_signs,
         support_resources_present=bool(support),
     )
-    # If urgency came out elevated/urgent but resources were empty, force them.
-    if not support and urgency.band in {"elevated", "urgent"}:
-        support = get_support_resources(
-            prediction=prediction,
-            sources=sources,
-            reasoning=reasoning,
-            user_text=text,
-            concern_level=concern,
-            support_urgency_band=urgency.band,
-            force=True,
-        )
-
-    retrieval_mode = str(raw.get("retrieval_mode") or "") or None
-    if is_standalone_llm:
-        retrieval_mode = None
-    llm_provider = str(raw.get("llm_provider") or "") or None
-    calibration_blob = raw.get("calibration") or {}
-    calibration_notes = ""
-    if isinstance(calibration_blob, dict):
-        calibration_notes = str(calibration_blob.get("notes") or "").strip()
-    elif isinstance(calibration_blob, str):
-        calibration_notes = calibration_blob.strip()
-    trust_dict = trust.to_dict()
-    trust_summary = _build_trust_summary(
-        is_standalone_llm=is_standalone_llm,
-        grounding_label=grounding_status,
-        trust=trust_dict,
-        n_evidence=len(evidence_dicts) if not is_standalone_llm else 0,
-        retrieval_mode=retrieval_mode,
-        calibration_notes=calibration_notes or None,
-    )
 
     result = PipelineResult(
         status=decision.status,
@@ -604,7 +487,7 @@ def run_configured_pipeline(
         error=pipeline_error,
         confidence_breakdown=breakdown,
         uncertainty=uncertainty,
-        trust_signals=trust_dict,
+        trust_signals=trust.to_dict(),
         grounding=grounding_info.to_dict(),
         evidence_used=shown_evidence,
         sources_detail=evidence_dicts,
@@ -613,10 +496,6 @@ def run_configured_pipeline(
         support_urgency_band=urgency.band,
         support_urgency_rationale=urgency.rationale,
         support_urgency_uncertain=urgency.uncertain,
-        retrieval_mode=retrieval_mode,
-        llm_provider=llm_provider,
-        calibration_notes=calibration_notes or None,
-        trust_summary=trust_summary,
         debug=debug,
     )
 

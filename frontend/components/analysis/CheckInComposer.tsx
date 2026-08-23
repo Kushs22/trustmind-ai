@@ -6,13 +6,6 @@ import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import type { PendingImage, PendingPdf } from "@/hooks/useFileUpload";
 
-function appendSpoken(current: string, spoken: string): string {
-  const base = current.trim();
-  const next = spoken.trim();
-  if (!next) return current;
-  return base ? `${base} ${next}` : next;
-}
-
 type CheckInComposerProps = {
   value: string;
   onChange: (value: string) => void;
@@ -66,9 +59,6 @@ export function CheckInComposer({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const valueRef = useRef(value);
   valueRef.current = value;
-  /** Skip applying speech when the user explicitly cancels. */
-  const skipSpeechCommitRef = useRef(false);
-  const browserSessionRef = useRef(false);
 
   const speech = useSpeechRecognition();
   const recorder = useVoiceRecorder();
@@ -79,65 +69,34 @@ export function CheckInComposer({
     : recorder.status === "listening";
   const processingAudio = !useBrowser && recorder.status === "processing";
 
-  // Whisper path: apply transcript once, then soft-reset (do not abort/cancel race).
   useEffect(() => {
     if (useBrowser) return;
-    if (recorder.status !== "completed") return;
-    const spoken = recorder.transcript.trim();
-    if (!spoken) return;
-    onChange(appendSpoken(valueRef.current, spoken));
-    recorder.consumeTranscript();
+    if (recorder.status === "completed" && recorder.transcript.trim()) {
+      const spoken = recorder.transcript.trim();
+      const current = valueRef.current;
+      onChange(current.trim() ? `${current.trim()} ${spoken}` : spoken);
+      recorder.cancel();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [useBrowser, recorder.status, recorder.transcript]);
-
-  // Browser STT: flush spoken text when a session ends (stop click or auto-end).
-  // Reading refs avoids stale React state; committing on listening↓ avoids
-  // cancel()/abort wiping text before it lands in the textarea.
-  useEffect(() => {
-    if (!useBrowser) return;
-    if (speech.listening) {
-      browserSessionRef.current = true;
-      return;
-    }
-    if (!browserSessionRef.current) return;
-    browserSessionRef.current = false;
-
-    if (skipSpeechCommitRef.current) {
-      skipSpeechCommitRef.current = false;
-      speech.clearTranscript();
-      return;
-    }
-
-    const spoken = speech.getSpokenText();
-    if (spoken) {
-      onChange(appendSpoken(valueRef.current, spoken));
-    }
-    speech.clearTranscript();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [useBrowser, speech.listening]);
 
   async function handleMicClick() {
     if (listening) {
       if (useBrowser) {
-        // stop() keeps transcript refs; effect commits when listening becomes false.
+        const spoken = `${speech.finalTranscript} ${speech.interim}`.trim();
         speech.stop();
+        if (spoken) {
+          const current = valueRef.current;
+          onChange(current.trim() ? `${current.trim()} ${spoken}` : spoken);
+        }
+        speech.cancel();
       } else {
         await recorder.stopAndTranscribe();
       }
       return;
     }
-    skipSpeechCommitRef.current = false;
     if (useBrowser) speech.start();
     else await recorder.start();
-  }
-
-  function handleSpeechCancel() {
-    if (useBrowser) {
-      skipSpeechCommitRef.current = true;
-      speech.cancel();
-    } else {
-      recorder.cancel();
-    }
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -206,7 +165,10 @@ export function CheckInComposer({
         {listening && (
           <button
             type="button"
-            onClick={handleSpeechCancel}
+            onClick={() => {
+              if (useBrowser) speech.cancel();
+              else recorder.cancel();
+            }}
             className="rounded-md border border-rose-200 px-2 py-0.5 text-rose-700 dark:border-rose-800 dark:text-rose-300"
           >
             Cancel
@@ -317,7 +279,7 @@ export function CheckInComposer({
         </div>
         <p className="text-[11px] text-slate-500 dark:text-slate-400">
           Enter to analyse · Shift+Enter for a new line · Mic for speech ·
-          Paperclip for images/PDFs (context only — not a file vault)
+          Paperclip for images/PDFs
         </p>
         {micError && (
           <p className="text-sm text-rose-700 dark:text-rose-300" role="alert">

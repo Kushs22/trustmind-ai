@@ -1,19 +1,11 @@
-from pydantic import BaseModel, EmailStr, Field, field_validator
+import json
 
-from app.core.passwords import MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH, validate_password_strength
+from pydantic import BaseModel, EmailStr, Field
 
 
 class RegisterRequest(BaseModel):
     email: EmailStr
-    password: str = Field(..., min_length=MIN_PASSWORD_LENGTH, max_length=MAX_PASSWORD_LENGTH)
-
-    @field_validator("password")
-    @classmethod
-    def _password_strength(cls, value: str) -> str:
-        error = validate_password_strength(value)
-        if error:
-            raise ValueError(error)
-        return value
+    password: str = Field(..., min_length=8, max_length=128)
 
 
 class LoginRequest(BaseModel):
