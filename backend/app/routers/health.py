@@ -70,8 +70,8 @@ def health_check() -> dict[str, object]:
     return {
         "status": "ok",
         "service": "trustmind-ai-backend",
-        "version": "1.2.1",
-        "release_note": "Fix grounding_status TEXT + short keyword_fallback status; default GROQ_MODEL=openai/gpt-oss-120b",
+        "version": "1.2.2",
+        "release_note": "BM25-first RAG sources + support resources (NHS/Samaritans/UWE) without OpenAI embeddings",
         "database": database_url_safe_summary(settings.database_url),
         "database_is_sqlite": settings.is_sqlite,
         "database_is_postgres": settings.is_postgres,
