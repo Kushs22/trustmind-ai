@@ -45,6 +45,10 @@ class AnalyseResult:
     support_urgency_band: str | None = None
     support_urgency_rationale: str | None = None
     support_urgency_uncertain: bool = False
+    retrieval_mode: str | None = None
+    llm_provider: str | None = None
+    calibration_notes: str | None = None
+    trust_summary: str | None = None
     debug: dict | None = None
     input_summary: dict | None = None
     processed_attachments: list = field(default_factory=list)
@@ -357,6 +361,10 @@ def run_analysis(
             support_urgency_band=pipe.support_urgency_band,
             support_urgency_rationale=pipe.support_urgency_rationale,
             support_urgency_uncertain=pipe.support_urgency_uncertain,
+            retrieval_mode=pipe.retrieval_mode,
+            llm_provider=pipe.llm_provider,
+            calibration_notes=pipe.calibration_notes,
+            trust_summary=pipe.trust_summary,
             debug=pipe.debug,
             input_summary=normalised.input_summary.model_dump(),
             processed_attachments=[

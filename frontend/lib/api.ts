@@ -125,6 +125,10 @@ export type AnalyseResponse = {
   support_urgency_band?: "low" | "moderate" | "elevated" | "urgent" | null;
   support_urgency_rationale?: string | null;
   support_urgency_uncertain?: boolean;
+  retrieval_mode?: string | null;
+  llm_provider?: string | null;
+  calibration_notes?: string | null;
+  trust_summary?: string | null;
   debug?: AnalyseDebug | null;
   input_summary?: InputSummary | null;
   processed_attachments?: ProcessedAttachment[];

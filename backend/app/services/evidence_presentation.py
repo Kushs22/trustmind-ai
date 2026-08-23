@@ -80,6 +80,7 @@ def _clip_snippet(text: str, max_chars: int = 280) -> str:
         return cleaned
     return cleaned[: max_chars - 1].rstrip() + "…"
 
+
 def format_display_label(organisation: str, title: str) -> str:
     org = (organisation or "").strip()
     tit = (title or "").strip()
