@@ -63,6 +63,7 @@ export function useSpeechRecognition() {
     }
     setError(null);
     setInterim("");
+    setFinalTranscript("");
     const recognition = new Ctor();
     recognition.continuous = true;
     recognition.interimResults = true;

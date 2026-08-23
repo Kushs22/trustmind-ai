@@ -5,9 +5,7 @@ import Link from "next/link";
 import { Toggle } from "@/components/Toggle";
 import { SupportUrgencyMeter } from "@/components/SupportUrgencyMeter";
 import { ChatThread } from "@/components/ChatThread";
-import { FileUpload } from "@/components/analysis/FileUpload";
-import { InputReview } from "@/components/analysis/InputReview";
-import { VoiceInput } from "@/components/analysis/VoiceInput";
+import { CheckInComposer } from "@/components/analysis/CheckInComposer";
 import {
   analyseText,
   ApiError,
@@ -26,10 +24,9 @@ import { AUTH_CHANGED_EVENT, getToken, isAuthenticated, isRegisteredUser } from 
 import { indicatorDisplayName, predictionDisplayName } from "@/lib/displayLabels";
 import { useFileUpload } from "@/hooks/useFileUpload";
 
-/** Soft UX floor only — never pad beyond the real API latency. */
 const PROCESSING_DURATION_MS = 350;
 
-/** Soft guidance only — never disables Review/Confirm; one-word check-ins are allowed. */
+/** Soft guidance only — never disables Analyse; one-word check-ins are allowed. */
 const SHORT_INPUT_TIP_WORDS = 12;
 const INPUT_GUIDANCE =
   "The more you share, the better we can support you. A few sentences about how long this has lasted and how it affects sleep, study, or daily life often helps — one-word check-ins still work.";
@@ -70,9 +67,6 @@ function Spinner({ className }: { className?: string }) {
 
 export function AnalyseForm() {
   const [text, setText] = useState("");
-  const [speechTranscript, setSpeechTranscript] = useState("");
-  const [speechDraft, setSpeechDraft] = useState("");
-  const [showReview, setShowReview] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showResult, setShowResult] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
@@ -236,13 +230,11 @@ export function AnalyseForm() {
 
   const hasContent = Boolean(
     text.trim() ||
-      speechTranscript.trim() ||
       files.images.some((i) => i.included && i.extractedText.trim()) ||
       files.pdfs.some((p) => p.included && p.extractedText.trim()),
   );
 
   const typedWordCount = countWords(text);
-  const speechWordCount = countWords(speechTranscript);
   const fileWordCount =
     files.images
       .filter((i) => i.included)
@@ -250,7 +242,7 @@ export function AnalyseForm() {
     files.pdfs
       .filter((p) => p.included)
       .reduce((sum, p) => sum + countWords(p.extractedText), 0);
-  const totalWordCount = typedWordCount + speechWordCount + fileWordCount;
+  const totalWordCount = typedWordCount + fileWordCount;
   /** Optional tip only — never blocks submit. */
   const showShortInputTip =
     hasContent && totalWordCount > 0 && totalWordCount < SHORT_INPUT_TIP_WORDS;
@@ -281,7 +273,6 @@ export function AnalyseForm() {
     clearTimers();
     setIsProcessing(true);
     setShowResult(false);
-    setShowReview(false);
     setError(null);
     setSaveNotice(null);
     setResult(null);
@@ -321,7 +312,7 @@ export function AnalyseForm() {
       const [analysis] = await Promise.all([
         analyseText({
           typed_text: text.trim(),
-          speech_transcript: speechTranscript.trim(),
+          speech_transcript: "",
           image_context,
           pdf_context,
           save_to_history: wantSave,
@@ -340,10 +331,7 @@ export function AnalyseForm() {
       setResult(analysis);
       setShowResult(true);
 
-      const userOpening =
-        text.trim() ||
-        speechTranscript.trim() ||
-        "Shared a multimodal check-in";
+      const userOpening = text.trim() || "Shared a multimodal check-in";
       const assistantOpening =
         analysis.reasoning || analysis.explanation || analysis.message || "";
       setMessages([
@@ -389,7 +377,7 @@ export function AnalyseForm() {
       setError(
         err instanceof ApiError
           ? err.message
-          : "Unable to reach the analysis service right now. It may be waking up — wait a few seconds and try again.",
+          : "Unable to reach the service right now. It may be waking up from a cold start — wait a few seconds and try again.",
       );
     } finally {
       setIsProcessing(false);
@@ -479,12 +467,6 @@ export function AnalyseForm() {
     : loggedIn
       ? "Session thread — not saved to your history (private or unsaved check-in)"
       : "Session only — this chat isn’t saved while you’re signed out";
-
-  function handleReviewRequest() {
-    if (!hasContent || isProcessing || filesBusy) return;
-    setError(null);
-    setShowReview(true);
-  }
 
   useEffect(() => {
     return () => clearTimers();
@@ -591,67 +573,27 @@ export function AnalyseForm() {
           How have you been feeling recently?
         </label>
         <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-          You can type, speak, or attach supporting images and PDF documents.
+          Type, speak, or attach images and PDFs — then hit Analyse.
         </p>
         <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
           Only share information you are comfortable submitting. This tool is
           not a medical diagnosis.
         </p>
-        <textarea
-          id="wellbeing-input"
-          value={text}
-          onChange={(event) => {
-            setText(event.target.value);
-            if (error) setError(null);
-          }}
-          rows={8}
-          disabled={isProcessing || showReview}
-          placeholder="Share what's on your mind — even one word works."
-          className="mt-4 w-full resize-y rounded-xl border border-slate-200 bg-slate-50/50 dark:border-slate-700 dark:bg-slate-800/50 px-4 py-3 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:border-teal-300 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-100 disabled:cursor-not-allowed disabled:opacity-60"
-        />
-        <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-          {INPUT_GUIDANCE}
-        </p>
-        {showShortInputTip && (
-          <div
-            className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/60"
-            role="status"
-          >
-            <p className="text-sm text-slate-700 dark:text-slate-200">
-              {SHORT_INPUT_TIP}
-            </p>
-            <p className="mt-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-              <span className="font-medium">Optional example:</span>{" "}
-              {SHORT_INPUT_EXAMPLE}
-            </p>
-          </div>
-        )}
 
-        <div className="mt-4 space-y-4">
-          <VoiceInput
-            disabled={isProcessing || showReview}
-            draftTranscript={speechDraft}
-            onDraftChange={setSpeechDraft}
-            onDiscard={() => {
-              setSpeechDraft("");
-              setSpeechTranscript("");
+        <div className="mt-4">
+          <CheckInComposer
+            value={text}
+            onChange={(next) => {
+              setText(next);
+              if (error) setError(null);
             }}
-            onTranscriptConfirmed={(t) => {
-              setSpeechTranscript(t);
-              setSpeechDraft(t);
-            }}
-          />
-          {speechTranscript && (
-            <p className="text-xs text-teal-700 dark:text-teal-300" aria-live="polite">
-              Speech transcript ready for analysis ({speechWordCount} words). You
-              can still edit it above.
-            </p>
-          )}
-          <FileUpload
-            disabled={isProcessing || showReview}
+            disabled={isProcessing}
+            canSubmit={canSubmit}
+            isProcessing={isProcessing}
+            onSubmit={() => void handleAnalyse()}
             images={files.images}
             pdfs={files.pdfs}
-            error={files.error}
+            fileError={files.error}
             onAddFiles={(f) => void files.addFiles(f)}
             onRemoveImage={files.removeImage}
             onRemovePdf={files.removePdf}
@@ -659,35 +601,20 @@ export function AnalyseForm() {
             onUpdatePdfText={files.updatePdfText}
             onToggleImage={files.toggleImageIncluded}
             onTogglePdf={files.togglePdfIncluded}
+            guidance={INPUT_GUIDANCE}
+            shortTip={showShortInputTip ? SHORT_INPUT_TIP : null}
+            shortExample={showShortInputTip ? SHORT_INPUT_EXAMPLE : null}
           />
         </div>
 
-        {showReview && (
-          <div className="mt-6">
-            <InputReview
-              typedText={text.trim()}
-              speechTranscript={speechTranscript.trim()}
-              imageSummaries={files.images
-                .filter((i) => i.included && i.extractedText.trim())
-                .map((i) => ({
-                  filename: i.file.name,
-                  text: i.extractedText.trim(),
-                }))}
-              pdfSummaries={files.pdfs
-                .filter((p) => p.included && p.extractedText.trim())
-                .map((p) => ({
-                  filename: p.file.name,
-                  text: p.extractedText.trim(),
-                }))}
-              analysePrivately={analysePrivately}
-              disabled={!canSubmit}
-              onBack={() => setShowReview(false)}
-              onConfirm={() => void handleAnalyse()}
-            />
-          </div>
-        )}
-
-        <div className="mt-6 space-y-4">
+        <details className="mt-6 group rounded-xl border border-slate-200 bg-slate-50/40 dark:border-slate-700 dark:bg-slate-800/40">
+          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-slate-700 outline-none marker:content-none dark:text-slate-200 [&::-webkit-details-marker]:hidden">
+            <span className="flex items-center justify-between gap-3">
+              <span>Privacy &amp; assessment options</span>
+              <span className="text-xs font-normal text-slate-500 transition group-open:rotate-180 dark:text-slate-400">▾</span>
+            </span>
+          </summary>
+          <div className="space-y-4 border-t border-slate-200 px-4 py-4 dark:border-slate-700">
           <div className="rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/50">
             <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
               Assessment mode
@@ -785,29 +712,11 @@ export function AnalyseForm() {
               </div>
             </div>
           )}
-        </div>
-        <div className="mt-6 flex flex-col gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:items-center sm:justify-between">
+          </div>
+        </details>
+
+        <div className="mt-6 border-t border-slate-100 pt-4 dark:border-slate-800">
           <p className="text-sm text-slate-500 dark:text-slate-400">{privacyStatus}</p>
-          {!showReview ? (
-            <button
-              type="button"
-              onClick={handleReviewRequest}
-              disabled={!canSubmit}
-              title={
-                !hasContent
-                  ? "Enter some text, speech, or a file first"
-                  : undefined
-              }
-              aria-disabled={!canSubmit}
-              className="inline-flex h-12 min-w-[180px] items-center justify-center gap-2 rounded-xl bg-teal-600 px-8 text-base font-medium text-white shadow-md shadow-teal-600/20 transition-all hover:bg-teal-700 hover:shadow-lg hover:shadow-teal-600/25 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Review &amp; analyse
-            </button>
-          ) : (
-            <p className="text-sm text-teal-700 dark:text-teal-300">
-              Confirm your inputs above to continue.
-            </p>
-          )}
         </div>
       </div>
       {isProcessing && (
@@ -825,8 +734,9 @@ export function AnalyseForm() {
                 Looking at what you&apos;ve shared
               </h2>
               <p className="mt-2 max-w-md text-sm text-slate-500 dark:text-slate-400">
-                This usually takes a few seconds. The first request after idle can
-                take longer while the service wakes up.
+                This usually takes a few seconds. If the API was idle, it may be
+                waking up first — that can take up to about a minute on free
+                hosting.
               </p>
             </div>
           </div>
