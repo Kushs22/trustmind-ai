@@ -318,7 +318,7 @@ function evidenceFromResult(result: AnalyseResponse): EvidenceItem[] {
 function messagesAfterReanalyse(
   previous: ChatMessage[],
   userOpening: string,
-  assistantOpening: string | null,
+  assistantOpening: string,
 ): ChatMessage[] {
   let rest = previous;
   if (rest.length > 0 && rest[0]?.role === "user") {
@@ -329,9 +329,7 @@ function messagesAfterReanalyse(
   }
   return [
     { role: "user", content: userOpening },
-    ...(assistantOpening
-      ? [{ role: "assistant" as const, content: assistantOpening }]
-      : []),
+    { role: "assistant", content: assistantOpening },
     ...rest,
   ];
 }
@@ -396,6 +394,8 @@ export function AnalyseForm() {
   const activeSessionIdRef = useRef(activeSessionId);
   const sessionArchiveRef = useRef<AnalyseSession[]>([]);
   const analyseGenerationRef = useRef(0);
+  /** Prevents overlapping analyse runs and stuck "Reflecting…" spinners. */
+  const analyseLockRef = useRef(false);
   /** Tracks guest / anon / registered so logout does not keep the prior chat. */
   const authIdentityRef = useRef<string | null>(null);
   const files = useFileUpload();
@@ -420,6 +420,8 @@ export function AnalyseForm() {
 
   function resetAnalyseWorkspace() {
     analyseGenerationRef.current += 1;
+    analyseLockRef.current = false;
+    setIsProcessing(false);
     lastCheckInRef.current = null;
     suppressUrlLoadRef.current = true;
     setCheckInQuery(null);
@@ -780,6 +782,8 @@ export function AnalyseForm() {
   function handleNewChat() {
     // Invalidate any in-flight analyse/reanalyse before clearing session truth.
     analyseGenerationRef.current += 1;
+    analyseLockRef.current = false;
+    setIsProcessing(false);
     lastCheckInRef.current = null;
 
     archiveCurrentIfNeeded();
@@ -888,7 +892,8 @@ export function AnalyseForm() {
     payload: LastCheckInPayload;
     clearComposer: boolean;
   }) {
-    if (isProcessing) return;
+    if (analyseLockRef.current) return;
+    analyseLockRef.current = true;
 
     const generation = analyseGenerationRef.current;
     const sessionIdAtStart = activeSessionIdRef.current;
@@ -955,13 +960,11 @@ export function AnalyseForm() {
           ? messagesAfterReanalyse(
               messagesRef.current,
               options.payload.userOpening,
-              assistantOpening || null,
+              assistantOpening,
             )
           : [
               { role: "user", content: options.payload.userOpening },
-              ...(assistantOpening
-                ? [{ role: "assistant" as const, content: assistantOpening }]
-                : []),
+              { role: "assistant" as const, content: assistantOpening },
             ];
       messagesRef.current = nextMessages;
       setMessages(nextMessages);
@@ -1016,7 +1019,7 @@ export function AnalyseForm() {
       if (pipeline.includes("keyword")) {
         setSaveNotice(
           analysis.message ||
-            "AI providers were unavailable, so this used a basic keyword check-in. Replies may stay in English until Groq/Gemini is working again.",
+            "AI providers were unavailable, so this used a basic keyword check-in. Replies may stay in English until Groq/Gemini/OpenAI is working again.",
         );
       } else if (wantSave && analysis.saved_to_history) {
         const continuityNote = analysis.continuity_used
@@ -1050,12 +1053,9 @@ export function AnalyseForm() {
           : "Unable to reach the analysis service right now. It may be waking up — wait a few seconds and try again.",
       );
     } finally {
-      if (
-        generation === analyseGenerationRef.current &&
-        sessionIdAtStart === activeSessionIdRef.current
-      ) {
-        setIsProcessing(false);
-      }
+      analyseLockRef.current = false;
+      // Always clear the spinner — even if this run was invalidated mid-flight.
+      setIsProcessing(false);
     }
   }
 
@@ -1095,7 +1095,12 @@ export function AnalyseForm() {
 
   async function handleReanalyse(mode: Exclude<PipelineMode, "auto">) {
     const payload = resolveReanalysePayload();
-    if (!payload || isProcessing) return;
+    if (!payload) {
+      setError(
+        "Nothing to re-analyse yet — send a check-in first, then switch LLM ↔ LLM+RAG.",
+      );
+      return;
+    }
     lastCheckInRef.current = payload;
     setLastCheckIn(payload);
     await runAnalyse({
@@ -1107,11 +1112,15 @@ export function AnalyseForm() {
 
   function handlePipelineModeSelect(mode: Exclude<PipelineMode, "auto">) {
     if (pipelineMode === mode) return;
-    if (isProcessing) return;
     // Immediate UI feedback; never loadCheckInThread from mode switch.
     setPipelineMode(mode);
     const payload = resolveReanalysePayload();
-    if (!payload) return;
+    if (!payload) {
+      setError(
+        "Nothing to re-analyse yet — send a check-in first, then switch LLM ↔ LLM+RAG.",
+      );
+      return;
+    }
     lastCheckInRef.current = payload;
     setLastCheckIn(payload);
     void handleReanalyse(mode);
@@ -1483,7 +1492,7 @@ export function AnalyseForm() {
         }`}
       >
         {resultIsStandaloneLlm
-          ? "Standalone model"
+          ? "LLM-only contrast"
           : "Grounding & reliability"}
       </p>
       <p className="mt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
@@ -1516,7 +1525,33 @@ export function AnalyseForm() {
                   : "No matching passages for this check-in"}
             </dd>
           </div>
+          {typeof result.confidence_breakdown?.classification_consistency ===
+          "number" ? (
+            <div>
+              <dt className="text-slate-500 dark:text-slate-400">
+                Consistency
+              </dt>
+              <dd className="mt-0.5 font-medium tabular-nums text-slate-800 dark:text-slate-100">
+                {result.confidence_breakdown.classification_consistency}/100
+              </dd>
+            </div>
+          ) : null}
+          {typeof result.confidence_breakdown?.source_agreement === "number" ? (
+            <div>
+              <dt className="text-slate-500 dark:text-slate-400">
+                Source agreement
+              </dt>
+              <dd className="mt-0.5 font-medium tabular-nums text-slate-800 dark:text-slate-100">
+                {result.confidence_breakdown.source_agreement}/100
+              </dd>
+            </div>
+          ) : null}
         </dl>
+      ) : null}
+      {result.calibration_notes && !resultIsStandaloneLlm ? (
+        <p className="mt-3 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
+          Calibration note: {result.calibration_notes}
+        </p>
       ) : null}
     </div>
   ) : null;
@@ -1608,7 +1643,7 @@ export function AnalyseForm() {
       <div className="rounded-xl border-2 border-teal-400/80 bg-teal-50/50 px-4 py-4 shadow-sm dark:border-teal-600/80 dark:bg-teal-950/30">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <p className="text-xs font-medium uppercase tracking-wide text-teal-800 dark:text-teal-300">
-            Grounded sources
+            Grounded sources / retrieved passages
           </p>
           {!resultIsStandaloneLlm && evidenceAll.length > 0 ? (
             <span className="rounded-full bg-teal-600 px-2.5 py-0.5 text-[11px] font-semibold text-white dark:bg-teal-500">
@@ -1650,6 +1685,15 @@ export function AnalyseForm() {
                     </p>
                   ) : null}
                   <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+                    {item.source_id ? (
+                      <span>ID: {item.source_id}</span>
+                    ) : null}
+                    {typeof item.retrieval_score === "number" &&
+                    item.retrieval_score > 0 ? (
+                      <span className="font-medium tabular-nums text-teal-800 dark:text-teal-300">
+                        score {item.retrieval_score.toFixed(3)}
+                      </span>
+                    ) : null}
                     {item.url ? (
                       <a
                         href={item.url}
