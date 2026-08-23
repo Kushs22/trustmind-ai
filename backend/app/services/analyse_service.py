@@ -3,6 +3,7 @@ import logging
 import re
 
 from app.schemas.analyse import AnalyseRequest
+from app.services.llm_provider import keyword_fallback_grounding_status
 
 logger = logging.getLogger(__name__)
 
@@ -368,7 +369,7 @@ def run_analysis(
             :400
         ]
         result = _run_keyword_analysis(request)
-        result.grounding_status = f"keyword_fallback ({safe_err})"
+        result.grounding_status = keyword_fallback_grounding_status(safe_err)
         result.message = safe_err
         result.pipeline_used = "keyword_fallback"
         result.input_summary = normalised.input_summary.model_dump()

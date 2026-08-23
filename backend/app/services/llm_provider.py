@@ -47,6 +47,28 @@ def _is_quota_error(message: str) -> bool:
     return any(tok in lowered for tok in _QUOTA_TOKENS)
 
 
+def keyword_fallback_grounding_status(error: str | None = None) -> str:
+    """
+    Short grounding_status for DB/UI when the pipeline falls back to keywords.
+
+    Full provider HTTP bodies must stay in logs only — never dump them into
+    grounding_status (VARCHAR overflow / noisy UI).
+    """
+    err_l = (error or "").lower()
+    if _is_quota_error(err_l):
+        return "keyword_fallback (provider_quota)"
+    if any(
+        tok in err_l
+        for tok in ("404", "does not exist", "not found", "model_not_found")
+    ):
+        return "keyword_fallback (model_unavailable)"
+    if any(tok in err_l for tok in ("timeout", "timed out", "deadline")):
+        return "keyword_fallback (timeout)"
+    if any(tok in err_l for tok in ("401", "403", "invalid api key", "authentication")):
+        return "keyword_fallback (auth_error)"
+    return "keyword_fallback (provider_error)"
+
+
 def _provider_order() -> list[str]:
     """Prefer free/reliable providers first in auto mode."""
     mode = (settings.llm_provider or "auto").strip().lower()
@@ -144,7 +166,7 @@ def _call_groq_json(
 ) -> tuple[str, str]:
     if not settings.groq_api_key:
         return "", "GROQ_API_KEY missing"
-    model_name = (model or settings.groq_model or "llama-3.3-70b-versatile").strip()
+    model_name = (model or settings.groq_model or "openai/gpt-oss-120b").strip()
     return _call_openai_compatible_json(
         api_key=settings.groq_api_key,
         base_url=(settings.groq_base_url or "https://api.groq.com/openai/v1").rstrip("/"),

@@ -25,6 +25,9 @@ services:
         value: auto
       - key: OPENAI_MODEL
         value: gpt-4.1
+      # llama-3.3-70b-versatile retired Aug 2026 — keep in sync with app.config default
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-120b
       - key: USE_RAG
         value: "true"
       - key: RAG_TOP_K

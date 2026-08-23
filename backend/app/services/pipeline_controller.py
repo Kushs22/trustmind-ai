@@ -34,6 +34,7 @@ from app.services.evidence_presentation import (
     build_evidence_items,
     sanitise_reasoning,
 )
+from app.services.llm_provider import keyword_fallback_grounding_status
 from app.services.support_resources import get_support_resources
 from app.services.support_urgency import compute_support_urgency
 from app.services.trust_signals import (
@@ -384,8 +385,11 @@ def run_configured_pipeline(
         explanation = reasoning or low_signal_invite_message()
         grounding_status = grounding_info.label
         if pipeline_used == "keyword_fallback" and pipeline_error:
-            safe_err = re.sub(r"sk-[A-Za-z0-9_\-]+", "sk-***", pipeline_error)[:400]
-            grounding_status = f"keyword_fallback ({safe_err})"
+            logger.warning(
+                "keyword_fallback grounding detail (not stored): %s",
+                pipeline_error[:2000],
+            )
+            grounding_status = keyword_fallback_grounding_status(pipeline_error)
         early_signs = [final_prediction] if final_prediction else []
         potential_indicators = [pred_display] if pred_display else list(early_signs)
         next_steps = _default_next_steps(high_risk)

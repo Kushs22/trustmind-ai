@@ -61,7 +61,8 @@ class Settings(BaseSettings):
 
     # Free/fast OpenAI-compatible API: https://console.groq.com/keys
     groq_api_key: str = ""
-    groq_model: str = "llama-3.3-70b-versatile"
+    # llama-3.3-70b-versatile was retired Aug 2026; prefer Groq's gpt-oss-120b.
+    groq_model: str = "openai/gpt-oss-120b"
     groq_base_url: str = "https://api.groq.com/openai/v1"
 
     # Free-tier Google AI Studio key: https://aistudio.google.com/apikey

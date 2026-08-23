@@ -232,6 +232,8 @@ python -m unittest tests.test_multimodal_input tests.test_trust_explainability t
 |----------|------|
 | `OPENAI_API_KEY` | Required for LLM / embeddings / multimodal |
 | `OPENAI_MODEL` | Default `gpt-4.1` |
+| `GROQ_API_KEY` | Optional free/fast provider (tried before Gemini/OpenAI in `auto`/`free`) |
+| `GROQ_MODEL` | Default `openai/gpt-oss-120b` (`llama-3.3-70b-versatile` retired Aug 2026) |
 | `USE_RAG` | Default for `pipeline_mode=auto` |
 | `RAG_TOP_K` | Passages in RAG prompt (default 5) |
 | `ENABLE_ABSTENTION` / `CONFIDENCE_THRESHOLD` | Fail-soft labelling |
