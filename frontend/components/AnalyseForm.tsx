@@ -1425,37 +1425,8 @@ export function AnalyseForm() {
           <dt className="text-slate-500 dark:text-slate-400">Pipeline used</dt>
           <dd className="mt-0.5 font-medium text-slate-800 dark:text-slate-100">
             {pipelineLabel}
-            {result.llm_provider ? (
-              <span className="ml-1 font-normal text-slate-500 dark:text-slate-400">
-                · provider {result.llm_provider}
-              </span>
-            ) : null}
           </dd>
         </div>
-        {!resultIsStandaloneLlm ? (
-          <>
-            <div>
-              <dt className="text-slate-500 dark:text-slate-400">
-                Evidence strength
-              </dt>
-              <dd className="mt-0.5 font-medium tabular-nums text-slate-800 dark:text-slate-100">
-                {typeof trustSignals?.evidence_strength === "number"
-                  ? `${trustSignals.evidence_strength}/100`
-                  : "—"}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-slate-500 dark:text-slate-400">
-                Retrieval quality
-              </dt>
-              <dd className="mt-0.5 font-medium tabular-nums text-slate-800 dark:text-slate-100">
-                {typeof trustSignals?.retrieval_quality === "number"
-                  ? `${trustSignals.retrieval_quality}/100`
-                  : "—"}
-              </dd>
-            </div>
-          </>
-        ) : null}
       </dl>
 
       {(result.potential_indicators?.length
@@ -1701,15 +1672,6 @@ export function AnalyseForm() {
                     </p>
                   ) : null}
                   <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
-                    {item.source_id ? (
-                      <span>ID: {item.source_id}</span>
-                    ) : null}
-                    {typeof item.retrieval_score === "number" &&
-                    item.retrieval_score > 0 ? (
-                      <span className="font-medium tabular-nums text-teal-800 dark:text-teal-300">
-                        score {item.retrieval_score.toFixed(3)}
-                      </span>
-                    ) : null}
                     {item.url ? (
                       <a
                         href={item.url}
