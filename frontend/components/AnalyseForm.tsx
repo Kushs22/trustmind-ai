@@ -154,11 +154,56 @@ function newSessionId(): string {
   return `session-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+const SESSION_STORAGE_KEY = "trustmind_analyse_sessions_v1";
+
+type PersistedSessionsV1 = {
+  version: 1;
+  activeSessionId: string;
+  active: AnalyseSession;
+  archive: AnalyseSession[];
+};
+
 function readCheckInQuery(): string | null {
   try {
     return new URLSearchParams(window.location.search).get("check_in");
   } catch {
     return null;
+  }
+}
+
+function readPersistedSessions(): PersistedSessionsV1 | null {
+  try {
+    const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedSessionsV1;
+    if (
+      !parsed ||
+      parsed.version !== 1 ||
+      !parsed.active ||
+      !Array.isArray(parsed.archive)
+    ) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writePersistedSessions(
+  active: AnalyseSession,
+  archive: AnalyseSession[],
+) {
+  try {
+    const payload: PersistedSessionsV1 = {
+      version: 1,
+      activeSessionId: active.id,
+      active,
+      archive: archive.slice(0, 12),
+    };
+    sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(payload));
+  } catch {
+    // quota / private mode — ignore
   }
 }
 
@@ -255,24 +300,30 @@ export function AnalyseForm() {
   const timersRef = useRef<number[]>([]);
   const activeCheckInIdRef = useRef<string | null>(null);
   const suppressUrlLoadRef = useRef(false);
+  /** Synchronous session truth — state alone races with in-flight reanalyse. */
+  const lastCheckInRef = useRef<LastCheckInPayload | null>(null);
+  const activeSessionIdRef = useRef(activeSessionId);
+  const sessionArchiveRef = useRef<AnalyseSession[]>([]);
+  const analyseGenerationRef = useRef(0);
   const files = useFileUpload();
 
   activeCheckInIdRef.current = activeCheckInId;
+  activeSessionIdRef.current = activeSessionId;
 
   function captureActiveSession(): AnalyseSession {
     return {
-      id: activeSessionId,
+      id: activeSessionIdRef.current,
       checkInId: activeCheckInId,
       label: labelFromMessages(
         messages,
-        lastCheckIn?.typed_text?.trim()
-          ? lastCheckIn.typed_text.trim().slice(0, 48)
+        lastCheckInRef.current?.typed_text?.trim()
+          ? lastCheckInRef.current.typed_text.trim().slice(0, 48)
           : "New chat",
       ),
       chatMode,
       messages,
       result,
-      lastCheckIn,
+      lastCheckIn: lastCheckInRef.current,
       pipelineMode,
       chatSupportResources,
       toneDisclaimer,
@@ -289,7 +340,57 @@ export function AnalyseForm() {
     );
   }
 
+  /** Upsert session into the archive list (may include active for storage). */
+  function upsertSessionInArchive(
+    archive: AnalyseSession[],
+    session: AnalyseSession,
+  ): AnalyseSession[] {
+    const without = archive.filter((s) => s.id !== session.id);
+    if (!sessionHasContent(session)) return without.slice(0, 12);
+    return [session, ...without].slice(0, 12);
+  }
+
+  /** UI archive is siblings only — never duplicate the active thread in the switcher. */
+  function siblingsOnly(
+    archive: AnalyseSession[],
+    activeId: string,
+  ): AnalyseSession[] {
+    return archive.filter((s) => s.id !== activeId).slice(0, 12);
+  }
+
+  function setArchiveState(archive: AnalyseSession[]) {
+    sessionArchiveRef.current = archive;
+    setSessionArchive(archive);
+  }
+
+  function persistSessionsNow(
+    active: AnalyseSession,
+    archive: AnalyseSession[],
+  ) {
+    const siblings = siblingsOnly(archive, active.id);
+    sessionArchiveRef.current = siblings;
+    // Persist active + siblings; also keep an upserted copy of active in storage
+    // so remount can recover the thread even if active snapshot is missing.
+    writePersistedSessions(
+      active,
+      upsertSessionInArchive(siblings, active),
+    );
+  }
+
+  /** After analyse/reanalyse: upsert active into storage and keep UI siblings-only. */
+  function commitActiveSession(active: AnalyseSession) {
+    const combined = upsertSessionInArchive(
+      sessionArchiveRef.current,
+      active,
+    );
+    const siblings = siblingsOnly(combined, active.id);
+    setArchiveState(siblings);
+    writePersistedSessions(active, combined);
+  }
+
   function applySession(session: AnalyseSession) {
+    activeSessionIdRef.current = session.id;
+    lastCheckInRef.current = session.lastCheckIn;
     setActiveSessionId(session.id);
     setActiveCheckInId(session.checkInId);
     setChatMode(session.chatMode);
@@ -311,10 +412,8 @@ export function AnalyseForm() {
   function archiveCurrentIfNeeded() {
     const current = captureActiveSession();
     if (!sessionHasContent(current)) return;
-    setSessionArchive((prev) => {
-      const without = prev.filter((s) => s.id !== current.id);
-      return [current, ...without].slice(0, 12);
-    });
+    // Keep the leaving session in the archive (do not sibling-filter by its id yet).
+    setArchiveState(upsertSessionInArchive(sessionArchiveRef.current, current));
   }
 
   useEffect(() => {
@@ -439,14 +538,32 @@ export function AnalyseForm() {
 
   useEffect(() => {
     let cancelled = false;
-    async function loadThreadFromQuery() {
+    async function bootstrapSessions() {
       if (suppressUrlLoadRef.current) return;
+
+      const stored = readPersistedSessions();
+      if (stored) {
+        const activeId = stored.active?.id;
+        const siblings = siblingsOnly(
+          stored.archive,
+          activeId || "",
+        );
+        setArchiveState(siblings);
+      }
+
       const checkInId = readCheckInQuery();
-      if (!checkInId) return;
-      if (cancelled) return;
-      await loadCheckInThread(checkInId);
+      if (checkInId) {
+        if (cancelled) return;
+        await loadCheckInThread(checkInId);
+        return;
+      }
+
+      if (stored?.active && sessionHasContent(stored.active)) {
+        if (cancelled) return;
+        applySession(stored.active);
+      }
     }
-    void loadThreadFromQuery();
+    void bootstrapSessions();
     return () => {
       cancelled = true;
     };
@@ -468,31 +585,41 @@ export function AnalyseForm() {
   }, []);
 
   function handleNewChat() {
+    // Invalidate any in-flight analyse/reanalyse before clearing session truth.
+    analyseGenerationRef.current += 1;
+    lastCheckInRef.current = null;
+
     archiveCurrentIfNeeded();
     suppressUrlLoadRef.current = true;
     setCheckInQuery(null);
-    applySession(emptySession(newSessionId(), pipelineMode));
-    // Allow future popstate / deep links again after this tick.
+
+    const next = emptySession(newSessionId(), pipelineMode);
+    activeSessionIdRef.current = next.id;
+    applySession(next);
+    persistSessionsNow(next, sessionArchiveRef.current);
+
     window.setTimeout(() => {
       suppressUrlLoadRef.current = false;
     }, 0);
   }
 
   function handleSelectArchivedSession(sessionId: string) {
-    if (sessionId === activeSessionId) return;
-    const target = sessionArchive.find((s) => s.id === sessionId);
+    if (sessionId === activeSessionIdRef.current) return;
+    const target = sessionArchiveRef.current.find((s) => s.id === sessionId);
     if (!target) return;
+    analyseGenerationRef.current += 1;
     const current = captureActiveSession();
-    setSessionArchive((prev) => {
-      const without = prev.filter(
-        (s) => s.id !== target.id && s.id !== current.id,
-      );
-      const next = sessionHasContent(current) ? [current, ...without] : without;
-      return next.slice(0, 12);
-    });
+    const without = sessionArchiveRef.current.filter(
+      (s) => s.id !== target.id && s.id !== current.id,
+    );
+    const nextArchive = (
+      sessionHasContent(current) ? [current, ...without] : without
+    ).slice(0, 12);
+    setArchiveState(siblingsOnly(nextArchive, target.id));
     suppressUrlLoadRef.current = true;
     applySession(target);
     setCheckInQuery(target.checkInId);
+    persistSessionsNow(target, nextArchive);
     window.setTimeout(() => {
       suppressUrlLoadRef.current = false;
     }, 0);
@@ -570,6 +697,9 @@ export function AnalyseForm() {
   }) {
     if (isProcessing) return;
 
+    const generation = analyseGenerationRef.current;
+    const sessionIdAtStart = activeSessionIdRef.current;
+
     clearTimers();
     setIsProcessing(true);
     setError(null);
@@ -608,16 +738,26 @@ export function AnalyseForm() {
         minDelay,
       ]);
 
+      // New chat / session switch invalidated this run — do not resurrect old thread.
+      if (
+        generation !== analyseGenerationRef.current ||
+        sessionIdAtStart !== activeSessionIdRef.current
+      ) {
+        return;
+      }
+
+      lastCheckInRef.current = options.payload;
       setLastCheckIn(options.payload);
       setResult(analysis);
 
       const assistantOpening = buildAssistantOpening(analysis);
-      setMessages([
+      const nextMessages: ChatMessage[] = [
         { role: "user", content: options.payload.userOpening },
         ...(assistantOpening
           ? [{ role: "assistant" as const, content: assistantOpening }]
           : []),
-      ]);
+      ];
+      setMessages(nextMessages);
 
       const persistThread = Boolean(
         analysis.id &&
@@ -625,7 +765,8 @@ export function AnalyseForm() {
           analysis.saved_to_history &&
           !analysePrivately,
       );
-      setActiveCheckInId(persistThread ? analysis.id! : null);
+      const nextCheckInId = persistThread ? analysis.id! : null;
+      setActiveCheckInId(nextCheckInId);
       setChatSupportResources(analysis.support_resources || []);
       setChatError(null);
       setChatDraft("");
@@ -638,6 +779,26 @@ export function AnalyseForm() {
         files.clearAll();
       }
       setChatMode(true);
+
+      const activeSnapshot: AnalyseSession = {
+        id: sessionIdAtStart,
+        checkInId: nextCheckInId,
+        label: labelFromMessages(
+          nextMessages,
+          options.payload.typed_text?.trim()
+            ? options.payload.typed_text.trim().slice(0, 48)
+            : "New chat",
+        ),
+        chatMode: true,
+        messages: nextMessages,
+        result: analysis,
+        lastCheckIn: options.payload,
+        pipelineMode: options.mode,
+        chatSupportResources: analysis.support_resources || [],
+        toneDisclaimer: null,
+        chatDraft: "",
+      };
+      commitActiveSession(activeSnapshot);
 
       const pipeline = (analysis.pipeline_used || "").toLowerCase();
       if (pipeline.includes("keyword")) {
@@ -664,6 +825,12 @@ export function AnalyseForm() {
         );
       }
     } catch (err) {
+      if (
+        generation !== analyseGenerationRef.current ||
+        sessionIdAtStart !== activeSessionIdRef.current
+      ) {
+        return;
+      }
       clearTimers();
       setError(
         err instanceof ApiError
@@ -671,7 +838,12 @@ export function AnalyseForm() {
           : "Unable to reach the analysis service right now. It may be waking up — wait a few seconds and try again.",
       );
     } finally {
-      setIsProcessing(false);
+      if (
+        generation === analyseGenerationRef.current &&
+        sessionIdAtStart === activeSessionIdRef.current
+      ) {
+        setIsProcessing(false);
+      }
     }
   }
 
@@ -710,12 +882,26 @@ export function AnalyseForm() {
   }
 
   async function handleReanalyse(mode: Exclude<PipelineMode, "auto">) {
-    if (!lastCheckIn || isProcessing) return;
+    // Session truth lives on the ref — never use possibly-stale lastCheckIn state.
+    const payload = lastCheckInRef.current;
+    if (!payload || isProcessing) return;
     await runAnalyse({
       mode,
-      payload: lastCheckIn,
+      payload,
       clearComposer: false,
     });
+  }
+
+  function handlePipelineModeSelect(mode: Exclude<PipelineMode, "auto">) {
+    if (pipelineMode === mode) return;
+    if (isProcessing) return;
+    // Never loadCheckInThread from mode switch — only re-run the current payload.
+    const payload = lastCheckInRef.current;
+    if (!payload) {
+      setPipelineMode(mode);
+      return;
+    }
+    void handleReanalyse(mode);
   }
 
   async function handleChatSend() {
@@ -1076,11 +1262,8 @@ export function AnalyseForm() {
               type="button"
               role="radio"
               aria-checked={pipelineMode === "llm"}
-              disabled={isProcessing || !lastCheckIn}
-              onClick={() => {
-                if (pipelineMode === "llm") return;
-                void handleReanalyse("llm");
-              }}
+              disabled={isProcessing}
+              onClick={() => handlePipelineModeSelect("llm")}
               className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                 pipelineMode === "llm"
                   ? "bg-teal-600 text-white dark:bg-teal-500"
@@ -1093,11 +1276,8 @@ export function AnalyseForm() {
               type="button"
               role="radio"
               aria-checked={pipelineMode === "rag"}
-              disabled={isProcessing || !lastCheckIn}
-              onClick={() => {
-                if (pipelineMode === "rag") return;
-                void handleReanalyse("rag");
-              }}
+              disabled={isProcessing}
+              onClick={() => handlePipelineModeSelect("rag")}
               className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                 pipelineMode === "rag"
                   ? "bg-teal-600 text-white dark:bg-teal-500"
@@ -1306,13 +1486,16 @@ export function AnalyseForm() {
             </label>
             <select
               id="analyse-thread-switcher"
+              key={activeSessionId}
               className="mt-1 w-full truncate rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
               value={`active:${activeSessionId}`}
               onChange={(event) => {
                 const value = event.target.value;
                 if (value === `active:${activeSessionId}`) return;
                 if (value.startsWith("archive:")) {
-                  handleSelectArchivedSession(value.slice("archive:".length));
+                  const id = value.slice("archive:".length);
+                  if (id === activeSessionId) return;
+                  handleSelectArchivedSession(id);
                   return;
                 }
                 if (value.startsWith("checkin:")) {
@@ -1324,7 +1507,9 @@ export function AnalyseForm() {
                 {liveThreadLabel}
                 {activeCheckInId ? " · saved" : ""}
               </option>
-              {sessionArchive.map((session) => (
+              {sessionArchive
+                .filter((session) => session.id !== activeSessionId)
+                .map((session) => (
                 <option key={session.id} value={`archive:${session.id}`}>
                   {session.label}
                   {session.checkInId ? " · saved" : " · session"}

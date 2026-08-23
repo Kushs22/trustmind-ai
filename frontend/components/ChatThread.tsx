@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useRef, type KeyboardEvent } from "react";
 import type { ChatMessage, SupportResource } from "@/lib/api";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
@@ -87,8 +86,8 @@ type ChatThreadProps = {
   disabled?: boolean;
   disabledReason?: string | null;
   toneDisclaimer?: string | null;
-  /** Fully detach from the current thread (preferred over a same-route Link). */
-  onNewChat?: () => void;
+  /** Fully detach from the current thread (required — avoids same-route Link remount). */
+  onNewChat: () => void;
 };
 
 function MessageBubble({ msg }: { msg: ChatMessage }) {
@@ -212,22 +211,13 @@ export function ChatThread({
                 : "Session thread — continues here only; not saved to history")}
           </p>
         </div>
-        {onNewChat ? (
-          <button
-            type="button"
-            onClick={onNewChat}
-            className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-700 transition-colors hover:border-teal-200 hover:bg-teal-50/60 dark:border-slate-600 dark:text-slate-200 dark:hover:border-teal-700 dark:hover:bg-teal-950/40"
-          >
-            New chat
-          </button>
-        ) : (
-          <Link
-            href="/analyse"
-            className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-700 transition-colors hover:border-teal-200 hover:bg-teal-50/60 dark:border-slate-600 dark:text-slate-200 dark:hover:border-teal-700 dark:hover:bg-teal-950/40"
-          >
-            New chat
-          </Link>
-        )}
+        <button
+          type="button"
+          onClick={onNewChat}
+          className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-700 transition-colors hover:border-teal-200 hover:bg-teal-50/60 dark:border-slate-600 dark:text-slate-200 dark:hover:border-teal-700 dark:hover:bg-teal-950/40"
+        >
+          New chat
+        </button>
       </div>
 
       <div className="flex-1 space-y-4 overflow-y-auto px-4 py-5 sm:px-5">
