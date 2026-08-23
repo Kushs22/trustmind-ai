@@ -266,6 +266,31 @@ function evidenceFromResult(result: AnalyseResponse): EvidenceItem[] {
   return [];
 }
 
+/**
+ * Mode toggle / Re-analyse must NOT wipe the thread.
+ * Keep follow-ups; only refresh the opening user + first assistant reflection.
+ */
+function messagesAfterReanalyse(
+  previous: ChatMessage[],
+  userOpening: string,
+  assistantOpening: string | null,
+): ChatMessage[] {
+  let rest = previous;
+  if (rest.length > 0 && rest[0]?.role === "user") {
+    rest = rest.slice(1);
+  }
+  if (rest.length > 0 && rest[0]?.role === "assistant") {
+    rest = rest.slice(1);
+  }
+  return [
+    { role: "user", content: userOpening },
+    ...(assistantOpening
+      ? [{ role: "assistant" as const, content: assistantOpening }]
+      : []),
+    ...rest,
+  ];
+}
+
 export function AnalyseForm() {
   const [text, setText] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -302,6 +327,7 @@ export function AnalyseForm() {
   const suppressUrlLoadRef = useRef(false);
   /** Synchronous session truth — state alone races with in-flight reanalyse. */
   const lastCheckInRef = useRef<LastCheckInPayload | null>(null);
+  const messagesRef = useRef<ChatMessage[]>([]);
   const activeSessionIdRef = useRef(activeSessionId);
   const sessionArchiveRef = useRef<AnalyseSession[]>([]);
   const analyseGenerationRef = useRef(0);
@@ -309,6 +335,7 @@ export function AnalyseForm() {
 
   activeCheckInIdRef.current = activeCheckInId;
   activeSessionIdRef.current = activeSessionId;
+  messagesRef.current = messages;
 
   function captureActiveSession(): AnalyseSession {
     return {
@@ -394,6 +421,7 @@ export function AnalyseForm() {
     setActiveSessionId(session.id);
     setActiveCheckInId(session.checkInId);
     setChatMode(session.chatMode);
+    messagesRef.current = session.messages;
     setMessages(session.messages);
     setResult(session.result);
     setLastCheckIn(session.lastCheckIn);
@@ -751,12 +779,21 @@ export function AnalyseForm() {
       setResult(analysis);
 
       const assistantOpening = buildAssistantOpening(analysis);
-      const nextMessages: ChatMessage[] = [
-        { role: "user", content: options.payload.userOpening },
-        ...(assistantOpening
-          ? [{ role: "assistant" as const, content: assistantOpening }]
-          : []),
-      ];
+      // Re-analyse / mode toggle: refresh opening exchange only; keep follow-ups.
+      const nextMessages: ChatMessage[] =
+        !options.clearComposer && messagesRef.current.length > 0
+          ? messagesAfterReanalyse(
+              messagesRef.current,
+              options.payload.userOpening,
+              assistantOpening || null,
+            )
+          : [
+              { role: "user", content: options.payload.userOpening },
+              ...(assistantOpening
+                ? [{ role: "assistant" as const, content: assistantOpening }]
+                : []),
+            ];
+      messagesRef.current = nextMessages;
       setMessages(nextMessages);
 
       const persistThread = Boolean(
@@ -895,12 +932,10 @@ export function AnalyseForm() {
   function handlePipelineModeSelect(mode: Exclude<PipelineMode, "auto">) {
     if (pipelineMode === mode) return;
     if (isProcessing) return;
-    // Never loadCheckInThread from mode switch — only re-run the current payload.
+    // Immediate UI feedback; never loadCheckInThread from mode switch.
+    setPipelineMode(mode);
     const payload = lastCheckInRef.current;
-    if (!payload) {
-      setPipelineMode(mode);
-      return;
-    }
+    if (!payload) return;
     void handleReanalyse(mode);
   }
 
