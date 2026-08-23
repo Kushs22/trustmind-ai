@@ -15,6 +15,7 @@ import {
   sendChatFollowUp,
   sendChatFollowUpAudio,
   type AnalyseResponse,
+  type CheckIn,
   type ChatMessage,
   type EvidenceItem,
   type PipelineMode,
@@ -131,6 +132,81 @@ type LastCheckInPayload = {
   pdf_context: AttachmentContext[];
 };
 
+/** In-memory analyse thread so New chat / mode switch do not wipe siblings. */
+type AnalyseSession = {
+  id: string;
+  checkInId: string | null;
+  label: string;
+  chatMode: boolean;
+  messages: ChatMessage[];
+  result: AnalyseResponse | null;
+  lastCheckIn: LastCheckInPayload | null;
+  pipelineMode: Exclude<PipelineMode, "auto">;
+  chatSupportResources: SupportResource[];
+  toneDisclaimer: string | null;
+  chatDraft: string;
+};
+
+function newSessionId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `session-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function readCheckInQuery(): string | null {
+  try {
+    return new URLSearchParams(window.location.search).get("check_in");
+  } catch {
+    return null;
+  }
+}
+
+/** Clear or set ?check_in= without a full navigation (avoids remount races). */
+function setCheckInQuery(checkInId: string | null) {
+  try {
+    const url = new URL(window.location.href);
+    if (checkInId) {
+      url.searchParams.set("check_in", checkInId);
+    } else {
+      url.searchParams.delete("check_in");
+    }
+    const next = `${url.pathname}${url.search}${url.hash}`;
+    window.history.replaceState(window.history.state, "", next);
+  } catch {
+    // ignore
+  }
+}
+
+function labelFromMessages(
+  messages: ChatMessage[],
+  fallback = "New chat",
+): string {
+  const firstUser = messages.find((m) => m.role === "user");
+  const text = (firstUser?.content || "").trim().replace(/\s+/g, " ");
+  if (!text) return fallback;
+  return text.length > 48 ? `${text.slice(0, 48)}…` : text;
+}
+
+function emptySession(
+  id: string,
+  pipelineMode: Exclude<PipelineMode, "auto"> = "llm",
+): AnalyseSession {
+  return {
+    id,
+    checkInId: null,
+    label: "New chat",
+    chatMode: false,
+    messages: [],
+    result: null,
+    lastCheckIn: null,
+    pipelineMode,
+    chatSupportResources: [],
+    toneDisclaimer: null,
+    chatDraft: "",
+  };
+}
+
 function isStandaloneLlmPipeline(result: AnalyseResponse): boolean {
   const pipeline = (result.pipeline_used || "").toUpperCase();
   if (result.grounding?.status === "not_applicable") return true;
@@ -173,8 +249,73 @@ export function AnalyseForm() {
   const [lastCheckIn, setLastCheckIn] = useState<LastCheckInPayload | null>(
     null,
   );
+  const [activeSessionId, setActiveSessionId] = useState(() => newSessionId());
+  const [sessionArchive, setSessionArchive] = useState<AnalyseSession[]>([]);
+  const [recentCheckIns, setRecentCheckIns] = useState<CheckIn[]>([]);
   const timersRef = useRef<number[]>([]);
+  const activeCheckInIdRef = useRef<string | null>(null);
+  const suppressUrlLoadRef = useRef(false);
   const files = useFileUpload();
+
+  activeCheckInIdRef.current = activeCheckInId;
+
+  function captureActiveSession(): AnalyseSession {
+    return {
+      id: activeSessionId,
+      checkInId: activeCheckInId,
+      label: labelFromMessages(
+        messages,
+        lastCheckIn?.typed_text?.trim()
+          ? lastCheckIn.typed_text.trim().slice(0, 48)
+          : "New chat",
+      ),
+      chatMode,
+      messages,
+      result,
+      lastCheckIn,
+      pipelineMode,
+      chatSupportResources,
+      toneDisclaimer,
+      chatDraft,
+    };
+  }
+
+  function sessionHasContent(session: AnalyseSession): boolean {
+    return (
+      session.chatMode ||
+      session.messages.length > 0 ||
+      Boolean(session.lastCheckIn) ||
+      Boolean(session.result)
+    );
+  }
+
+  function applySession(session: AnalyseSession) {
+    setActiveSessionId(session.id);
+    setActiveCheckInId(session.checkInId);
+    setChatMode(session.chatMode);
+    setMessages(session.messages);
+    setResult(session.result);
+    setLastCheckIn(session.lastCheckIn);
+    setPipelineMode(session.pipelineMode);
+    setChatSupportResources(session.chatSupportResources);
+    setToneDisclaimer(session.toneDisclaimer);
+    setChatDraft(session.chatDraft);
+    setError(null);
+    setChatError(null);
+    setSaveNotice(null);
+    setShowMoreEvidence(false);
+    setText("");
+    files.clearAll();
+  }
+
+  function archiveCurrentIfNeeded() {
+    const current = captureActiveSession();
+    if (!sessionHasContent(current)) return;
+    setSessionArchive((prev) => {
+      const without = prev.filter((s) => s.id !== current.id);
+      return [current, ...without].slice(0, 12);
+    });
+  }
 
   useEffect(() => {
     function syncAuthDefaults() {
@@ -195,15 +336,18 @@ export function AnalyseForm() {
         }
         void getCheckIns()
           .then((rows) => {
+            setRecentCheckIns(rows.slice(0, 20));
             const usable = rows.some((r) => !r.is_private && Boolean(r.preview));
             setHasSavedHistory(usable || rows.length > 0);
             setUsePastCheckins(usable || preferContinue);
           })
           .catch(() => {
+            setRecentCheckIns([]);
             setHasSavedHistory(false);
             setUsePastCheckins(preferContinue);
           });
       } else {
+        setRecentCheckIns([]);
         setHasSavedHistory(false);
         setUsePastCheckins(false);
       }
@@ -217,45 +361,42 @@ export function AnalyseForm() {
     };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function loadThreadFromQuery() {
-      let checkInId: string | null = null;
-      try {
-        checkInId = new URLSearchParams(window.location.search).get("check_in");
-      } catch {
-        checkInId = null;
-      }
-      if (!checkInId) return;
-      if (!isAuthenticated()) {
-        setError("Please log in to continue a saved check-in chat.");
-        return;
-      }
-      setLoadingThread(true);
-      setError(null);
-      try {
-        const detail = await getCheckIn(checkInId);
-        if (cancelled) return;
-        const seeded: ChatMessage[] =
-          detail.messages && detail.messages.length > 0
-            ? detail.messages
-            : [
-                ...(detail.preview && !detail.is_private
-                  ? [{ role: "user" as const, content: detail.preview }]
-                  : []),
-                ...(detail.explanation
-                  ? [
-                      {
-                        role: "assistant" as const,
-                        content: detail.explanation,
-                      },
-                    ]
-                  : []),
-              ];
-        setMessages(seeded);
-        setActiveCheckInId(detail.is_private ? null : detail.id);
-        setChatMode(true);
-        setResult({
+  async function loadCheckInThread(checkInId: string, opts?: { sessionId?: string }) {
+    if (!isAuthenticated()) {
+      setError("Please log in to continue a saved check-in chat.");
+      return;
+    }
+    setLoadingThread(true);
+    setError(null);
+    try {
+      const detail = await getCheckIn(checkInId);
+      const seeded: ChatMessage[] =
+        detail.messages && detail.messages.length > 0
+          ? detail.messages
+          : [
+              ...(detail.preview && !detail.is_private
+                ? [{ role: "user" as const, content: detail.preview }]
+                : []),
+              ...(detail.explanation
+                ? [
+                    {
+                      role: "assistant" as const,
+                      content: detail.explanation,
+                    },
+                  ]
+                : []),
+            ];
+      const sessionId = opts?.sessionId || checkInId;
+      applySession({
+        id: sessionId,
+        checkInId: detail.is_private ? null : detail.id,
+        label: labelFromMessages(
+          seeded,
+          detail.preview?.trim() || "Saved check-in",
+        ),
+        chatMode: true,
+        messages: seeded,
+        result: {
           id: detail.id,
           status: detail.abstained ? "abstained" : "accepted",
           prediction: null,
@@ -276,23 +417,102 @@ export function AnalyseForm() {
           support_urgency_band: detail.support_urgency_band,
           support_urgency_rationale: detail.support_urgency_rationale,
           support_urgency_uncertain: detail.support_urgency_uncertain,
-        });
-      } catch (err) {
-        if (cancelled) return;
-        setError(
-          err instanceof ApiError
-            ? err.message
-            : "Unable to load that check-in conversation.",
-        );
-      } finally {
-        if (!cancelled) setLoadingThread(false);
-      }
+        },
+        // History threads have no re-analyse payload — compare stays disabled.
+        lastCheckIn: null,
+        pipelineMode: "llm",
+        chatSupportResources: [],
+        toneDisclaimer: null,
+        chatDraft: "",
+      });
+      setCheckInQuery(detail.is_private ? null : detail.id);
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "Unable to load that check-in conversation.",
+      );
+    } finally {
+      setLoadingThread(false);
+    }
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadThreadFromQuery() {
+      if (suppressUrlLoadRef.current) return;
+      const checkInId = readCheckInQuery();
+      if (!checkInId) return;
+      if (cancelled) return;
+      await loadCheckInThread(checkInId);
     }
     void loadThreadFromQuery();
     return () => {
       cancelled = true;
     };
+    // Mount-only: New chat clears ?check_in= via replaceState without remounting.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    function onPopState() {
+      if (suppressUrlLoadRef.current) return;
+      const checkInId = readCheckInQuery();
+      if (!checkInId) return;
+      if (checkInId === activeCheckInIdRef.current) return;
+      void loadCheckInThread(checkInId);
+    }
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function handleNewChat() {
+    archiveCurrentIfNeeded();
+    suppressUrlLoadRef.current = true;
+    setCheckInQuery(null);
+    applySession(emptySession(newSessionId(), pipelineMode));
+    // Allow future popstate / deep links again after this tick.
+    window.setTimeout(() => {
+      suppressUrlLoadRef.current = false;
+    }, 0);
+  }
+
+  function handleSelectArchivedSession(sessionId: string) {
+    if (sessionId === activeSessionId) return;
+    const target = sessionArchive.find((s) => s.id === sessionId);
+    if (!target) return;
+    const current = captureActiveSession();
+    setSessionArchive((prev) => {
+      const without = prev.filter(
+        (s) => s.id !== target.id && s.id !== current.id,
+      );
+      const next = sessionHasContent(current) ? [current, ...without] : without;
+      return next.slice(0, 12);
+    });
+    suppressUrlLoadRef.current = true;
+    applySession(target);
+    setCheckInQuery(target.checkInId);
+    window.setTimeout(() => {
+      suppressUrlLoadRef.current = false;
+    }, 0);
+  }
+
+  function handleSelectRecentCheckIn(checkInId: string) {
+    if (checkInId === activeCheckInId) return;
+    const archived = sessionArchive.find((s) => s.checkInId === checkInId);
+    if (archived) {
+      handleSelectArchivedSession(archived.id);
+      return;
+    }
+    archiveCurrentIfNeeded();
+    suppressUrlLoadRef.current = true;
+    void loadCheckInThread(checkInId).finally(() => {
+      window.setTimeout(() => {
+        suppressUrlLoadRef.current = false;
+      }, 0);
+    });
+  }
 
   useEffect(() => {
     if (!isRegisteredUser() || !saveToHistory || analysePrivately) {
@@ -410,6 +630,9 @@ export function AnalyseForm() {
       setChatError(null);
       setChatDraft("");
       setToneDisclaimer(null);
+      // Drop any deep-link so remount / history cannot resurrect a different thread.
+      // Session state (incl. lastCheckIn for LLM↔RAG) stays the source of truth here.
+      setCheckInQuery(null);
       if (options.clearComposer) {
         setText("");
         files.clearAll();
@@ -430,6 +653,11 @@ export function AnalyseForm() {
           `Saved to your history — you can review it on the Dashboard.${continuityNote}`,
         );
         setHasSavedHistory(true);
+        if (isRegisteredUser()) {
+          void getCheckIns()
+            .then((rows) => setRecentCheckIns(rows.slice(0, 20)))
+            .catch(() => {});
+        }
       } else if (wantSave && !analysis.saved_to_history) {
         setError(
           "Analysis completed, but saving to history failed. Please try again or check you are still signed in.",
@@ -597,6 +825,24 @@ export function AnalyseForm() {
     : pipelineMode === "llm";
   const canReanalyse = Boolean(lastCheckIn) && !isProcessing;
 
+  const liveThreadLabel = chatMode
+    ? labelFromMessages(messages, "Current chat")
+    : text.trim()
+      ? "Draft"
+      : "New chat";
+
+  const recentPickerOptions = recentCheckIns.filter((row) => {
+    if (row.id === activeCheckInId) return false;
+    if (sessionArchive.some((s) => s.checkInId === row.id)) return false;
+    return true;
+  });
+
+  const showThreadSwitcher =
+    sessionArchive.length > 0 ||
+    recentPickerOptions.length > 0 ||
+    chatMode ||
+    Boolean(activeCheckInId);
+
   const displaySupportResources: SupportResource[] = (() => {
     if (chatSupportResources.length > 0) return chatSupportResources;
     if (result?.support_resources?.length) return result.support_resources;
@@ -614,40 +860,41 @@ export function AnalyseForm() {
   const supportResourcesPanel =
     displaySupportResources.length > 0 ? (
       <div
-        className="rounded-xl border border-rose-200 bg-rose-50/80 px-4 py-4 dark:border-rose-900 dark:bg-rose-950/40"
+        className="rounded-xl border-2 border-rose-300 bg-rose-50/90 px-4 py-4 dark:border-rose-800 dark:bg-rose-950/50"
         role="alert"
       >
-        <p className="text-xs font-medium uppercase tracking-wide text-rose-700 dark:text-rose-300">
-          Support resources
+        <p className="text-xs font-medium uppercase tracking-wide text-rose-800 dark:text-rose-300">
+          Support / ethics resources
         </p>
         <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">
           If you are in immediate danger, call 999 or go to A&amp;E. These
-          services can help you talk to someone.
+          services can help you talk to someone — NHS, Samaritans, Student
+          Minds, UWE wellbeing.
         </p>
         <ul className="mt-3 space-y-3">
           {displaySupportResources.map((resource) => (
             <li
               key={resource.name}
-              className="text-sm text-slate-700 dark:text-slate-300"
+              className="rounded-lg border border-rose-200/80 bg-white/70 px-3 py-2.5 dark:border-rose-900 dark:bg-slate-900/50"
             >
               <p className="font-medium text-slate-800 dark:text-slate-100">
                 {resource.name}
               </p>
               {resource.description ? (
-                <p className="mt-0.5 text-slate-600 dark:text-slate-400">
+                <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-400">
                   {resource.description}
                 </p>
               ) : null}
-              <p className="text-slate-600 dark:text-slate-400">
+              <p className="text-sm text-slate-600 dark:text-slate-400">
                 {resource.contact}
               </p>
               <a
                 href={resource.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-1 inline-block text-teal-700 underline dark:text-teal-300"
+                className="mt-1 inline-block text-sm font-semibold text-teal-700 underline dark:text-teal-300"
               >
-                Open resource
+                Open {resource.name}
               </a>
             </li>
           ))}
@@ -658,6 +905,9 @@ export function AnalyseForm() {
   const pipelineLabel =
     result?.pipeline_used ||
     (resultIsStandaloneLlm ? "LLM" : "LLM+RAG");
+
+  const trustSignals = result?.trust_signals;
+  const breakdown = result?.confidence_breakdown;
 
   const trustDetailsCard = result ? (
     <div className="rounded-xl border border-slate-200/80 bg-white/90 px-4 py-4 dark:border-slate-700/80 dark:bg-slate-900/90">
@@ -710,6 +960,12 @@ export function AnalyseForm() {
           </dd>
         </div>
         <div>
+          <dt className="text-slate-500 dark:text-slate-400">Concern</dt>
+          <dd className="mt-0.5 font-medium text-slate-800 dark:text-slate-100">
+            {result.concern_level || "—"}
+          </dd>
+        </div>
+        <div>
           <dt className="text-slate-500 dark:text-slate-400">Abstention</dt>
           <dd className="mt-0.5 font-medium text-slate-800 dark:text-slate-100">
             {result.abstention_status ||
@@ -728,12 +984,41 @@ export function AnalyseForm() {
               (resultIsStandaloneLlm ? "Not applicable (LLM-only)" : "—")}
           </dd>
         </div>
-        <div className="sm:col-span-2">
+        <div>
           <dt className="text-slate-500 dark:text-slate-400">Pipeline used</dt>
           <dd className="mt-0.5 font-medium text-slate-800 dark:text-slate-100">
             {pipelineLabel}
+            {result.llm_provider ? (
+              <span className="ml-1 font-normal text-slate-500 dark:text-slate-400">
+                · provider {result.llm_provider}
+              </span>
+            ) : null}
           </dd>
         </div>
+        {!resultIsStandaloneLlm ? (
+          <>
+            <div>
+              <dt className="text-slate-500 dark:text-slate-400">
+                Evidence strength
+              </dt>
+              <dd className="mt-0.5 font-medium tabular-nums text-slate-800 dark:text-slate-100">
+                {typeof trustSignals?.evidence_strength === "number"
+                  ? `${trustSignals.evidence_strength}/100`
+                  : "—"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-slate-500 dark:text-slate-400">
+                Retrieval quality
+              </dt>
+              <dd className="mt-0.5 font-medium tabular-nums text-slate-800 dark:text-slate-100">
+                {typeof trustSignals?.retrieval_quality === "number"
+                  ? `${trustSignals.retrieval_quality}/100`
+                  : "—"}
+              </dd>
+            </div>
+          </>
+        ) : null}
       </dl>
 
       {(result.potential_indicators?.length
@@ -765,6 +1050,99 @@ export function AnalyseForm() {
             uncertain={Boolean(result.support_urgency_uncertain)}
           />
         </div>
+      ) : null}
+    </div>
+  ) : null;
+
+  const groundingReliabilityPanel = result ? (
+    <div
+      className={`rounded-xl border px-4 py-4 ${
+        resultIsStandaloneLlm
+          ? "border-amber-200/80 bg-amber-50/50 dark:border-amber-900/70 dark:bg-amber-950/30"
+          : "border-indigo-200/70 bg-indigo-50/40 dark:border-indigo-900/70 dark:bg-indigo-950/25"
+      }`}
+    >
+      <p
+        className={`text-xs font-medium uppercase tracking-wide ${
+          resultIsStandaloneLlm
+            ? "text-amber-800 dark:text-amber-300"
+            : "text-indigo-700 dark:text-indigo-300"
+        }`}
+      >
+        {resultIsStandaloneLlm
+          ? "LLM-only contrast"
+          : "Grounding & reliability"}
+      </p>
+      <p className="mt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+        {result.trust_summary ||
+          (resultIsStandaloneLlm
+            ? "No retrieved guidance — standalone model only. Re-analyse with LLM+RAG on the same prompt to compare grounding, sources, and trust signals."
+            : "This run used retrieved trusted guidance to ground the reflection.")}
+      </p>
+      {!resultIsStandaloneLlm ? (
+        <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+          <div>
+            <dt className="text-slate-500 dark:text-slate-400">
+              Retrieval mode
+            </dt>
+            <dd className="mt-0.5 font-medium text-slate-800 dark:text-slate-100">
+              {(result.retrieval_mode || "bm25 / hybrid").replace(/_/g, " ")}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-slate-500 dark:text-slate-400">
+              Passages shown
+            </dt>
+            <dd className="mt-0.5 font-medium tabular-nums text-slate-800 dark:text-slate-100">
+              {evidenceAll.length}
+            </dd>
+          </div>
+          {typeof breakdown?.classification_consistency === "number" ? (
+            <div>
+              <dt className="text-slate-500 dark:text-slate-400">
+                Consistency
+              </dt>
+              <dd className="mt-0.5 font-medium tabular-nums text-slate-800 dark:text-slate-100">
+                {breakdown.classification_consistency}/100
+              </dd>
+            </div>
+          ) : null}
+          {typeof breakdown?.source_agreement === "number" ? (
+            <div>
+              <dt className="text-slate-500 dark:text-slate-400">
+                Source agreement
+              </dt>
+              <dd className="mt-0.5 font-medium tabular-nums text-slate-800 dark:text-slate-100">
+                {breakdown.source_agreement}/100
+              </dd>
+            </div>
+          ) : null}
+          {typeof breakdown?.retrieval_similarity === "number" ? (
+            <div>
+              <dt className="text-slate-500 dark:text-slate-400">
+                Retrieval similarity
+              </dt>
+              <dd className="mt-0.5 font-medium tabular-nums text-slate-800 dark:text-slate-100">
+                {breakdown.retrieval_similarity}/100
+              </dd>
+            </div>
+          ) : null}
+          {typeof breakdown?.retrieval_coverage === "number" ? (
+            <div>
+              <dt className="text-slate-500 dark:text-slate-400">
+                Retrieval coverage
+              </dt>
+              <dd className="mt-0.5 font-medium tabular-nums text-slate-800 dark:text-slate-100">
+                {breakdown.retrieval_coverage}/100
+              </dd>
+            </div>
+          ) : null}
+        </dl>
+      ) : null}
+      {result.calibration_notes && !resultIsStandaloneLlm ? (
+        <p className="mt-3 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
+          Calibration: {result.calibration_notes}
+        </p>
       ) : null}
     </div>
   ) : null;
@@ -858,51 +1236,70 @@ export function AnalyseForm() {
   );
 
   const groundedSourcesPanel = result ? (
-      <div className="rounded-xl border border-teal-200/70 bg-teal-50/30 px-4 py-4 dark:border-teal-900/70 dark:bg-teal-950/20">
-        <p className="text-xs font-medium uppercase tracking-wide text-teal-700 dark:text-teal-300">
-          Grounded sources
-        </p>
+      <div className="rounded-xl border-2 border-teal-400/80 bg-teal-50/50 px-4 py-4 shadow-sm dark:border-teal-600/80 dark:bg-teal-950/30">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <p className="text-xs font-medium uppercase tracking-wide text-teal-800 dark:text-teal-300">
+            Grounded sources / retrieved passages
+          </p>
+          {!resultIsStandaloneLlm && evidenceAll.length > 0 ? (
+            <span className="rounded-full bg-teal-600 px-2.5 py-0.5 text-[11px] font-semibold text-white dark:bg-teal-500">
+              {evidenceAll.length} passage{evidenceAll.length === 1 ? "" : "s"}
+            </span>
+          ) : null}
+        </div>
         {resultIsStandaloneLlm ? (
-          <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-            Standalone model response — no retrieved guidance sources for this
-            mode.
+          <p className="mt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+            No retrieved guidance — standalone model only. Switch to{" "}
+            <span className="font-semibold">LLM+RAG</span> and re-analyse the
+            same check-in to see NHS / Samaritans / UWE passages grounding the
+            response.
           </p>
         ) : evidenceVisible.length > 0 ? (
           <>
-            <ul className="mt-3 space-y-3">
-              {evidenceVisible.map((item) => (
-                <li key={item.source_id}>
-                  <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
+            <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">
+              Trusted KB passages used for this LLM+RAG run (title, snippet,
+              score). Compare with LLM-only: that mode shows none.
+            </p>
+            <ul className="mt-3 space-y-4">
+              {evidenceVisible.map((item, idx) => (
+                <li
+                  key={`${item.source_id}-${idx}`}
+                  className="rounded-lg border border-teal-200/80 bg-white/80 px-3 py-3 dark:border-teal-900 dark:bg-slate-900/60"
+                >
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
                     {item.display_label ||
                       `${item.organisation} — ${item.title}`}
                   </p>
                   {item.snippet ? (
-                    <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+                    <p className="mt-1.5 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
                       {item.snippet}
                     </p>
                   ) : item.reason_retrieved ? (
-                    <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+                    <p className="mt-1.5 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
                       {item.reason_retrieved}
                     </p>
                   ) : null}
-                  {item.url ? (
-                    <a
-                      href={item.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-1 inline-block text-sm text-teal-700 underline dark:text-teal-300"
-                    >
-                      View source
-                    </a>
-                  ) : null}
-                  {developerMode ? (
-                    <p className="mt-1 text-xs text-slate-400">
-                      ID: {item.source_id}
-                      {typeof item.retrieval_score === "number"
-                        ? ` · score ${item.retrieval_score.toFixed(3)}`
-                        : ""}
-                    </p>
-                  ) : null}
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+                    {item.source_id ? (
+                      <span>ID: {item.source_id}</span>
+                    ) : null}
+                    {typeof item.retrieval_score === "number" &&
+                    item.retrieval_score > 0 ? (
+                      <span className="font-medium tabular-nums text-teal-800 dark:text-teal-300">
+                        score {item.retrieval_score.toFixed(3)}
+                      </span>
+                    ) : null}
+                    {item.url ? (
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-teal-700 underline dark:text-teal-300"
+                      >
+                        Open source
+                      </a>
+                    ) : null}
+                  </div>
                 </li>
               ))}
             </ul>
@@ -928,9 +1325,10 @@ export function AnalyseForm() {
             ))}
           </ul>
         ) : (
-          <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+          <p className="mt-2 text-sm font-medium leading-relaxed text-amber-800 dark:text-amber-200">
             LLM+RAG ran, but no guidance passages were retrieved for this
-            check-in.
+            check-in. Try a longer wellbeing prompt (e.g. anxiety, sleep,
+            loneliness) so BM25 can match the knowledge base.
           </p>
         )}
       </div>
@@ -991,6 +1389,63 @@ export function AnalyseForm() {
 
   return (
     <div className="space-y-4">
+      {showThreadSwitcher && (
+        <div className="flex flex-col gap-2 rounded-xl border border-slate-200/80 bg-white/90 px-3 py-2.5 dark:border-slate-700/80 dark:bg-slate-900/90 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <label
+              htmlFor="analyse-thread-switcher"
+              className="text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400"
+            >
+              Chats
+            </label>
+            <select
+              id="analyse-thread-switcher"
+              className="mt-1 w-full truncate rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
+              value={`active:${activeSessionId}`}
+              onChange={(event) => {
+                const value = event.target.value;
+                if (value === `active:${activeSessionId}`) return;
+                if (value.startsWith("archive:")) {
+                  handleSelectArchivedSession(value.slice("archive:".length));
+                  return;
+                }
+                if (value.startsWith("checkin:")) {
+                  handleSelectRecentCheckIn(value.slice("checkin:".length));
+                }
+              }}
+            >
+              <option value={`active:${activeSessionId}`}>
+                {liveThreadLabel}
+                {activeCheckInId ? " · saved" : ""}
+              </option>
+              {sessionArchive.map((session) => (
+                <option key={session.id} value={`archive:${session.id}`}>
+                  {session.label}
+                  {session.checkInId ? " · saved" : " · session"}
+                </option>
+              ))}
+              {recentPickerOptions.length > 0 ? (
+                <optgroup label="From dashboard">
+                  {recentPickerOptions.map((row) => (
+                    <option key={row.id} value={`checkin:${row.id}`}>
+                      {(row.preview || "Saved check-in").slice(0, 48)}
+                      {row.preview && row.preview.length > 48 ? "…" : ""}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
+            </select>
+          </div>
+          <button
+            type="button"
+            onClick={handleNewChat}
+            className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-700 transition-colors hover:border-teal-200 hover:bg-teal-50/60 dark:border-slate-600 dark:text-slate-200 dark:hover:border-teal-700 dark:hover:bg-teal-950/40"
+          >
+            New chat
+          </button>
+        </div>
+      )}
+
       {error && (
         <div
           className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-100"
@@ -1043,9 +1498,11 @@ export function AnalyseForm() {
             persisted={Boolean(activeCheckInId)}
             subtitle={chatSubtitle}
             toneDisclaimer={toneDisclaimer}
+            onNewChat={handleNewChat}
           />
 
           {pipelineCompareBar}
+          {groundingReliabilityPanel}
           {groundedSourcesPanel}
           {supportResourcesPanel}
 
@@ -1131,6 +1588,15 @@ export function AnalyseForm() {
                 Share how you&apos;re feeling — then keep talking here
               </p>
             </div>
+            {(sessionArchive.length > 0 || Boolean(activeCheckInId)) && (
+              <button
+                type="button"
+                onClick={handleNewChat}
+                className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-700 transition-colors hover:border-teal-200 hover:bg-teal-50/60 dark:border-slate-600 dark:text-slate-200 dark:hover:border-teal-700 dark:hover:bg-teal-950/40"
+              >
+                New chat
+              </button>
+            )}
           </div>
 
           <div className="flex flex-1 flex-col justify-center px-4 py-10 sm:px-5">
