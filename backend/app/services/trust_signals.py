@@ -27,12 +27,12 @@ from app.services.confidence_calibration import ConfidenceBreakdown
 
 GROUNDING_LABELS: dict[str, str] = {
     "grounded": "Grounded with retrieved evidence",
-    "limited": "Limited supporting evidence",
+    "limited": "Retrieved guidance available",
     "ungrounded": "Standalone model response",  # overridden for RAG empty below
     "not_applicable": "Standalone model response",
 }
 
-RAG_UNGROUNDED_LABEL = "Limited supporting evidence"
+RAG_UNGROUNDED_LABEL = "No supporting passages retrieved"
 
 
 @dataclass(frozen=True)
