@@ -728,77 +728,13 @@ export function AnalyseForm() {
     <details className="group rounded-xl border border-slate-200 bg-white/70 dark:border-slate-700 dark:bg-slate-900/70">
       <summary className="cursor-pointer list-none px-3 py-2.5 text-sm font-medium text-slate-700 outline-none marker:content-none dark:text-slate-200 [&::-webkit-details-marker]:hidden">
         <span className="flex items-center justify-between gap-3">
-          <span>Privacy &amp; assessment options</span>
+          <span>Privacy options</span>
           <span className="text-xs font-normal text-slate-500 transition group-open:rotate-180 dark:text-slate-400">
             ▾
           </span>
         </span>
       </summary>
       <div className="space-y-4 border-t border-slate-200 px-3 py-3 dark:border-slate-700">
-        <div>
-          <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
-            Assessment mode
-          </p>
-          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-            Model only, or with trusted wellbeing guidance.{" "}
-            <Link
-              href="/#how-it-works"
-              className="text-teal-700 underline dark:text-teal-300"
-            >
-              How it works
-            </Link>
-          </p>
-          <div
-            className="mt-2 grid grid-cols-2 gap-2"
-            role="radiogroup"
-            aria-label="Assessment mode"
-          >
-            <button
-              type="button"
-              role="radio"
-              aria-checked={pipelineMode === "llm"}
-              disabled={isProcessing}
-              onClick={() => {
-                if (lastCheckIn && chatMode) {
-                  void handleReanalyse("llm");
-                } else {
-                  setPipelineMode("llm");
-                }
-              }}
-              className={`rounded-lg border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
-                pipelineMode === "llm"
-                  ? "border-teal-500 bg-teal-50 text-teal-900 dark:border-teal-400 dark:bg-teal-950/40 dark:text-teal-100"
-                  : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
-              }`}
-            >
-              <span className="block text-sm font-semibold">LLM</span>
-              <span className="mt-0.5 block text-xs opacity-80">Model only</span>
-            </button>
-            <button
-              type="button"
-              role="radio"
-              aria-checked={pipelineMode === "rag"}
-              disabled={isProcessing}
-              onClick={() => {
-                if (lastCheckIn && chatMode) {
-                  void handleReanalyse("rag");
-                } else {
-                  setPipelineMode("rag");
-                }
-              }}
-              className={`rounded-lg border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
-                pipelineMode === "rag"
-                  ? "border-teal-500 bg-teal-50 text-teal-900 dark:border-teal-400 dark:bg-teal-950/40 dark:text-teal-100"
-                  : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
-              }`}
-            >
-              <span className="block text-sm font-semibold">LLM+RAG</span>
-              <span className="mt-0.5 block text-xs opacity-80">
-                With trusted guidance
-              </span>
-            </button>
-          </div>
-        </div>
         <Toggle
           id="save-history"
           label={
