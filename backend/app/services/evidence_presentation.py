@@ -62,6 +62,7 @@ class EvidenceItem:
     retrieval_score: float = 0.0
     reason_retrieved: str = ""
     display_label: str = ""
+    snippet: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -72,6 +73,12 @@ class EvidenceItem:
             )
         return data
 
+
+def _clip_snippet(text: str, max_chars: int = 280) -> str:
+    cleaned = re.sub(r"\s+", " ", (text or "").strip())
+    if len(cleaned) <= max_chars:
+        return cleaned
+    return cleaned[: max_chars - 1].rstrip() + "…"
 
 def format_display_label(organisation: str, title: str) -> str:
     org = (organisation or "").strip()
@@ -174,7 +181,12 @@ def build_evidence_items(
             title = f"{organisation} — {topic}".strip(" —") if organisation or topic else sid
 
         try:
-            score = float(d.get("faiss_score") or d.get("similarity_score") or 0.0)
+            score = float(
+                d.get("faiss_score")
+                or d.get("bm25_score")
+                or d.get("similarity_score")
+                or 0.0
+            )
         except (TypeError, ValueError):
             score = 0.0
 
@@ -194,6 +206,7 @@ def build_evidence_items(
             retrieval_score=round(score, 4),
             reason_retrieved=reason,
             display_label=format_display_label(organisation or "Trusted source", title),
+            snippet=_clip_snippet(str(d.get("text") or "")),
         )
         prev = best.get(sid)
         if prev is None or item.retrieval_score >= prev.retrieval_score:
