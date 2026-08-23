@@ -151,9 +151,9 @@ def run_configured_pipeline(
 
     continuity = (continuity_context or "").strip()
 
-    if not settings.openai_api_key and not settings.gemini_api_key:
+    if not settings.openai_api_key and not settings.gemini_api_key and not settings.groq_api_key:
         logger.error(
-            "No LLM API key set (OPENAI_API_KEY / GEMINI_API_KEY) — using keyword fallback"
+            "No LLM API key set (GROQ_API_KEY / GEMINI_API_KEY / OPENAI_API_KEY) — using keyword fallback"
         )
         raw = _keyword_raw(text, error="No LLM API key configured on server")
     else:

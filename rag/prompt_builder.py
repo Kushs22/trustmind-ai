@@ -93,6 +93,8 @@ Rules:
       clinical diagnoses from prior check-ins.
   (7) End with at most one gentle non-diagnostic reminder; do not repeat "not a diagnosis"
       in every sentence. Do not lecture about short inputs or ask them to share more.
+  (8) Match the user's language: if they wrote in Hindi, Marathi, Spanish, etc., write
+      the reasoning reflection in that same language. If mixed, follow the latest message.
   Do NOT include citation markers like [1], [2], source IDs, or phrases such as
   "Retrieved sources" or "according to source". Do NOT say "you have", "this proves",
   "classic symptoms", or "the diagnosis is". Do NOT narrate in third person about

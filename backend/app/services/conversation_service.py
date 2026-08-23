@@ -199,7 +199,7 @@ def generate_follow_up_reply(
         safety = safety or _looks_like_crisis(audio_prompt_block)
     thread_block = format_thread_for_prompt(prior_messages)
 
-    if not settings.openai_api_key and not settings.gemini_api_key:
+    if not settings.openai_api_key and not settings.gemini_api_key and not settings.groq_api_key:
         return _fallback_reply(text, safety=safety), safety
 
     try:
@@ -213,6 +213,8 @@ def generate_follow_up_reply(
             "- Be empathetic and validating; do NOT diagnose.\n"
             "- Never say \"you have\", \"this proves\", or \"the diagnosis is\".\n"
             "- Keep replies to 2–5 short sentences.\n"
+            "- Match the user's language: reply in the same language as their latest "
+            "message (e.g. Hindi → Hindi, Spanish → Spanish). If mixed, follow the latest message.\n"
             "- If the latest message suggests suicidal distress or self-harm, "
             "lead with genuine care and urge getting support now.\n"
             "- When soft tone cues are provided for spoken audio, gently "
@@ -238,6 +240,7 @@ def generate_follow_up_reply(
             max_tokens=max(64, int(settings.openai_chat_max_tokens)),
             openai_model=settings.openai_chat_model or settings.openai_model,
             gemini_model=settings.gemini_chat_model or settings.gemini_model,
+            groq_model=settings.groq_model,
         )
         if err and not raw:
             logger.warning("Follow-up LLM failed (%s): %s", provider or "none", err)

@@ -49,7 +49,7 @@ class Settings(BaseSettings):
 
     # Analyse backend: "auto" uses LLM when any provider key is set, else keywords
     analyse_backend: str = "auto"
-    # auto = OpenAI then Gemini on failure | openai | gemini
+    # auto = Groq → Gemini → OpenAI | free | groq | gemini | openai
     llm_provider: str = "auto"
     openai_api_key: str = ""
     openai_model: str = "gpt-4.1"
@@ -58,6 +58,11 @@ class Settings(BaseSettings):
     openai_temperature: float = 0.2
     openai_chat_timeout_seconds: float = 25.0
     openai_chat_max_tokens: int = 320
+
+    # Free/fast OpenAI-compatible API: https://console.groq.com/keys
+    groq_api_key: str = ""
+    groq_model: str = "llama-3.3-70b-versatile"
+    groq_base_url: str = "https://api.groq.com/openai/v1"
 
     # Free-tier Google AI Studio key: https://aistudio.google.com/apikey
     # gemini-2.0-flash was shut down mid-2026 — use a current Flash model.

@@ -77,6 +77,8 @@ def health_check() -> dict[str, object]:
         "database_is_postgres": settings.is_postgres,
         "openai_configured": bool(settings.openai_api_key),
         "openai_model": settings.openai_model,
+        "groq_configured": bool(settings.groq_api_key),
+        "groq_model": settings.groq_model,
         "gemini_configured": bool(settings.gemini_api_key),
         "gemini_model": settings.gemini_model,
         "llm_provider": settings.llm_provider,

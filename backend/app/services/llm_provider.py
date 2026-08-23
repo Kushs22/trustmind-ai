@@ -1,7 +1,8 @@
-"""Multi-provider JSON LLM calls: OpenAI primary, Gemini free-tier fallback.
+"""Multi-provider JSON LLM calls with free-first fallback.
 
-Used when OpenAI credits are exhausted so analyse + chat can keep working
-with a Google AI Studio (Gemini) API key.
+Order in `auto` mode: Groq (free/fast) → Gemini (free) → OpenAI (paid).
+No free API is 100% guaranteed (rate limits / model churn), but this chain
+keeps TrustMind working when one provider is exhausted.
 """
 
 from __future__ import annotations
@@ -22,6 +23,8 @@ _QUOTA_TOKENS = (
     "exceeded your current quota",
     "billing",
     "rate_limit_exceeded",
+    "rate limit",
+    "429",
 )
 
 # Tried in order when GEMINI_MODEL is missing/404 (2.0 Flash shut down June 2026).
@@ -34,7 +37,9 @@ _GEMINI_MODEL_FALLBACKS = (
 
 
 def llm_configured() -> bool:
-    return bool(settings.openai_api_key or settings.gemini_api_key)
+    return bool(
+        settings.groq_api_key or settings.gemini_api_key or settings.openai_api_key
+    )
 
 
 def _is_quota_error(message: str) -> bool:
@@ -43,40 +48,48 @@ def _is_quota_error(message: str) -> bool:
 
 
 def _provider_order() -> list[str]:
+    """Prefer free/reliable providers first in auto mode."""
     mode = (settings.llm_provider or "auto").strip().lower()
-    if mode == "gemini":
-        return ["gemini"]
-    if mode == "openai":
-        return ["openai"]
-    # auto: prefer OpenAI when keyed, else Gemini; on OpenAI failure try Gemini
-    order: list[str] = []
-    if settings.openai_api_key:
-        order.append("openai")
+    if mode in {"groq", "gemini", "openai"}:
+        return [mode]
+    if mode == "free":
+        order: list[str] = []
+        if settings.groq_api_key:
+            order.append("groq")
+        if settings.gemini_api_key:
+            order.append("gemini")
+        return order
+    # auto: free first, then paid OpenAI
+    order = []
+    if settings.groq_api_key:
+        order.append("groq")
     if settings.gemini_api_key:
         order.append("gemini")
+    if settings.openai_api_key:
+        order.append("openai")
     return order
 
 
-def _call_openai_json(
+def _call_openai_compatible_json(
     *,
+    api_key: str,
+    base_url: str,
+    model_name: str,
     system: str,
     user: str,
     temperature: float,
     max_tokens: int | None,
-    model: str | None,
 ) -> tuple[str, str]:
-    if not settings.openai_api_key:
-        return "", "OPENAI_API_KEY missing"
     try:
         from openai import OpenAI
     except Exception as exc:  # noqa: BLE001
         return "", f"openai_import: {type(exc).__name__}: {exc}"
 
     client = OpenAI(
-        api_key=settings.openai_api_key,
+        api_key=api_key,
+        base_url=base_url,
         timeout=float(settings.openai_chat_timeout_seconds),
     )
-    model_name = (model or settings.openai_model or "gpt-4.1").strip()
     kwargs: dict[str, Any] = {
         "model": model_name,
         "temperature": float(temperature),
@@ -97,6 +110,50 @@ def _call_openai_json(
         return str(content).strip(), ""
     except Exception as exc:  # noqa: BLE001
         return "", f"{type(exc).__name__}: {exc}"
+
+
+def _call_openai_json(
+    *,
+    system: str,
+    user: str,
+    temperature: float,
+    max_tokens: int | None,
+    model: str | None,
+) -> tuple[str, str]:
+    if not settings.openai_api_key:
+        return "", "OPENAI_API_KEY missing"
+    model_name = (model or settings.openai_model or "gpt-4.1").strip()
+    return _call_openai_compatible_json(
+        api_key=settings.openai_api_key,
+        base_url="https://api.openai.com/v1",
+        model_name=model_name,
+        system=system,
+        user=user,
+        temperature=temperature,
+        max_tokens=max_tokens,
+    )
+
+
+def _call_groq_json(
+    *,
+    system: str,
+    user: str,
+    temperature: float,
+    max_tokens: int | None,
+    model: str | None,
+) -> tuple[str, str]:
+    if not settings.groq_api_key:
+        return "", "GROQ_API_KEY missing"
+    model_name = (model or settings.groq_model or "llama-3.3-70b-versatile").strip()
+    return _call_openai_compatible_json(
+        api_key=settings.groq_api_key,
+        base_url=(settings.groq_base_url or "https://api.groq.com/openai/v1").rstrip("/"),
+        model_name=model_name,
+        system=system,
+        user=user,
+        temperature=temperature,
+        max_tokens=max_tokens,
+    )
 
 
 def _call_gemini_json_once(
@@ -182,10 +239,10 @@ def _call_gemini_json(
             return text, ""
         if err:
             errors.append(f"{model_name}: {err}")
-            # Only keep trying other models on 404 / not found.
             if "404" not in err and "not found" not in err.lower():
                 return "", err
     return "", " | ".join(errors) or "gemini_failure"
+
 
 def complete_json(
     *,
@@ -195,11 +252,12 @@ def complete_json(
     max_tokens: int | None = None,
     openai_model: str | None = None,
     gemini_model: str | None = None,
+    groq_model: str | None = None,
 ) -> tuple[str, str, str]:
     """
     Return (response_text, error, provider_used).
 
-    provider_used is 'openai', 'gemini', or '' on total failure.
+    provider_used is 'groq', 'gemini', 'openai', or '' on total failure.
     """
     temp = (
         float(settings.openai_temperature)
@@ -208,11 +266,29 @@ def complete_json(
     )
     order = _provider_order()
     if not order:
-        return "", "No LLM provider configured (set OPENAI_API_KEY or GEMINI_API_KEY)", ""
+        return (
+            "",
+            "No LLM provider configured (set GROQ_API_KEY, GEMINI_API_KEY, or OPENAI_API_KEY)",
+            "",
+        )
 
     errors: list[str] = []
     for provider in order:
-        if provider == "openai":
+        if provider == "groq":
+            text, err = _call_groq_json(
+                system=system,
+                user=user,
+                temperature=temp,
+                max_tokens=max_tokens,
+                model=groq_model,
+            )
+            if text and not err:
+                return text, "", "groq"
+            if err:
+                errors.append(f"groq: {err}")
+                logger.warning("Groq JSON call failed: %s", err)
+                continue
+        elif provider == "openai":
             text, err = _call_openai_json(
                 system=system,
                 user=user,
@@ -225,11 +301,6 @@ def complete_json(
             if err:
                 errors.append(f"openai: {err}")
                 logger.warning("OpenAI JSON call failed: %s", err)
-                # On quota, continue to Gemini if available; otherwise stop early
-                if _is_quota_error(err) and "gemini" in order:
-                    continue
-                if "gemini" not in order:
-                    return "", err, ""
                 continue
         elif provider == "gemini":
             text, err = _call_gemini_json(
@@ -244,5 +315,6 @@ def complete_json(
             if err:
                 errors.append(f"gemini: {err}")
                 logger.warning("Gemini JSON call failed: %s", err)
+                continue
 
     return "", " | ".join(errors) or "llm_failure", ""

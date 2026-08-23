@@ -18,8 +18,10 @@ from app.services import llm_provider as lp  # noqa: E402
 class LlmProviderTests(unittest.TestCase):
     def test_falls_back_to_gemini_on_openai_quota(self) -> None:
         with patch.object(lp.settings, "llm_provider", "auto"), patch.object(
-            lp.settings, "openai_api_key", "sk-test"
-        ), patch.object(lp.settings, "gemini_api_key", "gem-test"), patch.object(
+            lp.settings, "groq_api_key", ""
+        ), patch.object(lp.settings, "openai_api_key", "sk-test"), patch.object(
+            lp.settings, "gemini_api_key", "gem-test"
+        ), patch.object(
             lp,
             "_call_openai_json",
             return_value=("", "RateLimitError: insufficient_quota"),
@@ -36,6 +38,29 @@ class LlmProviderTests(unittest.TestCase):
         self.assertEqual(provider, "gemini")
         self.assertFalse(err)
         self.assertIn("Anxiety", text)
+
+    def test_prefers_groq_in_auto(self) -> None:
+        with patch.object(lp.settings, "llm_provider", "auto"), patch.object(
+            lp.settings, "groq_api_key", "gsk-test"
+        ), patch.object(lp.settings, "gemini_api_key", "gem-test"), patch.object(
+            lp.settings, "openai_api_key", "sk-test"
+        ), patch.object(
+            lp,
+            "_call_groq_json",
+            return_value=('{"reply":"from groq"}', ""),
+        ), patch.object(
+            lp,
+            "_call_gemini_json",
+            side_effect=AssertionError("gemini should not be called"),
+        ), patch.object(
+            lp,
+            "_call_openai_json",
+            side_effect=AssertionError("openai should not be called"),
+        ):
+            text, err, provider = lp.complete_json(system="sys", user="hi")
+        self.assertEqual(provider, "groq")
+        self.assertIn("groq", text)
+        self.assertFalse(err)
 
     def test_gemini_only_mode(self) -> None:
         with patch.object(lp.settings, "llm_provider", "gemini"), patch.object(

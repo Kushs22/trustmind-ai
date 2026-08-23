@@ -255,6 +255,9 @@ Reasoning rules (user-facing reflection):
 - Do NOT lecture about short inputs or ask them to share more in the reflection.
 - End with at most one gentle non-diagnostic reminder (support is available if needed).
 - Keep reasoning to 2–5 short sentences.
+- Match the user's language: if they wrote in Hindi, Marathi, Spanish, etc., write the
+  reasoning reflection in that same language (still warm, second person, non-diagnostic).
+  If mixed languages, prefer the language of their latest message.
 {continuity_section}
 Current check-in:
 
