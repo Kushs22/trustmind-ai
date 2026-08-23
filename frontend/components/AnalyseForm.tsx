@@ -16,6 +16,7 @@ import {
   sendChatFollowUpAudio,
   type AnalyseResponse,
   type ChatMessage,
+  type EvidenceItem,
   type PipelineMode,
   type SupportResource,
 } from "@/lib/api";
@@ -79,6 +80,35 @@ function buildAssistantOpening(analysis: AnalyseResponse): string {
   return reflection;
 }
 
+type AttachmentContext = {
+  filename: string;
+  extracted_text: string;
+  summary: string;
+  included: boolean;
+  warnings: string[];
+};
+
+type LastCheckInPayload = {
+  typed_text: string;
+  userOpening: string;
+  image_context: AttachmentContext[];
+  pdf_context: AttachmentContext[];
+};
+
+function isStandaloneLlmPipeline(result: AnalyseResponse): boolean {
+  const pipeline = (result.pipeline_used || "").toUpperCase();
+  if (result.grounding?.status === "not_applicable") return true;
+  // Anything without RAG (LLM-only, keyword fallback, empty) has no retrieved sources.
+  return !pipeline.includes("RAG");
+}
+
+function evidenceFromResult(result: AnalyseResponse): EvidenceItem[] {
+  if (isStandaloneLlmPipeline(result)) return [];
+  if (result.evidence_used?.length) return result.evidence_used;
+  if (result.sources_detail?.length) return result.sources_detail;
+  return [];
+}
+
 export function AnalyseForm() {
   const [text, setText] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -103,6 +133,10 @@ export function AnalyseForm() {
   >([]);
   const [loadingThread, setLoadingThread] = useState(false);
   const [toneDisclaimer, setToneDisclaimer] = useState<string | null>(null);
+  const [showMoreEvidence, setShowMoreEvidence] = useState(false);
+  const [lastCheckIn, setLastCheckIn] = useState<LastCheckInPayload | null>(
+    null,
+  );
   const timersRef = useRef<number[]>([]);
   const files = useFileUpload();
 
@@ -273,14 +307,19 @@ export function AnalyseForm() {
     timersRef.current = [];
   }
 
-  async function handleAnalyse() {
-    if (!hasContent || isProcessing || filesBusy) return;
+  async function runAnalyse(options: {
+    mode: Exclude<PipelineMode, "auto">;
+    payload: LastCheckInPayload;
+    clearComposer: boolean;
+  }) {
+    if (isProcessing) return;
 
     clearTimers();
     setIsProcessing(true);
     setError(null);
     setSaveNotice(null);
-    setResult(null);
+    setShowMoreEvidence(false);
+    setPipelineMode(options.mode);
 
     const minDelay = new Promise<void>((resolve) => {
       const finishTimer = window.setTimeout(resolve, PROCESSING_DURATION_MS);
@@ -288,38 +327,18 @@ export function AnalyseForm() {
     });
 
     const wantSave = saveToHistory;
-    const userOpening = text.trim() || "Shared a multimodal check-in";
 
     try {
       if (wantSave && !getToken()) {
         await createAnonymousSession();
       }
 
-      const image_context = files.images
-        .filter((i) => i.status === "processed")
-        .map((i) => ({
-          filename: i.file.name,
-          extracted_text: i.extractedText,
-          summary: i.result?.summary || "",
-          included: i.included && Boolean(i.extractedText.trim()),
-          warnings: i.result?.warnings || [],
-        }));
-      const pdf_context = files.pdfs
-        .filter((p) => p.status === "processed")
-        .map((p) => ({
-          filename: p.file.name,
-          extracted_text: p.extractedText,
-          summary: p.result?.document_summary || "",
-          included: p.included && Boolean(p.extractedText.trim()),
-          warnings: p.result?.warnings || [],
-        }));
-
       const [analysis] = await Promise.all([
         analyseText({
-          typed_text: text.trim(),
+          typed_text: options.payload.typed_text,
           speech_transcript: "",
-          image_context,
-          pdf_context,
+          image_context: options.payload.image_context,
+          pdf_context: options.payload.pdf_context,
           save_to_history: wantSave,
           analyse_privately: analysePrivately,
           use_past_checkins:
@@ -327,17 +346,18 @@ export function AnalyseForm() {
             !analysePrivately &&
             usePastCheckins &&
             isRegisteredUser(),
-          pipeline_mode: pipelineMode,
+          pipeline_mode: options.mode,
           include_debug: developerMode,
         }),
         minDelay,
       ]);
 
+      setLastCheckIn(options.payload);
       setResult(analysis);
 
       const assistantOpening = buildAssistantOpening(analysis);
       setMessages([
-        { role: "user", content: userOpening },
+        { role: "user", content: options.payload.userOpening },
         ...(assistantOpening
           ? [{ role: "assistant" as const, content: assistantOpening }]
           : []),
@@ -352,8 +372,12 @@ export function AnalyseForm() {
       setActiveCheckInId(persistThread ? analysis.id! : null);
       setChatSupportResources(analysis.support_resources || []);
       setChatError(null);
-      setText("");
-      files.clearAll();
+      setChatDraft("");
+      setToneDisclaimer(null);
+      if (options.clearComposer) {
+        setText("");
+        files.clearAll();
+      }
       setChatMode(true);
 
       const pipeline = (analysis.pipeline_used || "").toLowerCase();
@@ -385,6 +409,49 @@ export function AnalyseForm() {
     } finally {
       setIsProcessing(false);
     }
+  }
+
+  async function handleAnalyse() {
+    if (!hasContent || isProcessing || filesBusy) return;
+
+    const image_context = files.images
+      .filter((i) => i.status === "processed")
+      .map((i) => ({
+        filename: i.file.name,
+        extracted_text: i.extractedText,
+        summary: i.result?.summary || "",
+        included: i.included && Boolean(i.extractedText.trim()),
+        warnings: i.result?.warnings || [],
+      }));
+    const pdf_context = files.pdfs
+      .filter((p) => p.status === "processed")
+      .map((p) => ({
+        filename: p.file.name,
+        extracted_text: p.extractedText,
+        summary: p.result?.document_summary || "",
+        included: p.included && Boolean(p.extractedText.trim()),
+        warnings: p.result?.warnings || [],
+      }));
+
+    await runAnalyse({
+      mode: pipelineMode,
+      payload: {
+        typed_text: text.trim(),
+        userOpening: text.trim() || "Shared a multimodal check-in",
+        image_context,
+        pdf_context,
+      },
+      clearComposer: true,
+    });
+  }
+
+  async function handleReanalyse(mode: Exclude<PipelineMode, "auto">) {
+    if (!lastCheckIn || isProcessing) return;
+    await runAnalyse({
+      mode,
+      payload: lastCheckIn,
+      clearComposer: false,
+    });
   }
 
   async function handleChatSend() {
@@ -485,6 +552,178 @@ export function AnalyseForm() {
       ? "Check-in will be saved to your history"
       : "Analysis processed securely · Not saved to history";
 
+  const evidenceAll = result ? evidenceFromResult(result) : [];
+  const evidenceVisible = showMoreEvidence
+    ? evidenceAll
+    : evidenceAll.slice(0, 3);
+  const resultIsStandaloneLlm = result
+    ? isStandaloneLlmPipeline(result)
+    : pipelineMode === "llm";
+  const canReanalyse = Boolean(lastCheckIn) && !isProcessing;
+
+  const pipelineCompareBar = (
+    <div className="rounded-xl border border-slate-200/80 bg-white/90 px-4 py-3 dark:border-slate-700/80 dark:bg-slate-900/90">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Compare assessment mode
+          </p>
+          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+            {lastCheckIn
+              ? "Switch LLM ↔ LLM+RAG and re-run the same check-in text."
+              : "Re-analyse needs a check-in from this page (not available for opened history threads)."}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <div
+            className="inline-flex rounded-lg border border-slate-200 p-0.5 dark:border-slate-600"
+            role="radiogroup"
+            aria-label="Assessment mode"
+          >
+            <button
+              type="button"
+              role="radio"
+              aria-checked={pipelineMode === "llm"}
+              disabled={isProcessing || !lastCheckIn}
+              onClick={() => {
+                if (pipelineMode === "llm") return;
+                void handleReanalyse("llm");
+              }}
+              className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                pipelineMode === "llm"
+                  ? "bg-teal-600 text-white dark:bg-teal-500"
+                  : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+              }`}
+            >
+              LLM
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={pipelineMode === "rag"}
+              disabled={isProcessing || !lastCheckIn}
+              onClick={() => {
+                if (pipelineMode === "rag") return;
+                void handleReanalyse("rag");
+              }}
+              className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                pipelineMode === "rag"
+                  ? "bg-teal-600 text-white dark:bg-teal-500"
+                  : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+              }`}
+            >
+              LLM+RAG
+            </button>
+          </div>
+          <button
+            type="button"
+            disabled={!canReanalyse}
+            onClick={() => void handleReanalyse(pipelineMode)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-teal-300 bg-teal-50 px-3 py-1.5 text-sm font-semibold text-teal-800 transition-colors hover:bg-teal-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-teal-700 dark:bg-teal-950/50 dark:text-teal-200 dark:hover:bg-teal-950"
+          >
+            {isProcessing ? (
+              <>
+                <Spinner className="h-3.5 w-3.5" />
+                Re-analysing…
+              </>
+            ) : (
+              "Re-analyse"
+            )}
+          </button>
+        </div>
+      </div>
+      {result ? (
+        <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+          Last run:{" "}
+          <span className="font-medium text-slate-700 dark:text-slate-200">
+            {result.pipeline_used || (resultIsStandaloneLlm ? "LLM" : "LLM+RAG")}
+          </span>
+          {result.grounding_status ? (
+            <>
+              {" "}
+              · Grounding: {result.grounding_status}
+            </>
+          ) : null}
+        </p>
+      ) : null}
+    </div>
+  );
+
+  const groundedSourcesPanel = result ? (
+      <div className="rounded-xl border border-teal-200/70 bg-teal-50/30 px-4 py-4 dark:border-teal-900/70 dark:bg-teal-950/20">
+        <p className="text-xs font-medium uppercase tracking-wide text-teal-700 dark:text-teal-300">
+          Grounded sources
+        </p>
+        {resultIsStandaloneLlm ? (
+          <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+            Standalone model response — no retrieved guidance sources for this
+            mode.
+          </p>
+        ) : evidenceVisible.length > 0 ? (
+          <>
+            <ul className="mt-3 space-y-3">
+              {evidenceVisible.map((item) => (
+                <li key={item.source_id}>
+                  <p className="text-sm font-medium text-slate-800 dark:text-slate-100">
+                    {item.display_label ||
+                      `${item.organisation} — ${item.title}`}
+                  </p>
+                  {item.reason_retrieved ? (
+                    <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+                      {item.reason_retrieved}
+                    </p>
+                  ) : null}
+                  {item.url ? (
+                    <a
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1 inline-block text-sm text-teal-700 underline dark:text-teal-300"
+                    >
+                      View source
+                    </a>
+                  ) : null}
+                  {developerMode ? (
+                    <p className="mt-1 text-xs text-slate-400">
+                      ID: {item.source_id}
+                      {typeof item.retrieval_score === "number"
+                        ? ` · score ${item.retrieval_score.toFixed(3)}`
+                        : ""}
+                    </p>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+            {evidenceAll.length > 3 ? (
+              <button
+                type="button"
+                className="mt-3 text-sm font-medium text-teal-700 underline dark:text-teal-300"
+                onClick={() => setShowMoreEvidence((open) => !open)}
+              >
+                {showMoreEvidence ? "Show fewer sources" : "Show more sources"}
+              </button>
+            ) : null}
+          </>
+        ) : result.sources && result.sources.length > 0 ? (
+          <ul className="mt-3 space-y-2">
+            {result.sources.map((source) => (
+              <li
+                key={source}
+                className="text-sm leading-relaxed text-slate-700 dark:text-slate-300"
+              >
+                {source}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+            LLM+RAG ran, but no guidance passages were retrieved for this
+            check-in.
+          </p>
+        )}
+      </div>
+    ) : null;
+
   const settingsPanel = (
     <details className="group rounded-xl border border-slate-200 bg-white/70 dark:border-slate-700 dark:bg-slate-900/70">
       <summary className="cursor-pointer list-none px-3 py-2.5 text-sm font-medium text-slate-700 outline-none marker:content-none dark:text-slate-200 [&::-webkit-details-marker]:hidden">
@@ -519,7 +758,13 @@ export function AnalyseForm() {
               role="radio"
               aria-checked={pipelineMode === "llm"}
               disabled={isProcessing}
-              onClick={() => setPipelineMode("llm")}
+              onClick={() => {
+                if (lastCheckIn && chatMode) {
+                  void handleReanalyse("llm");
+                } else {
+                  setPipelineMode("llm");
+                }
+              }}
               className={`rounded-lg border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                 pipelineMode === "llm"
                   ? "border-teal-500 bg-teal-50 text-teal-900 dark:border-teal-400 dark:bg-teal-950/40 dark:text-teal-100"
@@ -534,7 +779,13 @@ export function AnalyseForm() {
               role="radio"
               aria-checked={pipelineMode === "rag"}
               disabled={isProcessing}
-              onClick={() => setPipelineMode("rag")}
+              onClick={() => {
+                if (lastCheckIn && chatMode) {
+                  void handleReanalyse("rag");
+                } else {
+                  setPipelineMode("rag");
+                }
+              }}
               className={`rounded-lg border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                 pipelineMode === "rag"
                   ? "border-teal-500 bg-teal-50 text-teal-900 dark:border-teal-400 dark:bg-teal-950/40 dark:text-teal-100"
@@ -693,13 +944,16 @@ export function AnalyseForm() {
             onSendAudio={(file, filename) =>
               void handleChatSendAudio(file, filename)
             }
-            isSending={chatSending}
+            isSending={chatSending || isProcessing}
             error={chatError}
             supportResources={chatSupportResources}
             persisted={Boolean(activeCheckInId)}
             subtitle={chatSubtitle}
             toneDisclaimer={toneDisclaimer}
           />
+
+          {pipelineCompareBar}
+          {groundedSourcesPanel}
 
           {result && (
             <div className="space-y-3">

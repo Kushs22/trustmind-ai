@@ -17,7 +17,11 @@ services:
           property: connectionString
       - key: SECRET_KEY
         generateValue: true
+      # Comma-separated allowlist, e.g. https://trustmind-ai.vercel.app
+      # Add custom domains here or via FRONTEND_URL. Never use *.
       - key: CORS_ORIGINS
+        sync: false
+      - key: FRONTEND_URL
         sync: false
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
         value: "10080"

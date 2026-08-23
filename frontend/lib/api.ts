@@ -209,6 +209,19 @@ function parseErrorDetail(detail: unknown): string {
   return "Request failed";
 }
 
+function messageFromFailedResponse(status: number, detail: unknown, fallback: string): string {
+  let message = parseErrorDetail(detail ?? fallback);
+  if (!message || message === "Request failed") {
+    message = fallback || "Request failed";
+  }
+  if (status === 429) {
+    return message === "Request failed"
+      ? "Too many requests. Please wait a moment and try again."
+      : message;
+  }
+  return message;
+}
+
 async function request<T>(
   path: string,
   options: RequestInit & { requireAuth?: boolean; timeoutMs?: number } = {},
@@ -265,14 +278,17 @@ async function request<T>(
   }
 
   if (!response.ok) {
-    let message = "Request failed";
+    let detail: unknown = "Request failed";
     try {
       const body = (await response.json()) as { detail?: unknown };
-      message = parseErrorDetail(body.detail ?? message);
+      detail = body.detail ?? detail;
     } catch {
-      message = response.statusText || message;
+      detail = response.statusText || detail;
     }
-    throw new ApiError(response.status, message);
+    throw new ApiError(
+      response.status,
+      messageFromFailedResponse(response.status, detail, "Request failed"),
+    );
   }
 
   if (response.status === 204) {
@@ -371,14 +387,17 @@ export async function requestMultipart<T>(
   });
 
   if (!response.ok) {
-    let message = "Request failed";
+    let detail: unknown = "Request failed";
     try {
       const body = (await response.json()) as { detail?: unknown };
-      message = parseErrorDetail(body.detail ?? message);
+      detail = body.detail ?? detail;
     } catch {
-      message = response.statusText || message;
+      detail = response.statusText || detail;
     }
-    throw new ApiError(response.status, message);
+    throw new ApiError(
+      response.status,
+      messageFromFailedResponse(response.status, detail, "Request failed"),
+    );
   }
 
   return response.json() as Promise<T>;

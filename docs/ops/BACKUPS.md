@@ -6,6 +6,14 @@ Practical durability for the Render Postgres database used by the API.
 This project does **not** invent a custom backup service. Durability relies on
 Render’s Postgres features plus an optional local dump script for operators.
 
+## Network exposure
+
+- Prefer the Render **Internal Database URL** on the API service (same region). That keeps Postgres off the public internet for app traffic.
+- Do **not** attach a public IP / allow-any inbound rule to the database.
+- Use a strong generated password; never commit `DATABASE_URL`.
+- Keep the **External Database URL** only in password managers for operator dumps (`scripts/dump_postgres.sh`).
+- Application durability still depends on plan backups — see below.
+
 ## What holds production data
 
 | Store | Contents | Persistence |

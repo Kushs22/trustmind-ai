@@ -6,19 +6,10 @@ from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 
 from app.schemas.transcription import TranscriptionResponse
 from app.services.file_validation_service import FileValidationError
-from app.services.rate_limit import RateLimitExceeded, check_rate_limit
+from app.services.rate_limit import RateLimitExceeded, enforce_rate_limit
 from app.services.transcription_service import TranscriptionError, transcribe_audio_bytes
 
 router = APIRouter(tags=["transcription"])
-
-
-def _client_key(request: Request) -> str:
-    forwarded = request.headers.get("x-forwarded-for", "")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    if request.client:
-        return request.client.host or "unknown"
-    return "unknown"
 
 
 async def _transcribe_handler(
@@ -26,9 +17,16 @@ async def _transcribe_handler(
     file: UploadFile,
 ) -> TranscriptionResponse:
     try:
-        check_rate_limit(f"transcribe:{_client_key(request)}")
+        enforce_rate_limit(request, action="transcribe")
     except RateLimitExceeded as exc:
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
+        headers = {}
+        if exc.retry_after_seconds is not None:
+            headers["Retry-After"] = str(exc.retry_after_seconds)
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=str(exc),
+            headers=headers or None,
+        ) from exc
 
     data = await file.read()
     try:
