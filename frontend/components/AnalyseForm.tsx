@@ -633,29 +633,55 @@ export function AnalyseForm() {
                 band={result.support_urgency_band}
                 rationale={result.support_urgency_rationale}
                 uncertain={Boolean(result.support_urgency_uncertain)}
+                compact
               />
             )}
           {result && (
-            <div className="rounded-xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-300">
-              <span className="font-medium text-slate-800 dark:text-slate-100">
-                Opening read:{" "}
-              </span>
-              {result.prediction_display ||
-                predictionDisplayName(result.prediction) ||
-                result.concern_level}
-              {result.ai_confidence
-                ? ` · ${result.ai_confidence} confidence`
-                : ""}
-              {activeCheckInId ? (
-                <>
-                  {" · "}
-                  <Link
-                    href={`/dashboard/${activeCheckInId}`}
-                    className="text-teal-700 underline dark:text-teal-300"
-                  >
-                    View saved check-in
-                  </Link>
-                </>
+            <div className="rounded-xl border border-slate-200/80 bg-white/90 px-4 py-3 text-sm text-slate-600 dark:border-slate-700/80 dark:bg-slate-900/90 dark:text-slate-300">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span>
+                  <span className="font-medium text-slate-800 dark:text-slate-100">
+                    What it sounds like:{" "}
+                  </span>
+                  {result.prediction_display ||
+                    predictionDisplayName(result.prediction) ||
+                    result.concern_level}
+                </span>
+                {result.ai_confidence ? (
+                  <>
+                    <span className="text-slate-400 dark:text-slate-500">·</span>
+                    <span>{result.ai_confidence} confidence</span>
+                  </>
+                ) : null}
+                {activeCheckInId ? (
+                  <>
+                    <span className="text-slate-400 dark:text-slate-500">·</span>
+                    <Link
+                      href={`/dashboard/${activeCheckInId}`}
+                      className="text-teal-700 underline dark:text-teal-300"
+                    >
+                      View saved check-in
+                    </Link>
+                  </>
+                ) : null}
+              </div>
+              {(result.potential_indicators?.length
+                ? result.potential_indicators
+                : result.early_signs || []
+              ).length > 0 ? (
+                <div className="mt-2.5 flex flex-wrap gap-1.5">
+                  {(result.potential_indicators?.length
+                    ? result.potential_indicators
+                    : result.early_signs || []
+                  ).map((theme) => (
+                    <span
+                      key={theme}
+                      className="rounded-full border border-teal-200/80 bg-teal-50/70 px-2.5 py-0.5 text-[11px] font-medium text-teal-800 dark:border-teal-800 dark:bg-teal-950/40 dark:text-teal-200"
+                    >
+                      {theme}
+                    </span>
+                  ))}
+                </div>
               ) : null}
             </div>
           )}
@@ -678,7 +704,7 @@ export function AnalyseForm() {
           {result && (
             <div className="space-y-3">
               {result.safe_next_steps && result.safe_next_steps.length > 0 && (
-                <div className="rounded-xl border border-teal-100 bg-teal-50/60 p-4 dark:border-teal-900 dark:bg-teal-950/40">
+                <div className="rounded-xl border border-teal-200/70 bg-teal-50/40 px-4 py-4 dark:border-teal-900/70 dark:bg-teal-950/25">
                   <p className="text-xs font-medium uppercase tracking-wide text-teal-700 dark:text-teal-300">
                     Supportive next steps
                   </p>
@@ -745,6 +771,8 @@ export function AnalyseForm() {
       )}
 
       {!chatMode && !loadingThread && (
+        <>
+
         <div className="flex min-h-[70vh] flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm dark:border-slate-700/80 dark:bg-slate-900">
           <div className="flex items-center justify-between gap-3 border-b border-slate-200/80 px-4 py-3 dark:border-slate-700/80 sm:px-5">
             <div className="min-w-0">
@@ -817,9 +845,10 @@ export function AnalyseForm() {
             <p className="mt-2 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
               {INPUT_GUIDANCE}
             </p>
-            <div className="mt-3">{settingsPanel}</div>
           </div>
         </div>
+        <div className="mt-4">{settingsPanel}</div>
+      </>
       )}
     </div>
   );
