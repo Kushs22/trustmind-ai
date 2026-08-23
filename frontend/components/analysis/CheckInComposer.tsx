@@ -26,6 +26,8 @@ type CheckInComposerProps = {
   guidance?: string;
   shortTip?: string | null;
   shortExample?: string | null;
+  /** Sit inside a ChatThread-style shell without a second card border. */
+  embedded?: boolean;
 };
 
 /**
@@ -52,16 +54,18 @@ export function CheckInComposer({
   guidance,
   shortTip,
   shortExample,
+  embedded = false,
 }: CheckInComposerProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const valueRef = useRef(value);
   valueRef.current = value;
-  const browserSpeech = useSpeechRecognition();
+
+  const speech = useSpeechRecognition();
   const recorder = useVoiceRecorder();
-  const useBrowser = browserSpeech.supported;
+  const useBrowser = speech.supported;
 
   const listening = useBrowser
-    ? browserSpeech.listening
+    ? speech.listening
     : recorder.status === "listening";
   const processingAudio = !useBrowser && recorder.status === "processing";
 
@@ -79,20 +83,19 @@ export function CheckInComposer({
   async function handleMicClick() {
     if (listening) {
       if (useBrowser) {
-        const spoken =
-          `${browserSpeech.finalTranscript} ${browserSpeech.interim}`.trim();
-        browserSpeech.stop();
+        const spoken = `${speech.finalTranscript} ${speech.interim}`.trim();
+        speech.stop();
         if (spoken) {
           const current = valueRef.current;
           onChange(current.trim() ? `${current.trim()} ${spoken}` : spoken);
         }
-        browserSpeech.cancel();
+        speech.cancel();
       } else {
         await recorder.stopAndTranscribe();
       }
       return;
     }
-    if (useBrowser) browserSpeech.start();
+    if (useBrowser) speech.start();
     else await recorder.start();
   }
 
@@ -103,11 +106,195 @@ export function CheckInComposer({
     }
   }
 
-  const micError = useBrowser ? browserSpeech.error : recorder.error;
+  const micError = useBrowser ? speech.error : recorder.error;
   const liveInterim =
     useBrowser && listening
-      ? `${browserSpeech.finalTranscript} ${browserSpeech.interim}`.trim()
+      ? `${speech.finalTranscript} ${speech.interim}`.trim()
       : "";
+  const locked = Boolean(disabled || isProcessing || processingAudio);
+
+  const attachmentChips =
+    images.length > 0 || pdfs.length > 0 ? (
+      <div
+        className={
+          embedded
+            ? "mb-2"
+            : "border-b border-slate-100 px-3 pt-3 dark:border-slate-800"
+        }
+      >
+        <FileUpload
+          disabled={locked}
+          images={images}
+          pdfs={pdfs}
+          error={null}
+          onAddFiles={onAddFiles}
+          onRemoveImage={onRemoveImage}
+          onRemovePdf={onRemovePdf}
+          onUpdateImageText={onUpdateImageText}
+          onUpdatePdfText={onUpdatePdfText}
+          onToggleImage={onToggleImage}
+          onTogglePdf={onTogglePdf}
+          hidePickers
+        />
+      </div>
+    ) : null;
+
+  const statusRow =
+    listening || processingAudio || liveInterim ? (
+      <div
+        className={`flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400 ${
+          embedded ? "mb-2" : "px-4 pb-2"
+        }`}
+      >
+        <span
+          className={`inline-flex h-2 w-2 rounded-full ${
+            listening ? "animate-pulse bg-rose-500" : "bg-teal-500"
+          }`}
+          aria-hidden
+        />
+        <span aria-live="polite">
+          {processingAudio
+            ? "Transcribing…"
+            : useBrowser
+              ? "Listening… click mic to stop"
+              : `Recording ${recorder.elapsedLabel}`}
+        </span>
+        {liveInterim ? (
+          <span className="truncate italic text-slate-400">“{liveInterim}”</span>
+        ) : null}
+        {listening && (
+          <button
+            type="button"
+            onClick={() => {
+              if (useBrowser) speech.cancel();
+              else recorder.cancel();
+            }}
+            className="rounded-md border border-rose-200 px-2 py-0.5 text-rose-700 dark:border-rose-800 dark:text-rose-300"
+          >
+            Cancel
+          </button>
+        )}
+      </div>
+    ) : null;
+
+  const fileInput = (
+    <input
+      ref={fileInputRef}
+      type="file"
+      accept="image/jpeg,image/png,image/webp,application/pdf,.pdf"
+      multiple
+      className="hidden"
+      onChange={(event) => {
+        if (event.target.files?.length) onAddFiles(event.target.files);
+        event.target.value = "";
+      }}
+    />
+  );
+
+  const tipBlock = shortTip ? (
+    <div
+      className={`rounded-xl border border-slate-200 px-3 py-2 dark:border-slate-700 ${
+        embedded
+          ? "bg-white/80 dark:bg-slate-900/60"
+          : "bg-slate-50 dark:bg-slate-800/60"
+      }`}
+      role="status"
+    >
+      <p
+        className={`text-slate-700 dark:text-slate-200 ${
+          embedded ? "text-xs" : "text-sm"
+        }`}
+      >
+        {shortTip}
+      </p>
+      {shortExample && (
+        <p className="mt-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+          <span className="font-medium">Optional example:</span> {shortExample}
+        </p>
+      )}
+    </div>
+  ) : null;
+
+  if (embedded) {
+    return (
+      <div
+        className="space-y-2"
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (locked) return;
+          if (e.dataTransfer.files?.length) onAddFiles(e.dataTransfer.files);
+        }}
+      >
+        {attachmentChips}
+        {statusRow}
+        <div className="flex items-end gap-2">
+          {fileInput}
+          <button
+            type="button"
+            disabled={locked}
+            onClick={() => fileInputRef.current?.click()}
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-colors hover:border-teal-300 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-teal-700 dark:hover:text-teal-200"
+            aria-label="Attach image or PDF"
+            title="Attach image or PDF"
+          >
+            <AttachIcon />
+          </button>
+          <button
+            type="button"
+            disabled={locked}
+            onClick={() => void handleMicClick()}
+            className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+              listening
+                ? "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/50 dark:text-rose-300"
+                : "border-slate-200 bg-white text-slate-600 hover:border-teal-300 hover:text-teal-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-teal-700 dark:hover:text-teal-200"
+            }`}
+            aria-label={listening ? "Stop recording" : "Speak"}
+            title={listening ? "Stop recording" : "Speak"}
+          >
+            <MicIcon />
+          </button>
+          <textarea
+            id="wellbeing-input"
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            onKeyDown={handleKeyDown}
+            rows={2}
+            disabled={locked}
+            placeholder="Share what's on your mind…"
+            className="max-h-40 min-h-[2.75rem] flex-1 resize-y rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-teal-300 focus:outline-none focus:ring-2 focus:ring-teal-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-teal-900/40"
+          />
+          <button
+            type="button"
+            onClick={onSubmit}
+            disabled={!canSubmit || locked}
+            className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl bg-teal-600 px-4 text-sm font-medium text-white transition-colors hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isProcessing ? "…" : "Analyse"}
+          </button>
+        </div>
+        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+          Enter to analyse · Shift+Enter for a new line · Mic for speech ·
+          Paperclip for images/PDFs
+        </p>
+        {micError && (
+          <p className="text-sm text-rose-700 dark:text-rose-300" role="alert">
+            {micError}
+          </p>
+        )}
+        {fileError && (
+          <p className="text-sm text-rose-700 dark:text-rose-300" role="alert">
+            {fileError}
+          </p>
+        )}
+        {tipBlock}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
@@ -120,28 +307,11 @@ export function CheckInComposer({
         onDrop={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          if (disabled || isProcessing) return;
+          if (locked) return;
           if (e.dataTransfer.files?.length) onAddFiles(e.dataTransfer.files);
         }}
       >
-        {(images.length > 0 || pdfs.length > 0) && (
-          <div className="border-b border-slate-100 px-3 pt-3 dark:border-slate-800">
-            <FileUpload
-              disabled={disabled || isProcessing}
-              images={images}
-              pdfs={pdfs}
-              error={null}
-              onAddFiles={onAddFiles}
-              onRemoveImage={onRemoveImage}
-              onRemovePdf={onRemovePdf}
-              onUpdateImageText={onUpdateImageText}
-              onUpdatePdfText={onUpdatePdfText}
-              onToggleImage={onToggleImage}
-              onTogglePdf={onTogglePdf}
-              hidePickers
-            />
-          </div>
-        )}
+        {attachmentChips}
 
         <textarea
           id="wellbeing-input"
@@ -149,71 +319,28 @@ export function CheckInComposer({
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={handleKeyDown}
           rows={5}
-          disabled={disabled || isProcessing}
+          disabled={locked}
           placeholder="Share what's on your mind — type, speak, or attach a file."
           className="max-h-64 min-h-[8rem] w-full resize-y border-0 bg-transparent px-4 pt-4 text-base text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0 disabled:opacity-60 dark:text-slate-100"
         />
 
-        {(listening || processingAudio || liveInterim) && (
-          <div className="flex flex-wrap items-center gap-2 px-4 pb-2 text-xs text-slate-500 dark:text-slate-400">
-            <span
-              className={`inline-flex h-2 w-2 rounded-full ${
-                listening ? "animate-pulse bg-rose-500" : "bg-teal-500"
-              }`}
-              aria-hidden
-            />
-            <span aria-live="polite">
-              {processingAudio
-                ? "Transcribing…"
-                : useBrowser
-                  ? "Listening… click mic to stop"
-                  : `Recording ${recorder.elapsedLabel}`}
-            </span>
-            {liveInterim ? (
-              <span className="truncate italic text-slate-400">
-                “{liveInterim}”
-              </span>
-            ) : null}
-            {listening && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (useBrowser) browserSpeech.cancel();
-                  else recorder.cancel();
-                }}
-                className="rounded-md border border-rose-200 px-2 py-0.5 text-rose-700 dark:border-rose-800 dark:text-rose-300"
-              >
-                Cancel
-              </button>
-            )}
-          </div>
-        )}
+        {statusRow}
 
         <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 px-3 py-2.5 dark:border-slate-800">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,application/pdf,.pdf"
-            multiple
-            className="hidden"
-            onChange={(event) => {
-              if (event.target.files?.length) onAddFiles(event.target.files);
-              event.target.value = "";
-            }}
-          />
+          {fileInput}
           <button
             type="button"
-            disabled={disabled || isProcessing}
+            disabled={locked}
             onClick={() => fileInputRef.current?.click()}
             className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:border-teal-300 hover:text-teal-700 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:border-teal-700 dark:hover:text-teal-200"
-            aria-label="Attach image or PDF for analysis context"
-            title="Attach image or PDF (context only — not stored as a vault)"
+            aria-label="Attach image or PDF"
+            title="Attach image or PDF"
           >
             <AttachIcon />
           </button>
           <button
             type="button"
-            disabled={disabled || isProcessing || processingAudio}
+            disabled={locked}
             onClick={() => void handleMicClick()}
             className={`inline-flex h-10 w-10 items-center justify-center rounded-xl border transition disabled:opacity-50 ${
               listening
@@ -229,7 +356,7 @@ export function CheckInComposer({
             <button
               type="button"
               onClick={onSubmit}
-              disabled={!canSubmit || disabled || isProcessing}
+              disabled={!canSubmit || locked}
               className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-teal-600 px-5 text-sm font-medium text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isProcessing ? "Analysing…" : "Analyse"}
@@ -240,7 +367,7 @@ export function CheckInComposer({
 
       <p className="text-xs text-slate-500 dark:text-slate-400">
         Enter to analyse · Shift+Enter for a new line · Mic for speech · Paperclip
-        for images/PDFs (context only — files are not stored as a vault)
+        for images/PDFs
       </p>
 
       {micError && (
@@ -259,20 +386,7 @@ export function CheckInComposer({
           {guidance}
         </p>
       )}
-      {shortTip && (
-        <div
-          className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/60"
-          role="status"
-        >
-          <p className="text-sm text-slate-700 dark:text-slate-200">{shortTip}</p>
-          {shortExample && (
-            <p className="mt-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-              <span className="font-medium">Optional example:</span>{" "}
-              {shortExample}
-            </p>
-          )}
-        </div>
-      )}
+      {tipBlock}
     </div>
   );
 }
