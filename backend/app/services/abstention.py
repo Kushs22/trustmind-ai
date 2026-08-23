@@ -87,6 +87,75 @@ SHORT_WELLBEING_LABELS: dict[str, str] = {
     "meh": "offmychest",
 }
 
+# Soft reply when the check-in has no usable emotional content (gibberish / noise).
+# Never use a dead "Assessment completed." bubble for these.
+LOW_SIGNAL_INVITE_MESSAGE = (
+    "Thanks for checking in. I don't quite have enough to go on yet — try adding "
+    "a bit more about how you feel (even a few sentences) so we can support you "
+    "better. One-word feelings like \"stressed\" or \"sad\" still work if they're "
+    "real words. This isn't a diagnosis."
+)
+
+# Extra feeling / experience tokens beyond SHORT_WELLBEING_LABELS.
+_EMOTION_CONTENT_HINTS = frozenset(
+    {
+        "feel",
+        "feeling",
+        "felt",
+        "mood",
+        "sleep",
+        "sleepless",
+        "insomnia",
+        "cry",
+        "crying",
+        "tears",
+        "angry",
+        "anger",
+        "afraid",
+        "scared",
+        "fear",
+        "guilt",
+        "shame",
+        "grief",
+        "hurt",
+        "pain",
+        "upset",
+        "down",
+        "low",
+        "heavy",
+        "overwhelmed",
+        "pressure",
+        "struggle",
+        "struggling",
+        "lonely",
+        "alone",
+        "isolated",
+        "suicidal",
+        "suicide",
+        "self-harm",
+        "selfharm",
+        "anxious",
+        "anxiety",
+        "stress",
+        "stressed",
+        "worried",
+        "sad",
+        "depressed",
+        "hopeless",
+        "exhausted",
+        "burnout",
+        "panic",
+        "nervous",
+        "numb",
+        "empty",
+        "tired",
+        "ok",
+        "fine",
+        "meh",
+    }
+)
+_VOWELS = frozenset("aeiouy")
+
 
 @dataclass
 class AbstentionDecision:
@@ -145,6 +214,87 @@ def short_wellbeing_heuristic_label(text: str | None) -> str | None:
         if tok in SHORT_WELLBEING_LABELS:
             label = SHORT_WELLBEING_LABELS[tok]
     return label
+
+
+def _tokenise_checkin(text: str | None) -> list[str]:
+    tokens = [t.strip(".,!?;:\"'()[]").lower() for t in str(text or "").strip().split()]
+    return [t for t in tokens if t]
+
+
+def _looks_like_real_word(token: str) -> bool:
+    """Rough English-ish check — rejects consonant soup / keyboard smash."""
+    t = (token or "").lower()
+    if not t or not t.isalpha():
+        return False
+    if len(t) <= 2:
+        return True
+    vowels = sum(1 for c in t if c in _VOWELS)
+    if vowels == 0:
+        return False
+    if len(t) >= 5 and vowels / len(t) < 0.18:
+        return False
+    # Long runs of the same character or only 1–2 distinct letters.
+    if len(t) >= 4 and len(set(t)) <= 2:
+        return False
+    return True
+
+
+def has_emotional_content(text: str | None) -> bool:
+    """True when the text contains a clear feeling word or short wellbeing cue."""
+    if short_wellbeing_heuristic_label(text):
+        return True
+    tokens = _tokenise_checkin(text)
+    if any(tok in SHORT_WELLBEING_LABELS or tok in _EMOTION_CONTENT_HINTS for tok in tokens):
+        return True
+    lower = (text or "").lower()
+    return any(
+        phrase in lower
+        for phrase in (
+            "i feel",
+            "i'm feeling",
+            "im feeling",
+            "i am feeling",
+            "i've been",
+            "ive been",
+            "low mood",
+            "can't sleep",
+            "cant sleep",
+        )
+    )
+
+
+def is_low_signal_checkin(text: str | None) -> bool:
+    """
+    True when a check-in lacks usable emotional meaning (gibberish, noise, or
+    non-feeling filler). Real one-word feelings still count as signal.
+    """
+    raw = (text or "").strip()
+    if not raw:
+        return True
+    if has_emotional_content(raw):
+        return False
+
+    tokens = _tokenise_checkin(raw)
+    if not tokens:
+        return True
+
+    real_tokens = [t for t in tokens if _looks_like_real_word(t)]
+    # Pure gibberish / keyboard smash.
+    if not real_tokens:
+        return True
+    if len(real_tokens) / len(tokens) < 0.5:
+        return True
+
+    # Short non-feeling text (e.g. "hello", "test", "asdf") → invite more.
+    if len(tokens) < SHORT_INPUT_WORD_LIMIT:
+        return True
+
+    return False
+
+
+def low_signal_invite_message() -> str:
+    """Compassionate prompt asking for a bit more emotional context."""
+    return LOW_SIGNAL_INVITE_MESSAGE
 
 
 def short_checkin_reflection(label: str | None, *, user_text: str | None = None) -> str:

@@ -16,10 +16,17 @@ from app.schemas.analyse import AnalyseRequest
 from app.services.abstention import (
     LIMITED_CONFIDENCE_DISCLAIMER,
     apply_abstention,
+    is_low_signal_checkin,
     is_underspecified_input,
+    low_signal_invite_message,
     short_checkin_reflection,
     short_wellbeing_heuristic_label,
     strip_short_input_result_leaks,
+)
+from app.services.input_kind import (
+    COACHING_WITH_FEELINGS_PREFIX,
+    classify_input_kind,
+    coaching_invite_result_fields,
 )
 from app.services.analyse_logging import log_analyse_run
 from app.services.confidence_calibration import uncertainty_from_confidence
@@ -45,10 +52,10 @@ HUMAN_OVERSIGHT = (
     "This tool should not replace qualified healthcare professionals."
 )
 PRIVACY_NOTICE = (
-    "No unnecessary storage of personal text, audio, images, or PDFs. "
-    "Raw check-in content is only saved when you explicitly opt in and disable "
-    "private mode. Uploaded files are deleted after processing in privacy mode "
-    "and are never added to the trusted knowledge base."
+    "Uploaded images and PDFs are processed ephemerally for analysis context "
+    "only — binary files are not kept as a long-term vault and never enter the "
+    "trusted knowledge base. Check-in text and conversation history are saved "
+    "only when you opt in (and private mode can omit raw text from history)."
 )
 
 
@@ -150,8 +157,13 @@ def run_configured_pipeline(
         use_rag = bool(settings.use_rag)
 
     continuity = (continuity_context or "").strip()
+    kind = classify_input_kind(text)
 
-    if not settings.openai_api_key and not settings.gemini_api_key and not settings.groq_api_key:
+    # Pure coaching / "act as life coach" instructions without a personal story:
+    # invite them to share — do not hard-fail into the abstention UI.
+    if kind.coaching_without_story:
+        raw = coaching_invite_result_fields()
+    elif not settings.openai_api_key and not settings.gemini_api_key and not settings.groq_api_key:
         logger.error(
             "No LLM API key set (GROQ_API_KEY / GEMINI_API_KEY / OPENAI_API_KEY) — using keyword fallback"
         )
@@ -193,6 +205,27 @@ def run_configured_pipeline(
     if not settings.enable_source_display:
         sources = []
 
+    # Coaching + feelings: keep classification, but acknowledge the guided-conversation ask.
+    if (
+        kind.is_coaching_request
+        and kind.has_personal_story
+        and reasoning
+        and "share what" not in reasoning.lower()
+        and COACHING_WITH_FEELINGS_PREFIX.lower() not in reasoning.lower()
+    ):
+        reasoning = f"{COACHING_WITH_FEELINGS_PREFIX}{reasoning}".strip()
+
+    # Rich first-person emotional narrative with no label: prefer a safe theme over abstain.
+    if not prediction and kind.rich_first_person:
+        from app.services.input_kind import emotion_theme_heuristic
+
+        heuristic = emotion_theme_heuristic(text)
+        if heuristic:
+            prediction = heuristic
+            confidence = max(confidence, 0.58)
+            if not reasoning:
+                reasoning = short_checkin_reflection(heuristic, user_text=text)
+
     file_bits: list[str] = []
     for img in request.image_context or []:
         if img.included:
@@ -207,11 +240,18 @@ def run_configured_pipeline(
         file_text=file_text,
         combined_text=text,
     )
+    user_probe = request.typed_text or request.speech_transcript or text
+    low_signal = is_low_signal_checkin(user_probe) and not kind.coaching_without_story
+
+    # Gibberish / no emotional content: soft invite — never invent a label or
+    # fall through to a dead "Assessment completed." bubble.
+    if low_signal:
+        prediction = None
+        confidence = min(float(confidence or 0.0), 0.3) or 0.2
+        reasoning = low_signal_invite_message()
     # Short check-ins: ensure a usable label when cues are clear (LLM may omit one).
-    if short_input and not prediction:
-        heuristic = short_wellbeing_heuristic_label(
-            request.typed_text or request.speech_transcript or text
-        )
+    elif short_input and not prediction:
+        heuristic = short_wellbeing_heuristic_label(user_probe)
         if heuristic:
             prediction = heuristic
             if confidence < 0.55:
@@ -219,7 +259,7 @@ def run_configured_pipeline(
             if not reasoning or "matched a clear wellbeing cue" in reasoning.lower():
                 reasoning = short_checkin_reflection(
                     heuristic,
-                    user_text=request.typed_text or request.speech_transcript or text,
+                    user_text=user_probe,
                 )
     elif short_input and prediction:
         # Prefer a warm short reflection over thin / lecture-y model copy.
@@ -236,7 +276,7 @@ def run_configured_pipeline(
         if thin or lecturey or not reasoning:
             reasoning = short_checkin_reflection(
                 prediction,
-                user_text=request.typed_text or request.speech_transcript or text,
+                user_text=user_probe,
             )
 
     decision = apply_abstention(
@@ -341,7 +381,7 @@ def run_configured_pipeline(
         shown_evidence = []
     else:
         abstention_status = "Prediction accepted"
-        explanation = reasoning or "Assessment completed."
+        explanation = reasoning or low_signal_invite_message()
         grounding_status = grounding_info.label
         if pipeline_used == "keyword_fallback" and pipeline_error:
             safe_err = re.sub(r"sk-[A-Za-z0-9_\-]+", "sk-***", pipeline_error)[:400]
@@ -351,16 +391,25 @@ def run_configured_pipeline(
         next_steps = _default_next_steps(high_risk)
         if not is_standalone_llm:
             shown_evidence = evidence_dicts
-        if "_keyword" in raw:
+        if "_keyword" in raw and not low_signal:
             kw = raw["_keyword"]
             early_signs = kw.early_signs
             potential_indicators = list(kw.early_signs)
             next_steps = kw.safe_next_steps
             explanation = kw.explanation
             concern = kw.concern_level
+        if low_signal:
+            early_signs = []
+            potential_indicators = []
+            explanation = reasoning or low_signal_invite_message()
+            concern = "Low"
 
     explanation = strip_short_input_result_leaks(explanation)
     reasoning = strip_short_input_result_leaks(reasoning)
+    if not explanation.strip():
+        explanation = low_signal_invite_message()
+    if not reasoning.strip():
+        reasoning = explanation
 
     public_message = decision.message if abstained else ""
     if pipeline_used == "keyword_fallback" and pipeline_error and not public_message:

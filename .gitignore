@@ -40,6 +40,10 @@ knowledge_base/logs/*.log
 scripts/__pycache__/
 rag/__pycache__/
 
+# Operator DB dumps (never commit)
+backups/
+*.sql
+
 # RAG artifacts (regenerable; can be large)
 # Allow committed production indexes so Render can run USE_RAG without a rebuild step.
 knowledge_base/chunks/*

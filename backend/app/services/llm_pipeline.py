@@ -234,6 +234,22 @@ Return ONLY valid JSON in this format:
   "reasoning": ""
 }}
 
+Classification rules (important for long / mixed / coaching-style inputs):
+- Focus on the person's FIRST-PERSON feelings and experiences, not on instructions telling
+  you how to behave (e.g. "act as a life coach", "ask me questions one at a time").
+- If the message is mostly a coaching / role-play instruction WITH little personal story,
+  use predicted_label="offmychest" and confidence around 0.65–0.8; in reasoning, warmly
+  invite them to share what happened in their own words (do NOT refuse or go blank).
+- If they describe loneliness, heartbreak, low mood, emptiness, stuckness, or similar,
+  prefer depression or offmychest (pick the closer theme) with solid confidence (≥0.7)
+  when the narrative is detailed — do not withhold a label just because emotions are mixed.
+- Anxiety/stress/worry/dread → Anxiety. Clear up-and-down energy/mood swings → bipolar
+  (non-diagnostic wording in reasoning only). Passive venting / mixed everyday feelings → offmychest.
+- Happiness, relief, or hope mixed with hard feelings is still classifiable (often offmychest
+  or the dominant hard theme); never leave predicted_label empty when emotional content exists.
+- Long multi-paragraph emotional check-ins should usually receive confidence ≥0.7 when a
+  primary theme is clear. Reserve very low confidence (<0.45) for truly empty / nonsensical text.
+
 Reasoning rules (user-facing reflection):
 - LANGUAGE (mandatory): Always write the reasoning in the SAME language as the user's
   check-in (any language). Mirror their language/script. Never refuse multilingual
@@ -249,15 +265,18 @@ Reasoning rules (user-facing reflection):
 - If the check-in suggests suicidal distress or crisis (SuicideWatch), lead with genuine care
   (e.g. "I'm really sorry you're feeling this way"), validate that reaching out matters,
   and clearly encourage getting support now — without diagnosing or sounding clinical.
+- For bipolar-theme energy/mood swings: describe ups and downs cautiously; never claim a
+  bipolar diagnosis or "classic symptoms".
 - If prior check-ins are provided, you may briefly acknowledge continuity when it helps
   (e.g. "last time you mentioned…"), without over-quoting or guilt about gaps.
 - When prior context conflicts with the current message, prioritise the CURRENT message.
 - Do NOT diagnose. Never say "you have", "this proves", "classic symptoms", or "the diagnosis is".
 - Do NOT invent clinical history from prior check-ins.
 - Do NOT sound clinical or academic; avoid third-person narration about "the user" or "the text".
-- Do NOT lecture about short inputs or ask them to share more in the reflection.
+- Do NOT lecture about short inputs or ask them to share more in the reflection
+  (except the coaching-invite case above).
 - End with at most one gentle non-diagnostic reminder (support is available if needed).
-- Keep reasoning to 2–5 short sentences.
+- Keep reasoning to 2–5 short sentences (up to 6 for long narratives).
 {continuity_section}
 Current check-in:
 
@@ -299,7 +318,7 @@ def run_llm_pipeline(text: str, continuity_context: str = "") -> dict[str, Any]:
             system=system,
             user=prompt,
             temperature=temp,
-            max_tokens=700,
+            max_tokens=900 if len(text.split()) >= 120 else 700,
             openai_model=settings.openai_model,
             gemini_model=settings.gemini_model,
         )

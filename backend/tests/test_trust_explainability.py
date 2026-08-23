@@ -575,6 +575,49 @@ class TrustExplainabilityTests(unittest.TestCase):
         self.assertIsNone((result.trust_signals or {}).get("retrieval_quality"))
         self.assertEqual(result.evidence_used, [])
 
+    def test_gibberish_gets_soft_invite_not_assessment_completed(self) -> None:
+        """Low-signal / gibberish check-ins must not show a dead Assessment completed bubble."""
+        from app.config import settings
+        from app.schemas.analyse import AnalyseRequest
+        from app.services import pipeline_controller as pc
+        from app.services.abstention import (
+            LOW_SIGNAL_INVITE_MESSAGE,
+            is_low_signal_checkin,
+        )
+
+        self.assertTrue(is_low_signal_checkin("jdokewnf"))
+        self.assertFalse(is_low_signal_checkin("stressed"))
+        self.assertFalse(is_low_signal_checkin("I feel sad"))
+
+        fake = {
+            "prediction": "Anxiety",  # spurious model label must be cleared
+            "confidence": 0.9,
+            "reasoning": "",
+            "sources": [],
+            "retrieved_passages": [],
+            "pipeline_used": "LLM",
+            "latency_ms": 5.0,
+            "uncertainty": "High",
+        }
+        req = AnalyseRequest(
+            text="jdokewnf",
+            typed_text="jdokewnf",
+            pipeline_mode="llm",
+            analyse_privately=True,
+        )
+        with patch("app.services.llm_pipeline.run_llm_pipeline", return_value=fake), patch.object(
+            pc.settings, "openai_api_key", "sk-test"
+        ), patch.object(settings, "enable_abstention", True):
+            result = pc.run_configured_pipeline(req)
+
+        self.assertIsNone(result.prediction)
+        self.assertNotIn("assessment completed", (result.explanation or "").lower())
+        self.assertNotIn("assessment completed", (result.reasoning or "").lower())
+        self.assertIn("thanks for checking in", (result.explanation or "").lower())
+        self.assertIn("how you feel", (result.explanation or "").lower())
+        self.assertEqual(result.explanation, LOW_SIGNAL_INVITE_MESSAGE)
+        self.assertEqual(result.reasoning, LOW_SIGNAL_INVITE_MESSAGE)
+
     def test_consistency_score(self) -> None:
         self.assertAlmostEqual(
             score_classification_consistency(["Anxiety", "Anxiety", "depression"]),

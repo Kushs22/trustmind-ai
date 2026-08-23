@@ -1,6 +1,6 @@
 # TrustMind Synthetic Wellbeing Dataset — Full Description
 
-**Version:** 2.0 (harder / real-world oriented)  
+**Version:** 3.0 (longer / broader emotional coverage)  
 **Created for:** TrustMind AI (UWE MSc AI group project)  
 **Purpose:** Ethical evaluation corpus with the same schema as SWMH, without using Reddit or any scraped social-media posts  
 **Location:** `datasets/synthetic_wellbeing/`  
@@ -115,16 +115,20 @@ That differs from real SWMH (where depression was largest). Balanced design make
 
 ## 6. How texts were generated
 
-**Version 2** method: template + combinatorial generation with a **hard style mix**:
+**Version 3** method: template + combinatorial generation with a **length-aware style mix**:
 
 | Style | Approx. weight | Intent |
 |-------|----------------|--------|
-| ambiguous | 35% | Overlapping cues across classes |
-| messy | 30% | Informal orthography / run-ons |
-| short | 20% | Sparse social-media-like posts |
-| medium | 15% | Slightly clearer theme signals |
+| ambiguous | 22% | Overlapping cues across classes |
+| messy | 18% | Informal orthography / run-ons |
+| short | 12% | Sparse social-media-like posts |
+| medium | 18% | Clearer multi-sentence theme signals |
+| long | 20% | ~150–320 word first-person narratives |
+| very_long | 10% | ~350–800 word multi-paragraph check-ins |
 
-Shared everyday hooks (uni, sleep, money, mates, …) appear across labels so models cannot rely on a single keyword. SuicideWatch remains non-graphic and often includes help-seeking language.
+Themes explicitly covered inside long builders (still mapped to the five SWMH labels): loneliness, heartbreak/loss, low mood, anxiety/worry/dread, stress, mixed emotions, relief/hope/happiness, anger, guilt/shame, numbness, non-diagnostic energy swings, stuckness, rejection/abandonment.
+
+Shared everyday hooks (uni, sleep, money, mates, …) appear across labels so models cannot rely on a single keyword. SuicideWatch remains non-graphic and often includes help-seeking language. Bipolar-class text describes ups/downs without claiming a clinical diagnosis.
 
 Regenerate:
 
@@ -132,17 +136,15 @@ Regenerate:
 python research/generate_synthetic_wellbeing.py --seed 42
 ```
 
-## 7. Text length profile (approx.)
+## 7. Text length profile (approx., seed 42)
 
-Across splits, posts are short-to-medium first-person paragraphs:
+| Split | Min words | Median | Mean | Max words | % ≥150 words |
+|-------|-----------|--------|------|-----------|--------------|
+| Train | ~8 | ~25 | ~95 | ~376 | ~33% |
+| Val | ~8 | ~26 | ~95 | ~370 | ~35% |
+| Test | ~8 | ~26 | ~101 | ~372 | ~36% |
 
-| Split | Min words | Median | Mean | Max words |
-|-------|-----------|--------|------|-----------|
-| Train | ~30 | ~44 | ~45 | ~66 |
-| Val | ~32 | ~45 | ~45 | ~65 |
-| Test | ~30 | ~45 | ~45 | ~68 |
-
-This is shorter and more uniform than raw Reddit SWMH (which has very long / noisy posts). That is expected for synthetic template data and should be stated as a limitation.
+v3 deliberately widens length vs v2 (which topped out around ~30–35 words) so offline eval better matches long product check-ins. Absolute max still sits under the 512-word preprocessing cap.
 
 ---
 
@@ -150,7 +152,7 @@ This is shorter and more uniform than raw Reddit SWMH (which has very long / noi
 
 | Component | Uses this dataset? |
 |-----------|--------------------|
-| Live product UI / RAG knowledge base | **No** — KB remains curated NHS/Mind-style sources |
+| Live product UI classify path | **No direct training** — live `/analyse` uses Groq/Gemini/OpenAI LLM (or RAG) |
 | Offline LLM-only baseline | **Yes** — sample from `test.csv` |
 | Offline LLM+RAG arm | **Yes** — same sample / seed for fair comparison |
 | Crisis detection rules | **Independent** — not trained on this CSV |
@@ -220,8 +222,9 @@ Suggested report wording:
 
 ```text
 TrustMind AI Group (2026). Synthetic Wellbeing Dataset (SWMH-compatible schema),
-version 1.0. Generated with research/generate_synthetic_wellbeing.py (seed=42).
-Total N=2500 (train=1600, val=400, test=500), 5 balanced theme classes.
+version 3.0. Generated with research/generate_synthetic_wellbeing.py (seed=42).
+Total N=2500 (train=1600, val=400, test=500), 5 balanced theme classes,
+with long-form emotional coverage for product-realistic evaluation.
 ```
 
 Historical motivation (not the data source):

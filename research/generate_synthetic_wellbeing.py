@@ -2,9 +2,12 @@
 """
 Generate a fully synthetic wellbeing classification dataset (SWMH-compatible schema).
 
-Version 2 — deliberately harder / more real-world oriented than v1:
+Version 3 — real-world length + emotional breadth:
   - overlapping symptom language across classes
-  - short messy informal style
+  - short / messy / medium / long / very_long first-person posts
+  - loneliness, heartbreak, stress, mixed feelings, relief/hope, anger,
+    guilt/shame, numbness, energy swings (non-diagnostic), stuckness,
+    rejection/abandonment themes
   - ambiguous / borderline posts
   - fewer template “giveaway” phrases
 
@@ -46,6 +49,11 @@ HOOKS = [
     "deadlines",
     "commute",
     "this term",
+    "the relationship",
+    "my ex",
+    "work",
+    "the weekend",
+    "my room",
 ]
 
 FILLERS = [
@@ -59,7 +67,61 @@ FILLERS = [
     "feels stupid writing this",
 ]
 
-STYLES = ("messy", "short", "medium", "ambiguous")
+# v3 styles include long / very_long for product-realistic check-ins
+STYLES = ("messy", "short", "medium", "ambiguous", "long", "very_long")
+
+# Theme fragments reused inside long builders (non-clinical phrasing)
+LONELINESS = [
+    "rooms feel louder when nobody texts back",
+    "I scroll through chats and put my phone down again",
+    "weekends stretch out and I pretend I planned to be alone",
+    "I miss having someone who just checks in without being asked",
+]
+HEARTBREAK = [
+    "I still flinch when their name shows up somewhere random",
+    "I keep replaying the last conversation like I can edit it",
+    "some days I miss the person, some days I miss who I was with them",
+    "I catch myself writing messages I never send",
+]
+STUCK = [
+    "I know what I should do next but my body will not start",
+    "plans sit in notes apps untouched for weeks",
+    "I feel parked between who I was and whoever comes next",
+    "forward motion feels fake even when I force a routine",
+]
+MIXED = [
+    "I can laugh at a meme and feel hollow five minutes later",
+    "relief and dread take turns without asking",
+    "I am grateful for small kindnesses and still tense underneath",
+    "hope shows up briefly then I talk myself out of it",
+]
+RELIEF_HOPE = [
+    "today was lighter than yesterday and that surprised me",
+    "I finished something small and felt a real spark of pride",
+    "talking to a friend helped more than I expected",
+    "I am not fixed but I can see a thinner path forward",
+]
+ANGER = [
+    "I snap over tiny things and then feel worse",
+    "irritation sits under my skin like static",
+    "I am angry that I have to carry this alone",
+]
+GUILT_SHAME = [
+    "I keep thinking I made everything harder for people around me",
+    "shame shows up when I cancel plans again",
+    "I replay awkward moments until they feel larger than they were",
+]
+NUMBNESS = [
+    "music that used to hit does nothing",
+    "I go through the motions and feel buffered from myself",
+    "emotions arrive late or not at all",
+]
+ENERGY_SWING = [
+    "one stretch I barely sleep and ideas pile up too fast",
+    "then a crash hits and answering a text feels huge",
+    "friends notice I flip between wired and wiped",
+    "appetite focus and spending change with the swings",
+]
 
 
 def _fp(text: str) -> str:
@@ -76,8 +138,49 @@ def _maybe_messy(text: str, rng: random.Random) -> str:
     if rng.random() < 0.25:
         t = t.replace(".", "").replace(",", "")
     if rng.random() < 0.3:
-        t += " " + rng.choice(["...", "lol", "idk", "yeah", ""]) 
+        t += " " + rng.choice(["...", "lol", "idk", "yeah", ""])
     return " ".join(t.split()).strip()
+
+
+def _pick(rng: random.Random, bank: list[str], k: int = 1) -> list[str]:
+    return rng.sample(bank, k=min(k, len(bank)))
+
+
+def _expand_to_words(rng: random.Random, base: str, target_min: int, target_max: int) -> str:
+    """Pad a narrative with themed sentences until within a word-count band."""
+    parts = [base.strip()]
+    pools = [
+        LONELINESS,
+        HEARTBREAK,
+        STUCK,
+        MIXED,
+        RELIEF_HOPE,
+        ANGER,
+        GUILT_SHAME,
+        NUMBNESS,
+        ENERGY_SWING,
+    ]
+    connectors = [
+        "Also,",
+        "Meanwhile,",
+        "On top of that,",
+        "Lately,",
+        "Some nights,",
+        "In the mornings,",
+        "When I try to explain it,",
+        "Honestly,",
+    ]
+    attempts = 0
+    while len(" ".join(parts).split()) < target_min and attempts < 80:
+        attempts += 1
+        pool = rng.choice(pools)
+        bits = _pick(rng, pool, k=rng.randint(1, 2))
+        parts.append(f"{rng.choice(connectors)} {' '.join(bits)}.")
+    text = " ".join(parts)
+    words = text.split()
+    if len(words) > target_max:
+        text = " ".join(words[:target_max])
+    return text.strip()
 
 
 def _gen_depression(rng: random.Random, style: str) -> str:
@@ -102,14 +205,40 @@ def _gen_depression(rng: random.Random, style: str) -> str:
             f"and feel heavy without a clear reason.",
         ],
         "ambiguous": [
-            # overlaps anxiety / offmychest
             f"stressed about {h} but also just... numb? worry comes then fades into nothing. "
             f"hard to tell if im overthinking or just done",
             f"{h} has me drained. chest feels tight some nights then i feel nothing next morning. "
             f"{f}",
         ],
+        "long": [
+            f"For the last few weeks around {h} I have felt hollow more than tearful. "
+            f"I get up, do the minimum, and then sit with that heavy quiet that makes "
+            f"ordinary tasks feel pointless. Friends still invite me; I say maybe and then "
+            f"do not go. Food tastes like cardboard some days. I am not trying to diagnose "
+            f"myself — I just want language for this flatness and the way interest keeps "
+            f"slipping away. Sleep is weird: either too much or broken. I keep hoping tomorrow "
+            f"will feel different and it mostly does not.",
+        ],
+        "very_long": [
+            f"I keep writing and deleting this because talking about low mood around {h} "
+            f"still feels dramatic even when it has lasted months. Mornings are the worst: "
+            f"I wake already tired, scroll without absorbing anything, and bargain with myself "
+            f"to shower. Showers help for twenty minutes. Then the flatness returns. "
+            f"I cancel plans, leave laundry in bags, and tell people I am busy when I am "
+            f"actually staring at a wall. Concentration for coursework or shifts is thin; "
+            f"I reread the same paragraph. There is guilt about being distant, then numbness "
+            f"that makes the guilt feel far away. Some evenings I cry without a clear story; "
+            f"other evenings I feel nothing and that scares me more. I am not looking for a "
+            f"clinical label from an app — I want a careful read of how heavy this has been "
+            f"and whether support options might help while I try to rebuild a bit of routine.",
+        ],
     }
-    return rng.choice(bank[style])
+    text = rng.choice(bank[style])
+    if style == "long":
+        return _expand_to_words(rng, text, 150, 320)
+    if style == "very_long":
+        return _expand_to_words(rng, text, 350, 750)
+    return text
 
 
 def _gen_suicidewatch(rng: random.Random, style: str) -> str:
@@ -134,13 +263,31 @@ def _gen_suicidewatch(rng: random.Random, style: str) -> str:
             f"I want help more than I want to act on those thoughts.",
         ],
         "ambiguous": [
-            # can look like severe depression
             f"everything with {h} feels pointless and heavy. sometimes i wonder what the point of next week is. "
             f"not saying im going to do anything. just exhausted of fighting",
             f"if i vanished would {h} even notice. that thought scares me a bit. trying not to spiral alone",
         ],
+        "long": [
+            f"Tonight the hopelessness around {h} is loud. I am not making a plan and I do not want "
+            f"to describe anything graphic — I just keep having thoughts about not wanting to continue, "
+            f"then they ebb. I am staying somewhere safe and telling myself to get through the next hour. "
+            f"Writing this is me choosing help over silence. If it worsens I will contact a support line.",
+        ],
+        "very_long": [
+            f"I need to put this somewhere before it only lives in my head. For days around {h} I have "
+            f"had waves of not wanting to be here. They are thoughts, not a plan, and that distinction "
+            f"matters to me. Still, the heaviness makes ordinary life feel unreachable. I have told a "
+            f"friend I am struggling and I am trying to stay with people tonight. I want support more "
+            f"than I want those thoughts to win. Please treat this as distress that needs care pathways, "
+            f"not as something to analyse clinically. I will reach out further if the wave gets worse.",
+        ],
     }
-    return rng.choice(bank[style])
+    text = rng.choice(bank[style])
+    if style == "long":
+        return _expand_to_words(rng, text, 140, 300)
+    if style == "very_long":
+        return _expand_to_words(rng, text, 300, 650)
+    return text
 
 
 def _gen_anxiety(rng: random.Random, style: str) -> str:
@@ -162,13 +309,35 @@ def _gen_anxiety(rng: random.Random, style: str) -> str:
             f"Before {h} I spiral into what-ifs. I leave early even when people are kind.",
         ],
         "ambiguous": [
-            # overlaps depression / offmychest
             f"worried sick about {h} and also weirdly flat after the panic fades. "
             f"am i anxious or just burnt out",
             f"{h} stress sits in my chest. not crying just restless and snappy. {f}",
         ],
+        "long": [
+            f"My body treats {h} like a threat even when nothing has gone wrong yet. Chest tight, "
+            f"jaw locked, brain running disaster scripts. I check messages repeatedly, then feel "
+            f"embarrassed about checking. Sleep is shallow because I rehearse conversations at 2am. "
+            f"I cancel social things to avoid the spiral, which makes next week worse. This is not "
+            f"a diagnosis request — I want a clear reflection that this is worry and bodily tension "
+            f"piling up, and some gentle next steps.",
+        ],
+        "very_long": [
+            f"Stress around {h} has stopped being a one-day spike. For weeks I wake with dread, "
+            f"scan for mistakes, and catastrophise tiny delays. My heart races in lectures or on "
+            f"the bus for no neat reason. I ask friends if everything is okay then distrust the answer. "
+            f"Deadlines feel like cliffs. I leave early from gatherings because my hands shake. "
+            f"Afterward I feel drained and a bit numb, which confuses me — is it anxiety, burnout, "
+            f"or both? I am trying to track triggers: sleep debt, caffeine, unread emails. I do not "
+            f"want clinical certainty from software; I want acknowledgement that this worry loop is "
+            f"real and that support exists if it keeps growing.",
+        ],
     }
-    return rng.choice(bank[style])
+    text = rng.choice(bank[style])
+    if style == "long":
+        return _expand_to_words(rng, text, 150, 320)
+    if style == "very_long":
+        return _expand_to_words(rng, text, 350, 750)
+    return text
 
 
 def _gen_bipolar(rng: random.Random, style: str) -> str:
@@ -190,12 +359,32 @@ def _gen_bipolar(rng: random.Random, style: str) -> str:
             f"Talking too fast about {h} one week, shut down the next. Mood changes how I plan and spend.",
         ],
         "ambiguous": [
-            # can look like anxiety or depression alone
             f"some days {h} im wired and sharp other days im useless. could be stress could be more. idk",
             f"sleep vanished then returned with a crash while dealing with {h}. mood followed it. {f}",
         ],
+        "long": [
+            f"My energy around {h} swings hard. For a stretch I sleep little, talk fast, start too many "
+            f"plans, and feel oddly invincible. Then the drop arrives and I can barely reply to a message. "
+            f"Friends say I seem like different people across the week. I am not asking an app to diagnose "
+            f"anything medical — I want a careful theme read about up-and-down mood and energy affecting "
+            f"daily life, sleep, and spending.",
+        ],
+        "very_long": [
+            f"I am trying to describe the pattern without claiming a clinical label. Around {h}, elevated "
+            f"spells show up as racing ideas, irritability, and nights where sleep feels optional. I spend "
+            f"more, promise more, and feel sharp in a way that later looks reckless. Then a crash hits: "
+            f"heavy limbs, flat mood, cancelled plans, and shame about what I started. Tracking sleep and "
+            f"appetite helps a bit. Stress can trigger either end. Mixed days confuse me most — restless "
+            f"and low at once. Please reflect the swing pattern supportively and keep language "
+            f"non-diagnostic; I already know software cannot replace a clinician.",
+        ],
     }
-    return rng.choice(bank[style])
+    text = rng.choice(bank[style])
+    if style == "long":
+        return _expand_to_words(rng, text, 150, 320)
+    if style == "very_long":
+        return _expand_to_words(rng, text, 350, 750)
+    return text
 
 
 def _gen_offmychest(rng: random.Random, style: str) -> str:
@@ -218,13 +407,33 @@ def _gen_offmychest(rng: random.Random, style: str) -> str:
             f"without a big confrontation.",
         ],
         "ambiguous": [
-            # deliberately confusable with mild anxiety/depression
             f"tired of {h} and a bit low about it but mostly just annoyed and overthinking conversations. "
             f"needed somewhere to dump it",
             f"{h} stressed me out and now i feel weirdly empty after venting to no one. probably fine. {f}",
         ],
+        "long": [
+            f"Mostly I need to unload about {h}. It is not a crisis and I am not asking for a diagnosis — "
+            f"just space to say I am frustrated, a bit lonely after a messy week, and weirdly relieved "
+            f"after writing this down. There were arguments, awkward silences, and a stretch where I felt "
+            f"happier than I have in months after a good conversation. Emotions are mixed: annoyance, "
+            f"guilt, hope, then back to annoyance. Advice optional; listening preferred.",
+        ],
+        "very_long": [
+            f"This is a long vent about {h} and the pile of ordinary human feelings that came with it. "
+            f"Heartbreak from a friendship cooling off, loneliness on Sundays, stress about money, "
+            f"then a surprising afternoon where I felt genuinely happy walking home. I also feel stuck "
+            f"about next steps and a little ashamed that small things rattled me. Mixed feelings are "
+            f"the point: anger one hour, soft hope the next. I do not want clinical language — I want "
+            f"acknowledgement that dumping this out is allowed, plus gentle support options if I want "
+            f"them later. Tomorrow I will try again; tonight I just needed somewhere to put the words.",
+        ],
     }
-    return rng.choice(bank[style])
+    text = rng.choice(bank[style])
+    if style == "long":
+        return _expand_to_words(rng, text, 150, 320)
+    if style == "very_long":
+        return _expand_to_words(rng, text, 350, 750)
+    return text
 
 
 GENERATORS = {
@@ -235,8 +444,15 @@ GENERATORS = {
     "self.offmychest": _gen_offmychest,
 }
 
-# Bias toward harder styles for more realistic error rates
-STYLE_WEIGHTS = [("ambiguous", 0.35), ("messy", 0.30), ("short", 0.20), ("medium", 0.15)]
+# Bias toward harder + longer styles for more realistic product coverage
+STYLE_WEIGHTS = [
+    ("ambiguous", 0.22),
+    ("messy", 0.18),
+    ("short", 0.12),
+    ("medium", 0.18),
+    ("long", 0.20),
+    ("very_long", 0.10),
+]
 
 
 def _pick_style(rng: random.Random) -> str:
@@ -255,10 +471,12 @@ def generate_rows(
         gen = GENERATORS[label]
         made = 0
         attempts = 0
-        while made < n_per_label and attempts < n_per_label * 120:
+        while made < n_per_label and attempts < n_per_label * 200:
             attempts += 1
             style = _pick_style(rng)
-            text = _maybe_messy(gen(rng, style), rng)
+            text = gen(rng, style)
+            if style not in {"long", "very_long"}:
+                text = _maybe_messy(text, rng)
             if len(text.split()) < 8:
                 continue
             fp = _fp(text)
@@ -288,6 +506,20 @@ def label_counts(rows: list[dict[str, str]]) -> dict[str, int]:
     return counts
 
 
+def length_stats(rows: list[dict[str, str]]) -> dict[str, float | int]:
+    words = [len(r["text"].split()) for r in rows]
+    words_sorted = sorted(words)
+    n = len(words_sorted)
+    mid = words_sorted[n // 2] if n else 0
+    return {
+        "min": min(words) if words else 0,
+        "median": mid,
+        "mean": round(sum(words) / n, 1) if n else 0,
+        "max": max(words) if words else 0,
+        "pct_ge_150": round(100.0 * sum(1 for w in words if w >= 150) / n, 1) if n else 0,
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--seed", type=int, default=42)
@@ -314,35 +546,67 @@ def main() -> None:
 
     manifest = {
         "name": "TrustMind Synthetic Wellbeing (SWMH-schema)",
-        "version": "2.0",
-        "purpose": "Harder ethical replacement for Reddit-sourced SWMH evaluation data",
+        "version": "3.0",
+        "purpose": "Ethical SWMH-schema corpus with longer, broader emotional check-ins",
         "design": {
-            "goal": "More realistic classification difficulty via ambiguity and overlap",
+            "goal": "Cover short-to-long first-person posts including loneliness, heartbreak, "
+            "stress, mixed feelings, relief/hope, anger, guilt/shame, numbness, and "
+            "non-diagnostic energy swings",
             "style_mix": dict(STYLE_WEIGHTS),
             "traits": [
                 "shared everyday vocabulary across classes",
-                "messy informal orthography",
+                "messy informal orthography on short/medium styles",
                 "ambiguous borderline posts",
+                "long and very_long multi-paragraph check-ins (~150–800 words)",
                 "non-graphic SuicideWatch language with help-seeking cues",
+                "non-diagnostic bipolar/energy-swing wording",
             ],
         },
         "columns": ["text", "label"],
         "labels": list(LABELS),
         "seed": args.seed,
-        "generation": "template+combinatorial v2 (hard); no scraped social posts",
+        "generation": "template+combinatorial v3 (long-form); no scraped social posts",
         "splits": {
-            "train": {"n": len(train), "per_class": args.train_per_class, "counts": label_counts(train)},
-            "val": {"n": len(val), "per_class": args.val_per_class, "counts": label_counts(val)},
-            "test": {"n": len(test), "per_class": args.test_per_class, "counts": label_counts(test)},
+            "train": {
+                "n": len(train),
+                "per_class": args.train_per_class,
+                "counts": label_counts(train),
+                "length": length_stats(train),
+            },
+            "val": {
+                "n": len(val),
+                "per_class": args.val_per_class,
+                "counts": label_counts(val),
+                "length": length_stats(val),
+            },
+            "test": {
+                "n": len(test),
+                "per_class": args.test_per_class,
+                "counts": label_counts(test),
+                "length": length_stats(test),
+            },
         },
         "total": len(train) + len(val) + len(test),
         "notes": [
             "Not clinical data; not for diagnosis.",
+            "Live TrustMind product uses LLM classification; this corpus supports eval/RAG research.",
             "Absolute metrics may still differ from real social media; interpret cautiously.",
         ],
     }
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps({"version": "2.0", "total": manifest["total"], "splits": manifest["splits"]}, indent=2))
+    print(
+        json.dumps(
+            {
+                "version": "3.0",
+                "total": manifest["total"],
+                "splits": {
+                    k: {"n": v["n"], "length": v["length"]}
+                    for k, v in manifest["splits"].items()
+                },
+            },
+            indent=2,
+        )
+    )
     print(f"Wrote dataset to {out}")
 
 

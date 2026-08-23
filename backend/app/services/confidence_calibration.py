@@ -302,15 +302,17 @@ def score_input_ambiguity(text: str, run_labels: Sequence[str | None] | None = N
     if any(p in t for p in positive_cues) and any(n in t for n in negative_cues):
         score += 0.25
 
-    # Overlapping class indicators
+    # Overlapping class indicators.
+    # Long first-person check-ins routinely mention several feelings; penalise lightly.
     class_hits = 0
     for hints in LABEL_HINTS.values():
         if any(h in t for h in hints):
             class_hits += 1
+    long_rich = len(words) >= 80
     if class_hits >= 3:
-        score += 0.25
+        score += 0.10 if long_rich else 0.25
     elif class_hits == 2:
-        score += 0.15
+        score += 0.05 if long_rich else 0.15
 
     # Lack of duration or context
     duration_cues = (
@@ -349,11 +351,28 @@ def score_input_ambiguity(text: str, run_labels: Sequence[str | None] | None = N
     if any(o in t for o in ordinary) and class_hits <= 1 and len(words) < 35:
         score += 0.20
 
-    # Disagreement across runs also signals ambiguity
+    # Disagreement across runs also signals ambiguity (softer on long narratives)
     if run_labels:
         norms = {_normalise_label(x) for x in run_labels if _normalise_label(x)}
         if len(norms) > 1:
-            score += 0.15
+            score += 0.08 if long_rich else 0.15
+
+    # Detailed first-person emotional narratives are usually clearer, not murkier.
+    if long_rich and any(
+        cue in t
+        for cue in (
+            "i feel",
+            "i've been",
+            "ive been",
+            "lonely",
+            "heartbroken",
+            "anxious",
+            "worried",
+            "empty",
+            "stuck",
+        )
+    ):
+        score = max(0.0, score - 0.15)
 
     return _clamp01(score)
 
@@ -390,13 +409,28 @@ def calibrate_llm_only_confidence(
 
     predictions_differ = len({_normalise_label(x) for x in run_labels if _normalise_label(x)}) > 1
     substantial_ambiguity = ambiguity >= AMBIGUITY_SUBSTANTIAL
+    long_rich = len((text or "").split()) >= 80
 
     cap = CAP_NORMAL
     if substantial_ambiguity:
         cap = min(cap, CAP_AMBIGUOUS)
     if predictions_differ:
-        cap = min(cap, CAP_INCONSISTENT)
+        # Long emotional check-ins often flip between close themes (e.g. depression /
+        # offmychest); keep a usable label rather than collapsing under 0.45.
+        inconsist_cap = 0.70 if long_rich else CAP_INCONSISTENT
+        cap = min(cap, inconsist_cap)
     overall = min(_clamp01(overall), cap)
+
+    # Floor for rich narratives with a usable majority label so product UX does not
+    # immediately abstain when the model is only mid-uncertain.
+    if (
+        prediction
+        and long_rich
+        and consistency >= (2 / 3)
+        and overall < 0.50
+        and llm_c >= 0.45
+    ):
+        overall = 0.50
 
     weights = {
         "llm_confidence": W_LLM_ONLY_SELF,

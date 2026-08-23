@@ -1,6 +1,6 @@
 # Synthetic Wellbeing Dataset (SWMH-compatible schema)
 
-**Version 2.0** — harder, more real-world-oriented synthetic posts (ambiguity + overlap).  
+**Version 3.0** — real-world length + emotional breadth (long / very_long styles, broader themes).  
 Ethical replacement for Reddit-sourced SWMH. No scraped social media.
 
 ## Files
@@ -21,12 +21,13 @@ Also: `manifest.json`, `DATASET_CARD.md`, `processed/*_clean.csv`.
 | `text` | Synthetic first-person wellbeing post |
 | `label` | `self.depression`, `self.SuicideWatch`, `self.Anxiety`, `self.bipolar`, `self.offmychest` |
 
-## v2 design (why scores should look more realistic)
+## v3 design (length + emotion)
 
-- Shared everyday vocabulary across classes  
-- Messy informal style (short / incomplete)  
-- Ambiguous borderline posts (e.g. anxiety ↔ depression ↔ venting)  
-- Fewer obvious “giveaway” template phrases than v1  
+- Styles: messy / short / medium / ambiguous / **long** / **very_long** (~150–800 word targets)
+- Themes: loneliness, heartbreak, stress, mixed feelings, relief/hope, anger, guilt/shame, numbness, non-diagnostic energy swings, stuckness, rejection
+- Shared everyday vocabulary across classes; ambiguous borderline posts
+- About **33%+** of posts are ≥150 words (product-realistic long check-ins)
+- Live TrustMind product still classifies primarily via **LLM**; this corpus supports eval / research
 
 ## Regenerate
 
@@ -38,4 +39,4 @@ python research/generate_synthetic_wellbeing.py --seed 42
 
 - No human subjects; fictional text only  
 - Labels are author-defined themes, not diagnoses  
-- `SuicideWatch` texts are non-graphic and often include help-seeking language  
+- Not for clinical use
