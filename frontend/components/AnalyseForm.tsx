@@ -68,9 +68,15 @@ function Spinner({ className }: { className?: string }) {
 }
 
 function buildAssistantOpening(analysis: AnalyseResponse): string {
-  return (
+  const softInvite =
+    'Thanks for checking in. I don\'t quite have enough to go on yet — try adding a bit more about how you feel (even a few sentences) so we can support you better. One-word feelings like "stressed" or "sad" still work if they\'re real words. This isn\'t a diagnosis.';
+  const reflection = (
     analysis.reasoning || analysis.explanation || analysis.message || ""
   ).trim();
+  if (!reflection || /^assessment completed\.?$/i.test(reflection)) {
+    return softInvite;
+  }
+  return reflection;
 }
 
 export function AnalyseForm() {
