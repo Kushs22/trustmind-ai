@@ -232,19 +232,15 @@ python -m unittest tests.test_multimodal_input tests.test_trust_explainability t
 |----------|------|
 | `OPENAI_API_KEY` | Required for LLM / embeddings / multimodal |
 | `OPENAI_MODEL` | Default `gpt-4.1` |
-| `GROQ_API_KEY` | Optional free/fast provider (tried before Gemini/OpenAI in `auto`/`free`) |
-| `GROQ_MODEL` | Default `openai/gpt-oss-120b` (`llama-3.3-70b-versatile` retired Aug 2026) |
 | `USE_RAG` | Default for `pipeline_mode=auto` |
 | `RAG_TOP_K` | Passages in RAG prompt (default 5) |
 | `ENABLE_ABSTENTION` / `CONFIDENCE_THRESHOLD` | Fail-soft labelling |
 | `ENABLE_CONFIDENCE_CALIBRATION` / `CONSISTENCY_RUNS` | Multi-run calibration |
-| `CORS_ORIGINS` | Explicit allowlist (e.g. `https://trustmind-ai.vercel.app`); add custom domains; never `*` in production |
-| `FRONTEND_URL` | Optional single extra origin merged into CORS |
-| `SECRET_KEY` | Long random JWT secret (≥32 chars); required on Render |
-| `DATABASE_URL` | **Postgres on Render** (required). Prefer Internal URL; SQLite is local-dev only |
-| `NEXT_PUBLIC_API_URL` | Frontend → backend URL (only safe `NEXT_PUBLIC_*` var) |
+| `CORS_ORIGINS` | Include `https://trustmind-ai.vercel.app` in production |
+| `DATABASE_URL` | **Postgres on Render** (required). SQLite is local-dev only — ephemeral disk loses check-ins |
+| `NEXT_PUBLIC_API_URL` | Frontend → backend URL |
 
-See `backend/.env.example`, `backend/render.yaml`, `frontend/.env.local.example`, and the launch checklist [`docs/ops/SECURITY.md`](docs/ops/SECURITY.md).
+See `backend/.env.example`, `backend/render.yaml`, `frontend/.env.local.example`.
 
 ---
 
@@ -254,7 +250,7 @@ See `backend/.env.example`, `backend/render.yaml`, `frontend/.env.local.example`
 |--------|--------|
 | **Frontend → Vercel** | Root `frontend/`; set `NEXT_PUBLIC_API_URL=https://trustmind-ai.onrender.com` |
 | **Backend → Render** | `rootDir: backend`; `PYTHONPATH` must include monorepo root for `rag/` and `research/` (see `backend/render.yaml`); set secrets in dashboard |
-| **Database → Render Postgres** | Create a Postgres instance and set `DATABASE_URL` on the API service (blueprint wires `trustmind-db`). Without this, login history cannot persist across redeploys. Startup runs `create_all` — no manual migration step. If the API fails to boot after a DB change, check Render logs for `Database initialisation failed`. **Backups:** see [`docs/ops/BACKUPS.md`](docs/ops/BACKUPS.md). **Launch security (secrets, CORS, spend caps):** see [`docs/ops/SECURITY.md`](docs/ops/SECURITY.md). |
+| **Database → Render Postgres** | Create a Postgres instance and set `DATABASE_URL` on the API service (blueprint wires `trustmind-db`). Without this, login history cannot persist across redeploys. Startup runs `create_all` — no manual migration step. If the API fails to boot after a DB change, check Render logs for `Database initialisation failed`. **Backups:** see [`docs/ops/BACKUPS.md`](docs/ops/BACKUPS.md) (Render plan backups + optional `scripts/dump_postgres.sh`). |
 
 **Logged-in history:** while signed in, Analyse defaults to **Save this check-in to my history**. Dashboard loads `/api/v1/check-ins` with the Bearer token from `localStorage`. Anonymous / private (save off) never writes cross-device history.
 

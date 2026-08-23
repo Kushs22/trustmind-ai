@@ -37,42 +37,23 @@ export function useSpeechRecognition() {
   const [finalTranscript, setFinalTranscript] = useState("");
   const [error, setError] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
-  /** Always-current spoken text — React state alone races with stop/cancel. */
-  const finalRef = useRef("");
-  const interimRef = useRef("");
 
   useEffect(() => {
     setSupported(Boolean(getSpeechRecognitionCtor()));
   }, []);
 
-  const clearTranscript = useCallback(() => {
-    finalRef.current = "";
-    interimRef.current = "";
-    setFinalTranscript("");
-    setInterim("");
-  }, []);
-
-  const getSpokenText = useCallback(() => {
-    return `${finalRef.current} ${interimRef.current}`.trim();
-  }, []);
-
   const stop = useCallback(() => {
-    // Keep listening true until onend so final onresult chunks after stop()
-    // are still captured in refs before the composer flushes.
-    try {
-      recognitionRef.current?.stop();
-    } catch {
-      setListening(false);
-    }
+    recognitionRef.current?.stop();
+    setListening(false);
   }, []);
 
   const cancel = useCallback(() => {
     recognitionRef.current?.abort();
-    recognitionRef.current = null;
     setListening(false);
-    clearTranscript();
+    setInterim("");
+    setFinalTranscript("");
     setError(null);
-  }, [clearTranscript]);
+  }, []);
 
   const start = useCallback(() => {
     const Ctor = getSpeechRecognitionCtor();
@@ -81,25 +62,24 @@ export function useSpeechRecognition() {
       return;
     }
     setError(null);
-    clearTranscript();
+    setInterim("");
+    setFinalTranscript("");
     const recognition = new Ctor();
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = "en-GB";
     recognition.onresult = (event) => {
       let interimText = "";
-      let finalChunk = "";
+      let finalText = "";
       for (let i = event.resultIndex; i < event.results.length; i += 1) {
         const result = event.results[i];
         const piece = result[0]?.transcript || "";
-        if (result.isFinal) finalChunk += piece;
+        if (result.isFinal) finalText += piece;
         else interimText += piece;
       }
-      if (finalChunk) {
-        finalRef.current = `${finalRef.current} ${finalChunk}`.trim();
-        setFinalTranscript(finalRef.current);
+      if (finalText) {
+        setFinalTranscript((prev) => `${prev} ${finalText}`.trim());
       }
-      interimRef.current = interimText;
       setInterim(interimText);
     };
     recognition.onerror = (event) => {
@@ -121,7 +101,7 @@ export function useSpeechRecognition() {
       setError("Unable to start speech recognition.");
       setListening(false);
     }
-  }, [clearTranscript]);
+  }, []);
 
   return {
     supported,
@@ -129,8 +109,6 @@ export function useSpeechRecognition() {
     interim,
     finalTranscript,
     setFinalTranscript,
-    getSpokenText,
-    clearTranscript,
     error,
     start,
     stop,

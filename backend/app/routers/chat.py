@@ -25,7 +25,7 @@ from app.services.conversation_service import (
     support_payload_if_needed,
 )
 from app.services.file_validation_service import FileValidationError
-from app.services.rate_limit import RateLimitExceeded, enforce_rate_limit
+from app.services.rate_limit import RateLimitExceeded, check_rate_limit
 from app.services.transcription_service import TranscriptionError
 
 router = APIRouter(tags=["chat"])
@@ -44,18 +44,13 @@ def _to_message_out(msg: dict) -> ChatMessageOut:
     )
 
 
-def _rate_limit_or_raise(request: Request) -> None:
-    try:
-        enforce_rate_limit(request, action="chat")
-    except RateLimitExceeded as exc:
-        headers = {}
-        if exc.retry_after_seconds is not None:
-            headers["Retry-After"] = str(exc.retry_after_seconds)
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=str(exc),
-            headers=headers or None,
-        ) from exc
+def _client_key(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    if request.client:
+        return request.client.host or "unknown"
+    return "unknown"
 
 
 def _parse_history_json(raw: str | None) -> list[dict[str, Any]]:
@@ -119,11 +114,9 @@ def _audio_meta_from_processed(processed: dict[str, Any]) -> dict[str, Any]:
 )
 def chat_follow_up(
     payload: ChatFollowUpRequest,
-    request: Request,
     db: Session = Depends(get_db),
     user: User | None = Depends(get_current_user_optional),
 ) -> ChatFollowUpResponse:
-    _rate_limit_or_raise(request)
     message = (payload.message or "").strip()
     if not message:
         raise HTTPException(
@@ -228,7 +221,13 @@ async def chat_follow_up_audio(
     db: Session = Depends(get_db),
     user: User | None = Depends(get_current_user_optional),
 ) -> ChatFollowUpResponse:
-    _rate_limit_or_raise(request)
+    try:
+        check_rate_limit(f"chat-audio:{_client_key(request)}")
+    except RateLimitExceeded as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=str(exc),
+        ) from exc
 
     data = await file.read()
     try:

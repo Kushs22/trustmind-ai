@@ -88,29 +88,6 @@ def _ensure_check_in_compat_columns() -> None:
             logger.info("Added check_ins.%s column", name)
 
 
-def _ensure_check_in_column_types() -> None:
-    """
-    Widen columns that overflowed in production (create_all never ALTERs types).
-    Postgres only — SQLite ignores VARCHAR length limits at runtime.
-    Idempotent: ALTER … TYPE TEXT is a no-op when already TEXT.
-    """
-    if not settings.is_postgres:
-        return
-    from sqlalchemy import inspect, text
-
-    inspector = inspect(engine)
-    if "check_ins" not in inspector.get_table_names():
-        return
-    existing = {col["name"] for col in inspector.get_columns("check_ins")}
-    if "grounding_status" not in existing:
-        return
-    with engine.begin() as conn:
-        conn.execute(
-            text("ALTER TABLE check_ins ALTER COLUMN grounding_status TYPE TEXT")
-        )
-        logger.info("Ensured check_ins.grounding_status is TEXT")
-
-
 def init_db() -> None:
     from app.models import CheckIn, User  # noqa: F401
 
@@ -126,7 +103,6 @@ def init_db() -> None:
         assert_production_database()
         Base.metadata.create_all(bind=engine)
         _ensure_check_in_compat_columns()
-        _ensure_check_in_column_types()
     except Exception:
         logger.exception(
             "Database initialisation failed for %s. "

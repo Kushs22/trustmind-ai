@@ -28,7 +28,7 @@ class CheckIn(Base):
     concern_level: Mapped[str] = mapped_column(String(50))
     ai_confidence: Mapped[str] = mapped_column(String(20))
     uncertainty_level: Mapped[str] = mapped_column(String(50))
-    grounding_status: Mapped[str] = mapped_column(Text)
+    grounding_status: Mapped[str] = mapped_column(String(255))
     abstention_status: Mapped[str] = mapped_column(String(100))
     explanation: Mapped[str] = mapped_column(Text)
     safe_next_steps: Mapped[str] = mapped_column(Text)  # JSON array stored as text

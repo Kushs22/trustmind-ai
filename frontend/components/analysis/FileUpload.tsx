@@ -52,8 +52,8 @@ export function FileUpload({
         disabled={disabled}
         onClick={() => fileInputRef.current?.click()}
         className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-colors hover:border-teal-300 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-teal-700 dark:hover:text-teal-200"
-        aria-label="Attach image or PDF for analysis context"
-        title="Attach image or PDF (processed for context only — not stored as a vault)"
+        aria-label="Attach image or PDF"
+        title="Attach image or PDF"
       >
         <AttachIcon />
       </button>
@@ -191,8 +191,8 @@ export function AttachButton({
         disabled={disabled}
         onClick={() => fileInputRef.current?.click()}
         className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-colors hover:border-teal-300 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-teal-700 dark:hover:text-teal-200"
-        aria-label="Attach image or PDF for analysis context"
-        title="Attach image or PDF (processed for context only — not stored as a vault)"
+        aria-label="Attach image or PDF"
+        title="Attach image or PDF"
       >
         <AttachIcon />
       </button>

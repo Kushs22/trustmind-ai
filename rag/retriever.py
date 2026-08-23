@@ -9,6 +9,7 @@ from typing import Any
 from rag.bm25_store import load_bm25, search_keywords
 from rag.chunking import Chunk, load_chunks
 from rag.config import RagConfig, get_rag_config
+from rag.faiss_store import load_index, search_vector
 
 logger = logging.getLogger(__name__)
 
@@ -80,44 +81,22 @@ class HybridRetriever:
         self._faiss_id_map: list[str] | None = None
         self._bm25_payload: dict[str, Any] | None = None
 
-    def _ensure_loaded(self, *, need_faiss: bool = True) -> None:
+    def _ensure_loaded(self) -> None:
         if self._chunks_by_id is None:
             chunks = load_chunks(self.config.chunks_jsonl)
             self._chunks_by_id = {c.chunk_id: c for c in chunks}
+        if self._faiss_index is None:
+            self._faiss_index, self._faiss_id_map = load_index(self.config)
         if self._bm25_payload is None:
             self._bm25_payload = load_bm25(self.config)
-        # FAISS is optional — missing index or failed load must not block BM25.
-        # Import lazily so BM25-only demos never hard-depend on the native FAISS lib.
-        if need_faiss and self._faiss_index is None and self._faiss_id_map is None:
-            try:
-                from rag.faiss_store import load_index
 
-                self._faiss_index, self._faiss_id_map = load_index(self.config)
-            except Exception as exc:  # noqa: BLE001
-                logger.warning(
-                    "FAISS index unavailable — BM25-only retrieval: %s",
-                    exc,
-                )
-                self._faiss_index = False  # sentinel: do not retry every call
-                self._faiss_id_map = []
-
-    def retrieve(
-        self,
-        query: str,
-        top_k: int | None = None,
-        *,
-        allow_faiss: bool = True,
-    ) -> list[RetrievedPassage]:
+    def retrieve(self, query: str, top_k: int | None = None) -> list[RetrievedPassage]:
         """
         Hybrid retrieve Top-K passages for a user query.
 
-        1) BM25 search  2) FAISS search (optional)  3) RRF merge  4) dedupe  5) Top-K
-
-        FAISS needs a live OpenAI embedding call for the query. When that fails
-        (quota, missing key, network), we soft-fail and return BM25-only hits so
-        Mode B still surfaces trusted KB passages.
+        1) BM25 search  2) FAISS search  3) RRF merge  4) dedupe  5) Top-K
         """
-        self._ensure_loaded(need_faiss=allow_faiss)
+        self._ensure_loaded()
         assert self._chunks_by_id is not None
         cfg = self.config
         k = top_k or cfg.top_k
@@ -128,36 +107,16 @@ class HybridRetriever:
             config=cfg,
             payload=self._bm25_payload,
         )
-        faiss_hits: list[dict[str, Any]] = []
-        faiss_error = ""
-        faiss_ready = (
-            allow_faiss
-            and self._faiss_index not in (None, False)
-            and bool(self._faiss_id_map)
+        faiss_hits = search_vector(
+            query,
+            top_k=cfg.faiss_candidate_k,
+            config=cfg,
+            client=self.client,
+            index=self._faiss_index,
+            id_map=self._faiss_id_map,
         )
-        if faiss_ready:
-            try:
-                from rag.faiss_store import search_vector
 
-                faiss_hits = search_vector(
-                    query,
-                    top_k=cfg.faiss_candidate_k,
-                    config=cfg,
-                    client=self.client,
-                    index=self._faiss_index,
-                    id_map=self._faiss_id_map,
-                )
-            except Exception as exc:  # noqa: BLE001
-                faiss_error = f"{type(exc).__name__}: {exc}"
-                logger.warning(
-                    "FAISS/embedding search failed — falling back to BM25-only: %s",
-                    faiss_error,
-                )
-
-        ranked_lists = [bm25_hits]
-        if faiss_hits:
-            ranked_lists.append(faiss_hits)
-        fused = reciprocal_rank_fusion(ranked_lists, rrf_k=cfg.rrf_k)
+        fused = reciprocal_rank_fusion([bm25_hits, faiss_hits], rrf_k=cfg.rrf_k)
         bm25_scores = {h["chunk_id"]: float(h["score"]) for h in bm25_hits}
         faiss_scores = {h["chunk_id"]: float(h["score"]) for h in faiss_hits}
 
@@ -187,28 +146,14 @@ class HybridRetriever:
             if len(passages) >= k:
                 break
 
-        mode = "hybrid" if faiss_hits else "bm25_only"
         logger.info(
-            "Hybrid retrieve: mode=%s bm25=%s faiss=%s fused_top=%s query_chars=%s%s",
-            mode,
+            "Hybrid retrieve: bm25=%s faiss=%s fused_top=%s query_chars=%s",
             len(bm25_hits),
             len(faiss_hits),
             len(passages),
             len(query),
-            f" faiss_error={faiss_error}" if faiss_error else "",
         )
         return passages
-
-
-def retrieve_bm25_only(
-    query: str,
-    top_k: int | None = None,
-    config: RagConfig | None = None,
-) -> list[RetrievedPassage]:
-    """Lexical-only retrieval — no OpenAI embeddings required."""
-    return HybridRetriever(config=config).retrieve(
-        query, top_k=top_k, allow_faiss=False
-    )
 
 
 def retrieve(query: str, top_k: int | None = None, config: RagConfig | None = None) -> list[RetrievedPassage]:

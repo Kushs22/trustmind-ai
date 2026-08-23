@@ -11,23 +11,18 @@ from app.services.image_processing_service import (
     process_image_bytes,
 )
 from app.services.pdf_processing_service import PdfProcessingError, process_pdf_bytes
-from app.services.rate_limit import RateLimitExceeded, enforce_rate_limit
+from app.services.rate_limit import RateLimitExceeded, check_rate_limit
 
 router = APIRouter(tags=["uploads"])
 
 
-def _rate_limit_or_raise(request: Request) -> None:
-    try:
-        enforce_rate_limit(request, action="upload")
-    except RateLimitExceeded as exc:
-        headers = {}
-        if exc.retry_after_seconds is not None:
-            headers["Retry-After"] = str(exc.retry_after_seconds)
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=str(exc),
-            headers=headers or None,
-        ) from exc
+def _client_key(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    if request.client:
+        return request.client.host or "unknown"
+    return "unknown"
 
 
 @router.post(
@@ -45,7 +40,10 @@ async def process_image(
     request: Request,
     file: UploadFile = File(..., description="JPEG, PNG, or WEBP image"),
 ) -> ImageProcessResponse:
-    _rate_limit_or_raise(request)
+    try:
+        check_rate_limit(f"image:{_client_key(request)}")
+    except RateLimitExceeded as exc:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
 
     data = await file.read()
     try:
@@ -79,7 +77,10 @@ async def process_pdf(
     request: Request,
     file: UploadFile = File(..., description="PDF document"),
 ) -> PdfProcessResponse:
-    _rate_limit_or_raise(request)
+    try:
+        check_rate_limit(f"pdf:{_client_key(request)}")
+    except RateLimitExceeded as exc:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
 
     data = await file.read()
     try:

@@ -57,7 +57,6 @@ export type EvidenceItem = {
   retrieval_score?: number;
   reason_retrieved?: string;
   display_label?: string;
-  snippet?: string;
 };
 
 export type AnalyseDebug = {
@@ -125,10 +124,6 @@ export type AnalyseResponse = {
   support_urgency_band?: "low" | "moderate" | "elevated" | "urgent" | null;
   support_urgency_rationale?: string | null;
   support_urgency_uncertain?: boolean;
-  retrieval_mode?: string | null;
-  llm_provider?: string | null;
-  calibration_notes?: string | null;
-  trust_summary?: string | null;
   debug?: AnalyseDebug | null;
   input_summary?: InputSummary | null;
   processed_attachments?: ProcessedAttachment[];
@@ -214,19 +209,6 @@ function parseErrorDetail(detail: unknown): string {
   return "Request failed";
 }
 
-function messageFromFailedResponse(status: number, detail: unknown, fallback: string): string {
-  let message = parseErrorDetail(detail ?? fallback);
-  if (!message || message === "Request failed") {
-    message = fallback || "Request failed";
-  }
-  if (status === 429) {
-    return message === "Request failed"
-      ? "Too many requests. Please wait a moment and try again."
-      : message;
-  }
-  return message;
-}
-
 async function request<T>(
   path: string,
   options: RequestInit & { requireAuth?: boolean; timeoutMs?: number } = {},
@@ -283,17 +265,14 @@ async function request<T>(
   }
 
   if (!response.ok) {
-    let detail: unknown = "Request failed";
+    let message = "Request failed";
     try {
       const body = (await response.json()) as { detail?: unknown };
-      detail = body.detail ?? detail;
+      message = parseErrorDetail(body.detail ?? message);
     } catch {
-      detail = response.statusText || detail;
+      message = response.statusText || message;
     }
-    throw new ApiError(
-      response.status,
-      messageFromFailedResponse(response.status, detail, "Request failed"),
-    );
+    throw new ApiError(response.status, message);
   }
 
   if (response.status === 204) {
@@ -392,17 +371,14 @@ export async function requestMultipart<T>(
   });
 
   if (!response.ok) {
-    let detail: unknown = "Request failed";
+    let message = "Request failed";
     try {
       const body = (await response.json()) as { detail?: unknown };
-      detail = body.detail ?? detail;
+      message = parseErrorDetail(body.detail ?? message);
     } catch {
-      detail = response.statusText || detail;
+      message = response.statusText || message;
     }
-    throw new ApiError(
-      response.status,
-      messageFromFailedResponse(response.status, detail, "Request failed"),
-    );
+    throw new ApiError(response.status, message);
   }
 
   return response.json() as Promise<T>;

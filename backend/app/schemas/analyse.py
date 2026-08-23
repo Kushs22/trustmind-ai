@@ -109,7 +109,6 @@ class EvidenceItemOut(BaseModel):
     retrieval_score: float = 0.0
     reason_retrieved: str = ""
     display_label: str = ""
-    snippet: str = ""
 
 
 class AnalyseDebugOut(BaseModel):
@@ -167,11 +166,6 @@ class AnalyseResponse(BaseModel):
     support_urgency_band: Literal["low", "moderate", "elevated", "urgent"] | None = None
     support_urgency_rationale: str | None = None
     support_urgency_uncertain: bool = False
-    # RAG transparency extras (dissertation / viva demo)
-    retrieval_mode: str | None = None
-    llm_provider: str | None = None
-    calibration_notes: str | None = None
-    trust_summary: str | None = None
     debug: AnalyseDebugOut | None = None
     # Multimodal metadata (attachments are user context, not trusted RAG)
     input_summary: InputSummaryOut | None = None

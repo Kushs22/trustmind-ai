@@ -87,8 +87,6 @@ type ChatThreadProps = {
   disabled?: boolean;
   disabledReason?: string | null;
   toneDisclaimer?: string | null;
-  /** Fully detach from the current thread (preferred over a same-route Link). */
-  onNewChat?: () => void;
 };
 
 function MessageBubble({ msg }: { msg: ChatMessage }) {
@@ -155,7 +153,6 @@ export function ChatThread({
   disabled,
   disabledReason,
   toneDisclaimer,
-  onNewChat,
 }: ChatThreadProps) {
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
@@ -180,8 +177,7 @@ export function ChatThread({
   }
 
   async function handleMicClick() {
-    // Do not gate on composerLocked: that includes audioBusy and would block Stop.
-    if (!onSendAudio || isSending || disabled) return;
+    if (!onSendAudio || composerLocked) return;
     if (recorder.status === "listening" || recorder.status === "paused") {
       const blob = await recorder.stopAndGetBlob();
       if (!blob) return;
@@ -212,22 +208,12 @@ export function ChatThread({
                 : "Session thread — continues here only; not saved to history")}
           </p>
         </div>
-        {onNewChat ? (
-          <button
-            type="button"
-            onClick={onNewChat}
-            className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-700 transition-colors hover:border-teal-200 hover:bg-teal-50/60 dark:border-slate-600 dark:text-slate-200 dark:hover:border-teal-700 dark:hover:bg-teal-950/40"
-          >
-            New chat
-          </button>
-        ) : (
-          <Link
-            href="/analyse"
-            className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-700 transition-colors hover:border-teal-200 hover:bg-teal-50/60 dark:border-slate-600 dark:text-slate-200 dark:hover:border-teal-700 dark:hover:bg-teal-950/40"
-          >
-            New chat
-          </Link>
-        )}
+        <Link
+          href="/analyse"
+          className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-700 transition-colors hover:border-teal-200 hover:bg-teal-50/60 dark:border-slate-600 dark:text-slate-200 dark:hover:border-teal-700 dark:hover:bg-teal-950/40"
+        >
+          New chat
+        </Link>
       </div>
 
       <div className="flex-1 space-y-4 overflow-y-auto px-4 py-5 sm:px-5">

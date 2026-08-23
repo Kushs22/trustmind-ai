@@ -158,7 +158,6 @@ def _looks_like_crisis(text: str) -> bool:
 
 
 def _fallback_reply(user_message: str, *, safety: bool) -> str:
-    """Offline/LLM-failure reply. Never quote the user into English boilerplate."""
     if safety:
         return (
             "I'm really sorry you're feeling this way. You're not alone, and "
@@ -166,13 +165,17 @@ def _fallback_reply(user_message: str, *, safety: bool) -> str:
             "please use the urgent support options below, or call 999 if you are "
             "in immediate danger."
         )
-    # Soft, language-agnostic invite — do not echo/quote the user's words into
-    # an English "X is still on your mind" template (breaks Hinglish/Hindi/etc.).
-    _ = user_message  # kept for call-site compatibility / future localisation
+    snippet = _clip(user_message, 80)
+    if snippet:
+        return (
+            f"Thanks for sharing more — it sounds like \"{snippet}\" is still on "
+            "your mind. I'm here to listen without judging. If it helps, try one "
+            "small supportive step today, and remember this is wellbeing support "
+            "information, not a diagnosis."
+        )
     return (
-        "I'm here with you — keep writing in whatever language feels natural "
-        "(English, Hinglish, Hindi, Urdu, or another), and I'll meet you there. "
-        "This is wellbeing support information, not a diagnosis."
+        "Thanks for checking in again. I'm here to listen. Share whatever feels "
+        "comfortable — this is wellbeing support information, not a diagnosis."
     )
 
 
@@ -190,117 +193,13 @@ _LANG_SWITCH_RE = re.compile(
     r"en|in|auf|en|em|på|na|nel"
     r")\b\s+("
     r"español|spanish|français|french|deutsch|german|italiano|italian|"
-    r"português|portuguese|hindi|हिंदी|हिन्दी|hinglish|marathi|मराठी|"
-    r"telugu|తెలుగు|tamil|தமிழ்|gujarati|ગુજરાતી|punjabi|ਪੰਜਾਬੀ|"
-    r"urdu|اردو|arabic|العربية|chinese|中文|japanese|日本語|korean|한국어|"
+    r"português|portuguese|hindi|हिंदी|हिन्दी|marathi|मराठी|telugu|తెలుగు|"
+    r"tamil|தமிழ்|gujarati|ગુજરાતી|punjabi|ਪੰਜਾਬੀ|urdu|اردو|"
+    r"arabic|العربية|chinese|中文|japanese|日本語|korean|한국어|"
     r"russian|русский|polish|polski|turkish|türkçe|dutch|nederlands|"
     r"swedish|svenska|greek|ελληνικά|bengali|বাংলা"
     r")\b",
     re.IGNORECASE,
-)
-# Romanised Hinglish / Hindi / Urdu cues (Latin script code-mixing).
-_ROMANISED_INDIC_CUES = frozenset(
-    {
-        "mai",
-        "main",
-        "mein",
-        "mera",
-        "meri",
-        "mere",
-        "naam",
-        "aap",
-        "tum",
-        "tumhara",
-        "kaise",
-        "kaisi",
-        "kaisa",
-        "ho",
-        "hai",
-        "hain",
-        "hun",
-        "hoon",
-        "kya",
-        "kyu",
-        "kyun",
-        "kyunki",
-        "nahi",
-        "nahin",
-        "mat",
-        "bahut",
-        "bohot",
-        "theek",
-        "thik",
-        "yaar",
-        "bhai",
-        "dost",
-        "accha",
-        "acha",
-        "bilkul",
-        "zaroor",
-        "bolna",
-        "baat",
-        "karo",
-        "karna",
-        "raha",
-        "rahi",
-        "rahe",
-        "hua",
-        "hui",
-        "mujhe",
-        "mujhko",
-        "tumhe",
-        "unko",
-        "usko",
-        "abhi",
-        "phir",
-        "lekin",
-        "magar",
-        "sirf",
-        "kitna",
-        "kitni",
-        "kafi",
-        "kaafi",
-        "pareshaan",
-        "pareshan",
-        "dukhi",
-        "khush",
-        "gussa",
-        "hinglish",
-        "hindi",
-        "urdu",
-        "namaste",
-        "shukriya",
-        "dhanyavad",
-        "inshallah",
-    }
-)
-# Common non-English Latin-script function words (Spanish/French/etc.).
-_ROMANISED_OTHER_CUES = frozenset(
-    {
-        "estoy",
-        "estas",
-        "muy",
-        "estresado",
-        "estresada",
-        "hola",
-        "gracias",
-        "porque",
-        "tambien",
-        "je",
-        "suis",
-        "tres",
-        "stresse",
-        "bonjour",
-        "merci",
-        "pourquoi",
-    }
-)
-_ENGLISH_TEMPLATE_MARKERS = (
-    "still on your mind",
-    "thanks for sharing more",
-    "i'm here to listen without judging",
-    "i'm here to listen without judgement",
-    "share whatever feels comfortable",
 )
 
 
@@ -328,24 +227,6 @@ def _requests_language_switch(text: str) -> bool:
     return bool(_LANG_SWITCH_RE.search(text or ""))
 
 
-def _romanised_multilingual_cues(text: str) -> bool:
-    """Detect Hinglish/romanised Indic or other non-English Latin-script cues."""
-    tokens = set(re.findall(r"[A-Za-z']+", (text or "").lower()))
-    if not tokens:
-        return False
-    if "hinglish" in tokens or "hindi" in tokens or "urdu" in tokens:
-        return True
-    indic_hits = len(tokens & _ROMANISED_INDIC_CUES)
-    other_hits = len(tokens & _ROMANISED_OTHER_CUES)
-    # One strong cue is enough for short messages ("hinglish mai?");
-    # otherwise require two so plain English isn't misclassified.
-    if indic_hits >= 1 and (indic_hits >= 2 or len(tokens) <= 4):
-        return True
-    if other_hits >= 2:
-        return True
-    return False
-
-
 def _needs_language_mirror(text: str) -> bool:
     """User is clearly not writing plain English-only, or asked to switch language."""
     raw = (text or "").strip()
@@ -356,8 +237,6 @@ def _needs_language_mirror(text: str) -> bool:
     if _mostly_non_english_script(raw):
         return True
     if _has_non_latin_letters(raw):
-        return True
-    if _romanised_multilingual_cues(raw):
         return True
     return False
 
@@ -385,43 +264,13 @@ def _claims_english_only(reply: str) -> bool:
     )
 
 
-def _looks_like_english_template(reply: str) -> bool:
-    """Detect dead English boilerplate that quotes/ignores the user's message."""
-    lowered = (reply or "").lower()
-    if any(marker in lowered for marker in _ENGLISH_TEMPLATE_MARKERS):
-        return True
-    # "it sounds like \"…\" is still on your mind" / similar quote-echo patterns
-    if re.search(
-        r"(it sounds like|sounds like).{0,120}(still on your mind|on your mind)",
-        lowered,
-        re.DOTALL,
-    ):
-        return True
-    return False
-
-
-def _should_retry_language(user_message: str, reply: str) -> bool:
-    if not _needs_language_mirror(user_message) and not _requests_language_switch(
-        user_message
-    ):
-        return False
-    # Soft offline fallback already invites any language — do not loop on it.
-    if "keep writing in whatever language feels natural" in (reply or "").lower():
-        return False
-    return _claims_english_only(reply) or _looks_like_english_template(reply)
-
-
 def _language_override_block(user_message: str) -> str:
     return (
         "LANGUAGE POLICY (mandatory):\n"
         "- Mirror the language of the LATEST user message exactly "
         "(same language and, when practical, same script).\n"
-        "- Hinglish / romanised Hindi-Urdu mixed with English → reply in the same "
-        "mixed style (do NOT switch to formal English-only).\n"
-        "- Examples: Spanish→Spanish, Hindi→Hindi, Hinglish→Hinglish, "
-        "Telugu→Telugu, French→French, Arabic→Arabic, Chinese→Chinese, etc.\n"
-        "- Engage with the actual content of the latest message; never paste their "
-        "words into a canned English template like \"X is still on your mind\".\n"
+        "- Examples: Spanish→Spanish, Hindi→Hindi, Telugu→Telugu, French→French, "
+        "Arabic→Arabic, Chinese→Chinese, etc.\n"
         "- If the user asks to switch languages, switch immediately.\n"
         "- Earlier English assistant turns do NOT lock the chat to English.\n"
         "- NEVER say you can only communicate in English.\n"
@@ -452,27 +301,18 @@ def generate_follow_up_reply(
         safety = safety or _looks_like_crisis(audio_prompt_block)
     thread_block = format_thread_for_prompt(prior_messages)
 
-    try:
-        from app.services.llm_provider import complete_json, llm_configured
-    except Exception:
-        logger.exception("LLM provider import failed; using fallback")
-        return _fallback_reply(text, safety=safety), safety
-
-    if not llm_configured():
+    if not settings.openai_api_key and not settings.gemini_api_key and not settings.groq_api_key:
         return _fallback_reply(text, safety=safety), safety
 
     try:
+        from app.services.llm_provider import complete_json
+
         system = (
             "You are TrustMind AI — a warm, careful multilingual wellbeing "
             "check-in companion for students. You continue an existing check-in.\n\n"
             "Hard rules:\n"
-            "- You are multilingual. Always reply in the same language/script/style "
-            "as the user's latest message (Hinglish, Hindi, Urdu, Spanish, etc.).\n"
-            "- For Hinglish / romanised Hindi-Urdu, stay in that mixed style — "
-            "do not rewrite into formal English-only.\n"
-            "- Engage with the actual content; never quote their words into a canned "
-            "English template such as \"Thanks for sharing more — it sounds like "
-            "'X' is still on your mind\".\n"
+            "- You are multilingual. Always reply in the same language as the "
+            "user's latest message (any language the model supports).\n"
             "- NEVER say you can only communicate in English, or refuse other languages.\n"
             "- If the user asks to switch language, switch immediately even if "
             "earlier turns were in English.\n"
@@ -503,12 +343,9 @@ def generate_follow_up_reply(
             prompt = user_prompt
             if reinforce:
                 prompt = (
-                    "RETRY REQUIRED: Your previous draft was wrong — either it claimed "
-                    "an English-only limit, or it used a canned English quote-echo "
-                    "template (e.g. \"X is still on your mind\"). That is false/forbidden. "
-                    "Reply in the SAME language/style as the latest user message "
-                    "(Hinglish/Hindi/Urdu/etc. when that is what they used). "
-                    "Engage their actual words. Do not mention English-only restrictions.\n\n"
+                    "RETRY REQUIRED: Your previous draft wrongly claimed an English-only "
+                    "limit. That is false. Reply in the SAME language as the latest user "
+                    "message. Do not mention English-only restrictions.\n\n"
                     + user_prompt
                 )
             raw, err, provider = complete_json(
@@ -531,14 +368,20 @@ def generate_follow_up_reply(
             return reply, flagged
 
         reply, flagged = _once()
-        if _should_retry_language(text, reply):
+        if _claims_english_only(reply) and (
+            _needs_language_mirror(text) or _requests_language_switch(text)
+        ):
             logger.warning(
-                "Follow-up language/template mismatch; retrying with multilingual override"
+                "Follow-up claimed English-only; retrying with multilingual override"
             )
             reply, flagged = _once(reinforce=True)
-            if _should_retry_language(text, reply):
-                # Last resort: soft multilingual invite — never the quote-echo template.
-                reply = _fallback_reply(text, safety=flagged)
+            if _claims_english_only(reply):
+                # Strip the false limitation rather than showing it to the user.
+                reply = (
+                    "Of course — I can continue in your language. "
+                    "Please share what's on your mind, and I'll reply in the same "
+                    "language you're using. This is supportive check-in help, not a diagnosis."
+                )
         return reply, flagged
     except Exception:
         logger.exception("Follow-up LLM reply failed; using fallback")
