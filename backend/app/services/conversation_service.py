@@ -179,49 +179,66 @@ def _fallback_reply(user_message: str, *, safety: bool) -> str:
     )
 
 
-def _wants_hindi_or_non_english(text: str) -> bool:
-    raw = text or ""
-    lowered = raw.lower()
-    if any(0x0900 <= ord(ch) <= 0x097F for ch in raw):
+_LATIN_RE = re.compile(r"[A-Za-z]")
+_LETTER_RE = re.compile(r"[^\W\d_]", re.UNICODE)
+_LANG_SWITCH_RE = re.compile(
+    r"\b("
+    r"speak|talk|reply|respond|write|answer|chat|continue"
+    r")\b.{0,24}\b("
+    r"in|on"
+    r")\b.{0,12}\b("
+    r"[a-z]{3,}"
+    r")\b|"
+    r"\b("
+    r"en|in|auf|en|em|på|na|nel"
+    r")\b\s+("
+    r"español|spanish|français|french|deutsch|german|italiano|italian|"
+    r"português|portuguese|hindi|हिंदी|हिन्दी|marathi|मराठी|telugu|తెలుగు|"
+    r"tamil|தமிழ்|gujarati|ગુજરાતી|punjabi|ਪੰਜਾਬੀ|urdu|اردو|"
+    r"arabic|العربية|chinese|中文|japanese|日本語|korean|한국어|"
+    r"russian|русский|polish|polski|turkish|türkçe|dutch|nederlands|"
+    r"swedish|svenska|greek|ελληνικά|bengali|বাংলা"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def _has_non_latin_letters(text: str) -> bool:
+    """True if message contains letters outside basic Latin (e.g. Devanagari, Cyrillic)."""
+    for ch in text or "":
+        if not _LETTER_RE.match(ch):
+            continue
+        # Basic Latin + Latin-1 supplement letters still "latin-ish"; treat
+        # anything outside ASCII letters as a strong multilingual signal.
+        if ord(ch) > 127:
+            return True
+    return False
+
+
+def _mostly_non_english_script(text: str) -> bool:
+    letters = [ch for ch in (text or "") if _LETTER_RE.match(ch)]
+    if not letters:
+        return False
+    non_ascii = sum(1 for ch in letters if ord(ch) > 127)
+    return non_ascii / max(len(letters), 1) >= 0.25
+
+
+def _requests_language_switch(text: str) -> bool:
+    return bool(_LANG_SWITCH_RE.search(text or ""))
+
+
+def _needs_language_mirror(text: str) -> bool:
+    """User is clearly not writing plain English-only, or asked to switch language."""
+    raw = (text or "").strip()
+    if not raw:
+        return False
+    if _requests_language_switch(raw):
         return True
-    if any(
-        phrase in lowered
-        for phrase in (
-            "hindi",
-            "in hindi",
-            "हिंदी",
-            "हिन्दी",
-            "talk in hindi",
-            "speak hindi",
-            "bolna",
-            "baat kar",
-        )
-    ):
+    if _mostly_non_english_script(raw):
         return True
-    # Common romanised Hindi tokens
-    tokens = set(re.findall(r"[a-zA-Z']+", lowered))
-    hindi_cues = {
-        "mera",
-        "meri",
-        "mera",
-        "naam",
-        "aap",
-        "kaise",
-        "kaisi",
-        "ho",
-        "hai",
-        "hain",
-        "kya",
-        "nahi",
-        "nahin",
-        "bahut",
-        "theek",
-        "thik",
-        "yaar",
-        "bhai",
-        "dost",
-    }
-    return len(tokens & hindi_cues) >= 2
+    if _has_non_latin_letters(raw):
+        return True
+    return False
 
 
 def _claims_english_only(reply: str) -> bool:
@@ -236,22 +253,28 @@ def _claims_english_only(reply: str) -> bool:
             "only available in english",
             "reply in english only",
             "must use english",
+            "only respond in english",
+            "i'm only able to communicate in english",
+            "i am only able to communicate in english",
+            "cannot speak other languages",
+            "can't speak other languages",
+            "don't support other languages",
+            "do not support other languages",
         )
     )
 
 
 def _language_override_block(user_message: str) -> str:
-    if not _wants_hindi_or_non_english(user_message):
-        return (
-            "Language: follow the language of the latest user message. "
-            "Never claim you can only speak English."
-        )
     return (
-        "CRITICAL LANGUAGE OVERRIDE:\n"
-        "- The user is writing in Hindi and/or asked to talk in Hindi.\n"
-        "- Reply in Hindi (Devanagari preferred, or clear Roman Hindi if needed).\n"
-        "- Do NOT say you can only communicate in English.\n"
-        "- Ignore earlier English assistant turns for language choice — switch now."
+        "LANGUAGE POLICY (mandatory):\n"
+        "- Mirror the language of the LATEST user message exactly "
+        "(same language and, when practical, same script).\n"
+        "- Examples: Spanish→Spanish, Hindi→Hindi, Telugu→Telugu, French→French, "
+        "Arabic→Arabic, Chinese→Chinese, etc.\n"
+        "- If the user asks to switch languages, switch immediately.\n"
+        "- Earlier English assistant turns do NOT lock the chat to English.\n"
+        "- NEVER say you can only communicate in English.\n"
+        f"- Latest user message for language choice:\n{user_message}"
     )
 
 
@@ -288,9 +311,9 @@ def generate_follow_up_reply(
             "You are TrustMind AI — a warm, careful multilingual wellbeing "
             "check-in companion for students. You continue an existing check-in.\n\n"
             "Hard rules:\n"
-            "- You CAN and MUST reply in the user's language (Hindi, Spanish, "
-            "Marathi, English, etc.). You are not English-only.\n"
-            "- NEVER say \"I can only communicate in English\" or similar.\n"
+            "- You are multilingual. Always reply in the same language as the "
+            "user's latest message (any language the model supports).\n"
+            "- NEVER say you can only communicate in English, or refuse other languages.\n"
             "- If the user asks to switch language, switch immediately even if "
             "earlier turns were in English.\n"
             "- Speak in warm second person; be empathetic; do NOT diagnose.\n"
@@ -320,8 +343,9 @@ def generate_follow_up_reply(
             prompt = user_prompt
             if reinforce:
                 prompt = (
-                    "RETRY: Your previous draft wrongly claimed English-only. "
-                    "Reply in Hindi now. Never mention an English-only limit.\n\n"
+                    "RETRY REQUIRED: Your previous draft wrongly claimed an English-only "
+                    "limit. That is false. Reply in the SAME language as the latest user "
+                    "message. Do not mention English-only restrictions.\n\n"
                     + user_prompt
                 )
             raw, err, provider = complete_json(
@@ -344,15 +368,19 @@ def generate_follow_up_reply(
             return reply, flagged
 
         reply, flagged = _once()
-        if _wants_hindi_or_non_english(text) and _claims_english_only(reply):
-            logger.warning("Follow-up claimed English-only; retrying with Hindi override")
+        if _claims_english_only(reply) and (
+            _needs_language_mirror(text) or _requests_language_switch(text)
+        ):
+            logger.warning(
+                "Follow-up claimed English-only; retrying with multilingual override"
+            )
             reply, flagged = _once(reinforce=True)
             if _claims_english_only(reply):
-                # Last resort: do not leave the false English-only claim on screen.
+                # Strip the false limitation rather than showing it to the user.
                 reply = (
-                    "Haan, bilkul — main Hindi mein baat kar sakta/sakti hoon. "
-                    "Aap jo feel kar rahe ho, use yahan share kar sakte ho. "
-                    "Main sunne ke liye yahan hoon — ye diagnosis nahi, sirf supportive check-in hai."
+                    "Of course — I can continue in your language. "
+                    "Please share what's on your mind, and I'll reply in the same "
+                    "language you're using. This is supportive check-in help, not a diagnosis."
                 )
         return reply, flagged
     except Exception:
