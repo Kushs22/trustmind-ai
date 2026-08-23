@@ -27,6 +27,8 @@ _COACHING_PATTERNS = (
 _EMOTION_CUES = (
     "lonely",
     "loneliness",
+    "alone",
+    "isolated",
     "heartbroken",
     "heartbreak",
     "sad",
@@ -35,10 +37,24 @@ _EMOTION_CUES = (
     "anxious",
     "anxiety",
     "worried",
+    "worry",
     "stress",
     "stressed",
     "overwhelmed",
     "hopeless",
+    "exhausted",
+    "exhaustion",
+    "tired",
+    "drained",
+    "fatigue",
+    "burnout",
+    "burnt out",
+    "burned out",
+    "exam",
+    "exams",
+    "revision",
+    "coursework",
+    "dissertation",
     "stuck",
     "guilt",
     "shame",
@@ -56,6 +72,8 @@ _EMOTION_CUES = (
     "i've felt",
     "cant sleep",
     "can't sleep",
+    "haven't been sleeping",
+    "havent been sleeping",
     "low mood",
     "mood swing",
     "crying",
@@ -83,11 +101,13 @@ class InputKind:
 
     @property
     def rich_first_person(self) -> bool:
-        """Long-ish first-person emotional narrative suitable for confident labelling."""
+        """First-person emotional narrative suitable for a safe theme label."""
+        # Prefer labelling over hard abstain once the check-in is past one-liners
+        # and clearly names stress / mood / loneliness (common student demos).
         return (
             self.has_personal_story
-            and self.word_count >= 40
-            and self.emotion_cue_count >= 2
+            and self.word_count >= 12
+            and self.emotion_cue_count >= 1
         )
 
 
@@ -174,17 +194,30 @@ def emotion_theme_heuristic(text: str | None) -> str | None:
         "anxiety",
         "panic",
         "worried",
+        "worry",
         "dread",
         "on edge",
         "heart racing",
         "can't stop checking",
         "cant stop checking",
+        "exam stress",
+        "exam",
+        "exams",
+        "revision",
+        "can't focus",
+        "cant focus",
+        "chest feels tight",
+        "overwhelmed",
+        "stressed",
+        "stress",
     )
     depression = (
         "heartbroken",
         "heartbreak",
         "lonely",
         "loneliness",
+        "alone",
+        "isolated",
         "empty",
         "numb",
         "hopeless",
@@ -195,6 +228,12 @@ def emotion_theme_heuristic(text: str | None) -> str | None:
         "emotionally stuck",
         "depressed",
         "worthless",
+        "exhausted",
+        "exhaustion",
+        "drained",
+        "burnout",
+        "burnt out",
+        "burned out",
     )
     bipolar = (
         "mood swing",
