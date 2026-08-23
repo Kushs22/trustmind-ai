@@ -123,6 +123,34 @@ def _looks_like_pdf(url: str, content_type: str = "") -> bool:
     return url.lower().split("?", 1)[0].endswith(".pdf")
 
 
+def _resolve_local_path(url: str) -> Path | None:
+    """
+    Support offline PDFs via:
+      - absolute / relative filesystem paths ending in .pdf
+      - file:///... URLs
+      - local:relative/path.pdf (resolved under the repo root)
+    """
+    raw = (url or "").strip()
+    if not raw:
+        return None
+    if raw.lower().startswith("file:"):
+        # file:///Users/... or file:/Users/...
+        path_str = raw[5:]
+        if path_str.startswith("///"):
+            path_str = path_str[2:]  # keep leading /
+        elif path_str.startswith("//"):
+            path_str = path_str[1:]
+        return Path(path_str).expanduser()
+    if raw.lower().startswith("local:"):
+        return (ROOT / raw[6:].lstrip("/")).resolve()
+    candidate = Path(raw).expanduser()
+    if candidate.suffix.lower() == ".pdf" and (
+        candidate.is_absolute() or raw.startswith(".") or "/" in raw or "\\" in raw
+    ):
+        return candidate if candidate.is_absolute() else (ROOT / candidate).resolve()
+    return None
+
+
 def fetch_page(
     url: str,
     *,
@@ -131,12 +159,30 @@ def fetch_page(
     logger: logging.Logger | None = None,
 ) -> tuple[str, bytes | str | None, int | None, str]:
     """
-    Download a webpage or PDF with retries.
+    Download a webpage or PDF with retries, or load a local PDF path.
 
     Returns (kind, content, http_status, error_message) where kind is
     "html" | "pdf" | "" and content is str for HTML or bytes for PDF.
     """
     log = logger or logging.getLogger("trustmind.kb.collect")
+
+    local = _resolve_local_path(url)
+    if local is not None:
+        try:
+            if not local.exists():
+                return "", None, None, f"local_file_missing: {local}"
+            data = local.read_bytes()
+            if not data:
+                return "", None, None, f"local_file_empty: {local}"
+            if local.suffix.lower() == ".pdf" or _looks_like_pdf(str(local)):
+                log.info("Loaded local PDF %s (%s bytes)", local, len(data))
+                return "pdf", data, 200, ""
+            # Allow local HTML dumps as well
+            text = data.decode("utf-8", errors="replace")
+            return "html", text, 200, ""
+        except OSError as exc:
+            return "", None, None, f"local_file_error: {type(exc).__name__}: {exc}"
+
     headers = {
         "User-Agent": USER_AGENT,
         "Accept": "text/html,application/xhtml+xml,application/pdf;q=0.9,*/*;q=0.8",
@@ -411,7 +457,11 @@ def collect_source(
     return row
 
 
-def collect_all_approved_sources(*, force: bool = False) -> pd.DataFrame:
+def collect_all_approved_sources(
+    *,
+    force: bool = False,
+    only_ids: set[str] | None = None,
+) -> pd.DataFrame:
     """Collect every approved source URL and return the updated manifest."""
     logger = _setup_logging()
     RAW_DIR.mkdir(parents=True, exist_ok=True)
@@ -419,6 +469,12 @@ def collect_all_approved_sources(*, force: bool = False) -> pd.DataFrame:
     METADATA_DIR.mkdir(parents=True, exist_ok=True)
 
     sources = load_approved_sources()
+    if only_ids:
+        wanted = {s.strip() for s in only_ids if str(s).strip()}
+        sources = sources[sources["source_id"].astype(str).isin(wanted)].copy()
+        missing = wanted - set(sources["source_id"].astype(str))
+        if missing:
+            logger.warning("Requested source_id(s) not in approved list: %s", sorted(missing))
     logger.info("Loaded %s approved source(s) for collection", len(sources))
     if sources.empty:
         logger.warning("No sources with approved_for_collection=true")
@@ -426,7 +482,9 @@ def collect_all_approved_sources(*, force: bool = False) -> pd.DataFrame:
 
     results: list[dict[str, Any]] = []
     for idx, (_, row) in enumerate(sources.iterrows()):
-        if idx > 0:
+        # Local PDFs need no polite crawl delay.
+        url = str(row.get("url") or "")
+        if idx > 0 and _resolve_local_path(url) is None:
             time.sleep(REQUEST_DELAY_SECONDS)
         try:
             result = collect_source(row, logger=logger, force=force)
@@ -466,7 +524,11 @@ def collect_all_approved_sources(*, force: bool = False) -> pd.DataFrame:
 
 def main() -> None:
     force = "--force" in sys.argv
-    collect_all_approved_sources(force=force)
+    only_ids: set[str] | None = None
+    if "--only" in sys.argv:
+        idx = sys.argv.index("--only")
+        only_ids = {s.strip() for s in sys.argv[idx + 1 :] if s.strip() and not s.startswith("-")}
+    collect_all_approved_sources(force=force, only_ids=only_ids)
 
 
 if __name__ == "__main__":

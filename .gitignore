@@ -1,66 +1,60 @@
-.DS_Store
-*.zip
+
 !datasets/synthetic_wellbeing_v1.zip
-package-lock.json
-
-# Python / backend / local envs
-.venv/
-.venv-eval/
-.mplconfig/
-backend/.venv/
-backend/__pycache__/
-backend/*.db
-backend/.env
-
-# Local eval noise
-research/results/*_eval*.log
-research/results/rag_eval_*.log
-research/_launch_eval.sh
-
-# Node / frontend
-frontend/node_modules/
-frontend/.next/
-frontend/.env*
 !frontend/.env.local.example
-
-# Do not reintroduce scraped SWMH Reddit CSVs
-datasets/swmh/
-research/results/archive_swmh_eval/*_predictions.csv
-
-# Research secrets / LLM outputs containing raw posts
-research/.env
-research/results/*_predictions.csv
-research/__pycache__/
-
-# Knowledge base raw HTML (large / reproducible locally)
-knowledge_base/raw/*.html
-!knowledge_base/raw/.gitkeep
-knowledge_base/logs/*.log
-!knowledge_base/logs/.gitkeep
-scripts/__pycache__/
-rag/__pycache__/
-
-# Operator DB dumps (never commit)
-backups/
-*.sql
-
-# RAG artifacts (regenerable; can be large)
-# Allow committed production indexes so Render can run USE_RAG without a rebuild step.
-knowledge_base/chunks/*
 !knowledge_base/chunks/.gitkeep
 !knowledge_base/chunks/chunks.jsonl
-knowledge_base/embeddings/*
 !knowledge_base/embeddings/.gitkeep
 !knowledge_base/embeddings/embeddings.npy
 !knowledge_base/embeddings/embeddings_meta.jsonl
-knowledge_base/indexes/faiss/*
-!knowledge_base/indexes/faiss/.gitkeep
-!knowledge_base/indexes/faiss/index.faiss
-!knowledge_base/indexes/faiss/id_map.json
-knowledge_base/indexes/bm25/*
 !knowledge_base/indexes/bm25/.gitkeep
 !knowledge_base/indexes/bm25/bm25.pkl
-knowledge_base/logs/rag/*
-!knowledge_base/logs/rag/.gitkeep
-knowledge_base/logs/analyse/*
+!knowledge_base/indexes/faiss/.gitkeep
+!knowledge_base/indexes/faiss/id_map.json
+!knowledge_base/indexes/faiss/index.faiss
+!knowledge_base/logs/.gitkeep
 !knowledge_base/logs/analyse/.gitkeep
+!knowledge_base/logs/rag/.gitkeep
+!knowledge_base/raw/.gitkeep
+# Allow committed production indexes so Render can run USE_RAG without a rebuild step.
+# Do not reintroduce scraped SWMH Reddit CSVs
+# Knowledge base raw HTML (large / reproducible locally)
+# Local eval noise
+# Node / frontend
+# Operator DB dumps (never commit)
+# Python / backend / local envs
+# RAG artifacts (regenerable; can be large)
+# Research secrets / LLM outputs containing raw posts
+*.sql
+*.zip
+.DS_Store
+.kb_deps/
+.mplconfig/
+.venv-eval/
+.venv/
+backend/*.db
+backend/.env
+backend/.venv/
+backend/__pycache__/
+backups/
+datasets/swmh/
+frontend/.env*
+frontend/.next/
+frontend/node_modules/
+knowledge_base/chunks/*
+knowledge_base/embeddings/*
+knowledge_base/indexes/bm25/*
+knowledge_base/indexes/faiss/*
+knowledge_base/logs/*.log
+knowledge_base/logs/analyse/*
+knowledge_base/logs/rag/*
+knowledge_base/raw/*.html
+package-lock.json
+rag/__pycache__/
+research/.env
+research/__pycache__/
+research/_launch_eval.sh
+research/results/*_eval*.log
+research/results/*_predictions.csv
+research/results/archive_swmh_eval/*_predictions.csv
+research/results/rag_eval_*.log
+scripts/__pycache__/

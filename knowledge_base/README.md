@@ -31,6 +31,31 @@ knowledge_base/
 └── README.md
 ```
 
+## How to add a local PDF (offline paper / report)
+
+1. Copy the PDF into `knowledge_base/incoming/` (e.g. `MY_PAPER.pdf`).
+2. Add a row to `sources/approved_sources.csv` with:
+   - a unique `source_id`
+   - `url` set to `local:knowledge_base/incoming/MY_PAPER.pdf`
+   - `approved_for_collection=true`
+3. Collect only that source:
+
+```bash
+python scripts/collect_sources.py --force --only MY_SOURCE_ID
+```
+
+4. Rebuild retrieval indexes:
+
+```bash
+python scripts/chunk_documents.py --force
+python scripts/build_bm25.py --force
+# optional (needs OpenAI embeddings):
+# python scripts/generate_embeddings.py --force
+# python scripts/build_faiss.py --force
+```
+
+Local PDFs are stored under `raw/{source_id}.pdf` and cleaned Markdown under `cleaned/{source_id}.md`.
+
 ## How to add a new approved source
 
 1. Edit `sources/approved_sources.csv`.
