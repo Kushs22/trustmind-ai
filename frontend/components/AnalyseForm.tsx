@@ -1093,6 +1093,7 @@ export function AnalyseForm() {
     (resultIsStandaloneLlm ? "LLM" : "LLM+RAG");
 
   const trustSignals = result?.trust_signals;
+  const breakdown = result?.confidence_breakdown;
 
   const trustDetailsCard = result ? (
     <div className="rounded-xl border border-slate-200/80 bg-white/90 px-4 py-4 dark:border-slate-700/80 dark:bg-slate-900/90">
@@ -1235,6 +1236,99 @@ export function AnalyseForm() {
             uncertain={Boolean(result.support_urgency_uncertain)}
           />
         </div>
+      ) : null}
+    </div>
+  ) : null;
+
+  const groundingReliabilityPanel = result ? (
+    <div
+      className={`rounded-xl border px-4 py-4 ${
+        resultIsStandaloneLlm
+          ? "border-amber-200/80 bg-amber-50/50 dark:border-amber-900/70 dark:bg-amber-950/30"
+          : "border-indigo-200/70 bg-indigo-50/40 dark:border-indigo-900/70 dark:bg-indigo-950/25"
+      }`}
+    >
+      <p
+        className={`text-xs font-medium uppercase tracking-wide ${
+          resultIsStandaloneLlm
+            ? "text-amber-800 dark:text-amber-300"
+            : "text-indigo-700 dark:text-indigo-300"
+        }`}
+      >
+        {resultIsStandaloneLlm
+          ? "LLM-only contrast"
+          : "Grounding & reliability"}
+      </p>
+      <p className="mt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+        {result.trust_summary ||
+          (resultIsStandaloneLlm
+            ? "No retrieved guidance — standalone model only. Re-analyse with LLM+RAG on the same prompt to compare grounding, sources, and trust signals."
+            : "This run used retrieved trusted guidance to ground the reflection.")}
+      </p>
+      {!resultIsStandaloneLlm ? (
+        <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+          <div>
+            <dt className="text-slate-500 dark:text-slate-400">
+              Retrieval mode
+            </dt>
+            <dd className="mt-0.5 font-medium text-slate-800 dark:text-slate-100">
+              {(result.retrieval_mode || "bm25 / hybrid").replace(/_/g, " ")}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-slate-500 dark:text-slate-400">
+              Passages shown
+            </dt>
+            <dd className="mt-0.5 font-medium tabular-nums text-slate-800 dark:text-slate-100">
+              {evidenceAll.length}
+            </dd>
+          </div>
+          {typeof breakdown?.classification_consistency === "number" ? (
+            <div>
+              <dt className="text-slate-500 dark:text-slate-400">
+                Consistency
+              </dt>
+              <dd className="mt-0.5 font-medium tabular-nums text-slate-800 dark:text-slate-100">
+                {breakdown.classification_consistency}/100
+              </dd>
+            </div>
+          ) : null}
+          {typeof breakdown?.source_agreement === "number" ? (
+            <div>
+              <dt className="text-slate-500 dark:text-slate-400">
+                Source agreement
+              </dt>
+              <dd className="mt-0.5 font-medium tabular-nums text-slate-800 dark:text-slate-100">
+                {breakdown.source_agreement}/100
+              </dd>
+            </div>
+          ) : null}
+          {typeof breakdown?.retrieval_similarity === "number" ? (
+            <div>
+              <dt className="text-slate-500 dark:text-slate-400">
+                Retrieval similarity
+              </dt>
+              <dd className="mt-0.5 font-medium tabular-nums text-slate-800 dark:text-slate-100">
+                {breakdown.retrieval_similarity}/100
+              </dd>
+            </div>
+          ) : null}
+          {typeof breakdown?.retrieval_coverage === "number" ? (
+            <div>
+              <dt className="text-slate-500 dark:text-slate-400">
+                Retrieval coverage
+              </dt>
+              <dd className="mt-0.5 font-medium tabular-nums text-slate-800 dark:text-slate-100">
+                {breakdown.retrieval_coverage}/100
+              </dd>
+            </div>
+          ) : null}
+        </dl>
+      ) : null}
+      {result.calibration_notes && !resultIsStandaloneLlm ? (
+        <p className="mt-3 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
+          Calibration: {result.calibration_notes}
+        </p>
       ) : null}
     </div>
   ) : null;
@@ -1593,6 +1687,7 @@ export function AnalyseForm() {
 
           {pipelineCompareBar}
           {trustDetailsCard}
+          {groundingReliabilityPanel}
           {groundedSourcesPanel}
           {supportResourcesPanel}
 
