@@ -22,8 +22,14 @@ import {
   type SupportResource,
 } from "@/lib/api";
 import {
+  ANALYSE_FORCE_FRESH_KEY,
+  ANALYSE_SESSIONS_KEY,
   AUTH_CHANGED_EVENT,
+  authIdentityLabel,
+  clearAnalyseWorkspaceStorage,
+  getAuthEpoch,
   getToken,
+  isAnonymousSession,
   isAuthenticated,
   isRegisteredUser,
 } from "@/lib/auth";
@@ -154,10 +160,13 @@ function newSessionId(): string {
   return `session-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-const SESSION_STORAGE_KEY = "trustmind_analyse_sessions_v1";
+const SESSION_STORAGE_KEY = ANALYSE_SESSIONS_KEY;
 
 type PersistedSessionsV1 = {
   version: 1;
+  /** guest | anonymous | registered — discard on mismatch after logout/login. */
+  authIdentity?: string;
+  authEpoch?: string;
   activeSessionId: string;
   active: AnalyseSession;
   archive: AnalyseSession[];
@@ -169,6 +178,18 @@ function readCheckInQuery(): string | null {
   } catch {
     return null;
   }
+}
+
+function consumeForceFreshFlag(): boolean {
+  try {
+    if (sessionStorage.getItem(ANALYSE_FORCE_FRESH_KEY) === "1") {
+      sessionStorage.removeItem(ANALYSE_FORCE_FRESH_KEY);
+      return true;
+    }
+  } catch {
+    // ignore
+  }
+  return false;
 }
 
 function readPersistedSessions(): PersistedSessionsV1 | null {
@@ -184,6 +205,15 @@ function readPersistedSessions(): PersistedSessionsV1 | null {
     ) {
       return null;
     }
+    const identity = authIdentityLabel();
+    const epoch = getAuthEpoch();
+    if (
+      (parsed.authIdentity && parsed.authIdentity !== identity) ||
+      (parsed.authEpoch && epoch && parsed.authEpoch !== epoch)
+    ) {
+      sessionStorage.removeItem(SESSION_STORAGE_KEY);
+      return null;
+    }
     return parsed;
   } catch {
     return null;
@@ -195,8 +225,14 @@ function writePersistedSessions(
   archive: AnalyseSession[],
 ) {
   try {
+    // Logout asked for a blank analyse — do not resurrect the prior thread.
+    if (sessionStorage.getItem(ANALYSE_FORCE_FRESH_KEY) === "1") {
+      return;
+    }
     const payload: PersistedSessionsV1 = {
       version: 1,
+      authIdentity: authIdentityLabel(),
+      authEpoch: getAuthEpoch(),
       activeSessionId: active.id,
       active,
       archive: archive.slice(0, 12),
@@ -204,6 +240,15 @@ function writePersistedSessions(
     sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(payload));
   } catch {
     // quota / private mode — ignore
+  }
+}
+
+function clearPersistedSessions() {
+  clearAnalyseWorkspaceStorage();
+  try {
+    sessionStorage.removeItem(SESSION_STORAGE_KEY);
+  } catch {
+    // ignore
   }
 }
 
@@ -291,6 +336,26 @@ function messagesAfterReanalyse(
   ];
 }
 
+/** Rebuild re-analyse payload from the opening user turn when lastCheckIn was lost. */
+function payloadFromOpeningText(text: string): LastCheckInPayload | null {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+  return {
+    typed_text: trimmed,
+    userOpening: trimmed,
+    image_context: [],
+    pdf_context: [],
+  };
+}
+
+function payloadFromMessages(
+  messages: ChatMessage[],
+): LastCheckInPayload | null {
+  const firstUser = messages.find((m) => m.role === "user");
+  const opening = (firstUser?.transcript || firstUser?.content || "").trim();
+  return payloadFromOpeningText(opening);
+}
+
 export function AnalyseForm() {
   const [text, setText] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -331,11 +396,48 @@ export function AnalyseForm() {
   const activeSessionIdRef = useRef(activeSessionId);
   const sessionArchiveRef = useRef<AnalyseSession[]>([]);
   const analyseGenerationRef = useRef(0);
+  /** Tracks guest / anon / registered so logout does not keep the prior chat. */
+  const authIdentityRef = useRef<string | null>(null);
   const files = useFileUpload();
 
   activeCheckInIdRef.current = activeCheckInId;
   activeSessionIdRef.current = activeSessionId;
   messagesRef.current = messages;
+
+  function currentAuthIdentity(): string {
+    if (!isAuthenticated()) return "guest";
+    if (isAnonymousSession()) return "anonymous";
+    return "registered";
+  }
+
+  /** Wipe local chats on real account switches — not when a guest quietly gets an anon token. */
+  function shouldResetOnAuthChange(prev: string, next: string): boolean {
+    if (prev === next) return false;
+    // analyse may mint an anonymous token mid-run; keep the in-progress thread.
+    if (prev === "guest" && next === "anonymous") return false;
+    return true;
+  }
+
+  function resetAnalyseWorkspace() {
+    analyseGenerationRef.current += 1;
+    lastCheckInRef.current = null;
+    suppressUrlLoadRef.current = true;
+    setCheckInQuery(null);
+    setArchiveState([]);
+    const next = emptySession(newSessionId(), "llm");
+    activeSessionIdRef.current = next.id;
+    applySession(next);
+    // Keep the force-fresh flag set by logout; do not write the old thread back.
+    try {
+      sessionStorage.removeItem(SESSION_STORAGE_KEY);
+      sessionStorage.setItem(ANALYSE_FORCE_FRESH_KEY, "1");
+    } catch {
+      // ignore
+    }
+    window.setTimeout(() => {
+      suppressUrlLoadRef.current = false;
+    }, 0);
+  }
 
   function captureActiveSession(): AnalyseSession {
     return {
@@ -417,16 +519,24 @@ export function AnalyseForm() {
 
   function applySession(session: AnalyseSession) {
     activeSessionIdRef.current = session.id;
-    lastCheckInRef.current = session.lastCheckIn;
+    // Prefer stored payload; otherwise rebuild from the opening user message so
+    // LLM ↔ LLM+RAG still re-runs the same text after composer clear / remount.
+    const restoredPayload =
+      session.lastCheckIn || payloadFromMessages(session.messages);
+    lastCheckInRef.current = restoredPayload;
     setActiveSessionId(session.id);
     setActiveCheckInId(session.checkInId);
     setChatMode(session.chatMode);
     messagesRef.current = session.messages;
     setMessages(session.messages);
     setResult(session.result);
-    setLastCheckIn(session.lastCheckIn);
+    setLastCheckIn(restoredPayload);
     setPipelineMode(session.pipelineMode);
-    setChatSupportResources(session.chatSupportResources);
+    const resources =
+      session.chatSupportResources?.length
+        ? session.chatSupportResources
+        : session.result?.support_resources || [];
+    setChatSupportResources(resources);
     setToneDisclaimer(session.toneDisclaimer);
     setChatDraft(session.chatDraft);
     setError(null);
@@ -435,6 +545,21 @@ export function AnalyseForm() {
     setShowMoreEvidence(false);
     setText("");
     files.clearAll();
+  }
+
+  function resolveReanalysePayload(): LastCheckInPayload | null {
+    if (lastCheckInRef.current?.typed_text?.trim()) {
+      return lastCheckInRef.current;
+    }
+    if (lastCheckInRef.current?.userOpening?.trim()) {
+      const opening = lastCheckInRef.current.userOpening.trim();
+      return {
+        ...lastCheckInRef.current,
+        typed_text: lastCheckInRef.current.typed_text?.trim() || opening,
+        userOpening: opening,
+      };
+    }
+    return payloadFromMessages(messagesRef.current);
   }
 
   function archiveCurrentIfNeeded() {
@@ -446,12 +571,26 @@ export function AnalyseForm() {
 
   useEffect(() => {
     function syncAuthDefaults() {
+      const nextIdentity = currentAuthIdentity();
+      const prevIdentity = authIdentityRef.current;
+      authIdentityRef.current = nextIdentity;
+      // Logout / login: never continue the previous account's chat.
+      if (
+        prevIdentity !== null &&
+        shouldResetOnAuthChange(prevIdentity, nextIdentity)
+      ) {
+        resetAnalyseWorkspace();
+      }
+
       const authed = isAuthenticated();
       const registered = isRegisteredUser();
       setLoggedIn(authed);
       if (authed) {
         setSaveToHistory(true);
         setAnalysePrivately(false);
+      } else {
+        setSaveToHistory(false);
+        setAnalysePrivately(true);
       }
       if (registered) {
         let preferContinue = false;
@@ -486,6 +625,7 @@ export function AnalyseForm() {
       window.removeEventListener(AUTH_CHANGED_EVENT, syncAuthDefaults);
       window.removeEventListener("storage", syncAuthDefaults);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadCheckInThread(checkInId: string, opts?: { sessionId?: string }) {
@@ -514,6 +654,7 @@ export function AnalyseForm() {
                 : []),
             ];
       const sessionId = opts?.sessionId || checkInId;
+      const openingPayload = payloadFromMessages(seeded);
       applySession({
         id: sessionId,
         checkInId: detail.is_private ? null : detail.id,
@@ -544,9 +685,10 @@ export function AnalyseForm() {
           support_urgency_band: detail.support_urgency_band,
           support_urgency_rationale: detail.support_urgency_rationale,
           support_urgency_uncertain: detail.support_urgency_uncertain,
+          support_resources: [],
         },
-        // History threads have no re-analyse payload — compare stays disabled.
-        lastCheckIn: null,
+        // Rebuild from opening turn so LLM ↔ LLM+RAG can re-run the same text.
+        lastCheckIn: openingPayload,
         pipelineMode: "llm",
         chatSupportResources: [],
         toneDisclaimer: null,
@@ -569,6 +711,24 @@ export function AnalyseForm() {
     async function bootstrapSessions() {
       if (suppressUrlLoadRef.current) return;
 
+      // Logout / account switch: always open a blank check-in (no refresh needed).
+      if (consumeForceFreshFlag()) {
+        clearPersistedSessions();
+        setCheckInQuery(null);
+        setArchiveState([]);
+        const next = emptySession(newSessionId(), "llm");
+        activeSessionIdRef.current = next.id;
+        applySession(next);
+        // Leave force-fresh cleared; do not re-persist the prior account thread.
+        try {
+          sessionStorage.removeItem(ANALYSE_FORCE_FRESH_KEY);
+          sessionStorage.removeItem(SESSION_STORAGE_KEY);
+        } catch {
+          // ignore
+        }
+        return;
+      }
+
       const stored = readPersistedSessions();
       if (stored) {
         const activeId = stored.active?.id;
@@ -582,8 +742,13 @@ export function AnalyseForm() {
       const checkInId = readCheckInQuery();
       if (checkInId) {
         if (cancelled) return;
-        await loadCheckInThread(checkInId);
-        return;
+        // Guests cannot open account history threads after logout.
+        if (!isAuthenticated()) {
+          setCheckInQuery(null);
+        } else {
+          await loadCheckInThread(checkInId);
+          return;
+        }
       }
 
       if (stored?.active && sessionHasContent(stored.active)) {
@@ -734,13 +899,18 @@ export function AnalyseForm() {
     setSaveNotice(null);
     setShowMoreEvidence(false);
     setPipelineMode(options.mode);
+    // Persist payload immediately so mode toggle works even if the request fails.
+    lastCheckInRef.current = options.payload;
+    setLastCheckIn(options.payload);
 
     const minDelay = new Promise<void>((resolve) => {
       const finishTimer = window.setTimeout(resolve, PROCESSING_DURATION_MS);
       timersRef.current.push(finishTimer);
     });
 
-    const wantSave = saveToHistory;
+    // Mode toggle / re-analyse: do not create a second saved check-in.
+    const isReanalyse = !options.clearComposer;
+    const wantSave = saveToHistory && !isReanalyse;
 
     try {
       if (wantSave && !getToken()) {
@@ -781,7 +951,7 @@ export function AnalyseForm() {
       const assistantOpening = buildAssistantOpening(analysis);
       // Re-analyse / mode toggle: refresh opening exchange only; keep follow-ups.
       const nextMessages: ChatMessage[] =
-        !options.clearComposer && messagesRef.current.length > 0
+        isReanalyse && messagesRef.current.length > 0
           ? messagesAfterReanalyse(
               messagesRef.current,
               options.payload.userOpening,
@@ -802,7 +972,12 @@ export function AnalyseForm() {
           analysis.saved_to_history &&
           !analysePrivately,
       );
-      const nextCheckInId = persistThread ? analysis.id! : null;
+      // Re-analyse keeps the existing thread id; first run may attach a new one.
+      const nextCheckInId = isReanalyse
+        ? activeCheckInIdRef.current
+        : persistThread
+          ? analysis.id!
+          : null;
       setActiveCheckInId(nextCheckInId);
       setChatSupportResources(analysis.support_resources || []);
       setChatError(null);
@@ -919,9 +1094,10 @@ export function AnalyseForm() {
   }
 
   async function handleReanalyse(mode: Exclude<PipelineMode, "auto">) {
-    // Session truth lives on the ref — never use possibly-stale lastCheckIn state.
-    const payload = lastCheckInRef.current;
+    const payload = resolveReanalysePayload();
     if (!payload || isProcessing) return;
+    lastCheckInRef.current = payload;
+    setLastCheckIn(payload);
     await runAnalyse({
       mode,
       payload,
@@ -934,8 +1110,10 @@ export function AnalyseForm() {
     if (isProcessing) return;
     // Immediate UI feedback; never loadCheckInThread from mode switch.
     setPipelineMode(mode);
-    const payload = lastCheckInRef.current;
+    const payload = resolveReanalysePayload();
     if (!payload) return;
+    lastCheckInRef.current = payload;
+    setLastCheckIn(payload);
     void handleReanalyse(mode);
   }
 
@@ -1044,7 +1222,8 @@ export function AnalyseForm() {
   const resultIsStandaloneLlm = result
     ? isStandaloneLlmPipeline(result)
     : pipelineMode === "llm";
-  const canReanalyse = Boolean(lastCheckIn) && !isProcessing;
+  const canReanalyse =
+    Boolean(resolveReanalysePayload()) && !isProcessing;
 
   const liveThreadLabel = chatMode
     ? labelFromMessages(messages, "Current chat")
@@ -1275,6 +1454,19 @@ export function AnalyseForm() {
     </div>
   ) : null;
 
+  const friendlyTrustSummary = (() => {
+    if (!result) return "";
+    if (resultIsStandaloneLlm) {
+      return "This check-in used the model on its own — no trusted guidance pages were pulled in. Switch to LLM+RAG on the same text to compare.";
+    }
+    if (evidenceAll.length > 0) {
+      return `This reflection drew on ${evidenceAll.length} trusted guidance source${
+        evidenceAll.length === 1 ? "" : "s"
+      } (for example NHS or university wellbeing pages).`;
+    }
+    return "We looked for matching guidance pages, but nothing close enough came back this time. A little more detail about how you feel usually helps.";
+  })();
+
   const groundingReliabilityPanel = result ? (
     <div
       className={`rounded-xl border px-4 py-4 ${
@@ -1291,79 +1483,40 @@ export function AnalyseForm() {
         }`}
       >
         {resultIsStandaloneLlm
-          ? "LLM-only contrast"
+          ? "Standalone model"
           : "Grounding & reliability"}
       </p>
       <p className="mt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
-        {result.trust_summary ||
-          (resultIsStandaloneLlm
-            ? "No retrieved guidance — standalone model only. Re-analyse with LLM+RAG on the same prompt to compare grounding, sources, and trust signals."
-            : "This run used retrieved trusted guidance to ground the reflection.")}
+        {friendlyTrustSummary}
       </p>
       {!resultIsStandaloneLlm ? (
         <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
           <div>
             <dt className="text-slate-500 dark:text-slate-400">
-              Retrieval mode
+              Guidance used
             </dt>
             <dd className="mt-0.5 font-medium text-slate-800 dark:text-slate-100">
-              {(result.retrieval_mode || "bm25 / hybrid").replace(/_/g, " ")}
+              {evidenceAll.length > 0
+                ? `${evidenceAll.length} trusted passage${
+                    evidenceAll.length === 1 ? "" : "s"
+                  }`
+                : "None matched this check-in"}
             </dd>
           </div>
           <div>
             <dt className="text-slate-500 dark:text-slate-400">
-              Passages shown
+              Grounding status
             </dt>
-            <dd className="mt-0.5 font-medium tabular-nums text-slate-800 dark:text-slate-100">
-              {evidenceAll.length}
+            <dd className="mt-0.5 font-medium text-slate-800 dark:text-slate-100">
+              {result.grounding_status &&
+              !/llm_only|formula|bm25|none/i.test(result.grounding_status)
+                ? result.grounding_status
+                : evidenceAll.length > 0
+                  ? "Grounded with retrieved evidence"
+                  : "No matching passages for this check-in"}
             </dd>
           </div>
-          {typeof breakdown?.classification_consistency === "number" ? (
-            <div>
-              <dt className="text-slate-500 dark:text-slate-400">
-                Consistency
-              </dt>
-              <dd className="mt-0.5 font-medium tabular-nums text-slate-800 dark:text-slate-100">
-                {breakdown.classification_consistency}/100
-              </dd>
-            </div>
-          ) : null}
-          {typeof breakdown?.source_agreement === "number" ? (
-            <div>
-              <dt className="text-slate-500 dark:text-slate-400">
-                Source agreement
-              </dt>
-              <dd className="mt-0.5 font-medium tabular-nums text-slate-800 dark:text-slate-100">
-                {breakdown.source_agreement}/100
-              </dd>
-            </div>
-          ) : null}
-          {typeof breakdown?.retrieval_similarity === "number" ? (
-            <div>
-              <dt className="text-slate-500 dark:text-slate-400">
-                Retrieval similarity
-              </dt>
-              <dd className="mt-0.5 font-medium tabular-nums text-slate-800 dark:text-slate-100">
-                {breakdown.retrieval_similarity}/100
-              </dd>
-            </div>
-          ) : null}
-          {typeof breakdown?.retrieval_coverage === "number" ? (
-            <div>
-              <dt className="text-slate-500 dark:text-slate-400">
-                Retrieval coverage
-              </dt>
-              <dd className="mt-0.5 font-medium tabular-nums text-slate-800 dark:text-slate-100">
-                {breakdown.retrieval_coverage}/100
-              </dd>
-            </div>
-          ) : null}
         </dl>
-      ) : null}
-      {result.calibration_notes && !resultIsStandaloneLlm ? (
-        <p className="mt-3 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
-          Calibration: {result.calibration_notes}
-        </p>
       ) : null}
     </div>
   ) : null;
@@ -1376,7 +1529,7 @@ export function AnalyseForm() {
             Compare assessment mode
           </p>
           <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-            {lastCheckIn
+            {canReanalyse
               ? "Switch LLM ↔ LLM+RAG and re-run the same check-in text."
               : "Re-analyse needs a check-in from this page (not available for opened history threads)."}
           </p>
@@ -1439,12 +1592,13 @@ export function AnalyseForm() {
           <span className="font-medium text-slate-700 dark:text-slate-200">
             {pipelineLabel}
           </span>
-          {result.grounding_status ? (
-            <>
-              {" "}
-              · Grounding: {result.grounding_status}
-            </>
-          ) : null}
+          {resultIsStandaloneLlm ? (
+            <> · Grounding: not used in this mode</>
+          ) : evidenceAll.length > 0 ? (
+            <> · Grounding: matched trusted guidance</>
+          ) : (
+            <> · Grounding: no matching sources this time</>
+          )}
         </p>
       ) : null}
     </div>
@@ -1454,26 +1608,27 @@ export function AnalyseForm() {
       <div className="rounded-xl border-2 border-teal-400/80 bg-teal-50/50 px-4 py-4 shadow-sm dark:border-teal-600/80 dark:bg-teal-950/30">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <p className="text-xs font-medium uppercase tracking-wide text-teal-800 dark:text-teal-300">
-            Grounded sources / retrieved passages
+            Grounded sources
           </p>
           {!resultIsStandaloneLlm && evidenceAll.length > 0 ? (
             <span className="rounded-full bg-teal-600 px-2.5 py-0.5 text-[11px] font-semibold text-white dark:bg-teal-500">
-              {evidenceAll.length} passage{evidenceAll.length === 1 ? "" : "s"}
+              {evidenceAll.length} source{evidenceAll.length === 1 ? "" : "s"}
             </span>
           ) : null}
         </div>
         {resultIsStandaloneLlm ? (
           <p className="mt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
-            No retrieved guidance — standalone model only. Switch to{" "}
+            This check-in used the model on its own, so no trusted guidance
+            pages were pulled in. Switch to{" "}
             <span className="font-semibold">LLM+RAG</span> and re-analyse the
-            same check-in to see NHS / Samaritans / UWE passages grounding the
-            response.
+            same text to see supporting extracts from places like the NHS,
+            Samaritans, or UWE wellbeing.
           </p>
         ) : evidenceVisible.length > 0 ? (
           <>
             <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">
-              Trusted KB passages used for this LLM+RAG run (title, snippet,
-              score). Compare with LLM-only: that mode shows none.
+              Supporting extracts used for this reflection — from trusted
+              wellbeing guidance, not invented by the model.
             </p>
             <ul className="mt-3 space-y-4">
               {evidenceVisible.map((item, idx) => (
@@ -1495,15 +1650,6 @@ export function AnalyseForm() {
                     </p>
                   ) : null}
                   <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
-                    {item.source_id ? (
-                      <span>ID: {item.source_id}</span>
-                    ) : null}
-                    {typeof item.retrieval_score === "number" &&
-                    item.retrieval_score > 0 ? (
-                      <span className="font-medium tabular-nums text-teal-800 dark:text-teal-300">
-                        score {item.retrieval_score.toFixed(3)}
-                      </span>
-                    ) : null}
                     {item.url ? (
                       <a
                         href={item.url}
@@ -1540,10 +1686,11 @@ export function AnalyseForm() {
             ))}
           </ul>
         ) : (
-          <p className="mt-2 text-sm font-medium leading-relaxed text-amber-800 dark:text-amber-200">
-            LLM+RAG ran, but no guidance passages were retrieved for this
-            check-in. Try a longer wellbeing prompt (e.g. anxiety, sleep,
-            loneliness) so BM25 can match the knowledge base.
+          <p className="mt-2 text-sm leading-relaxed text-amber-900 dark:text-amber-100">
+            We looked for trusted guidance pages that match what you shared,
+            but nothing close enough came back this time. A little more detail
+            about how you feel — and for how long — usually helps us find
+            useful sources.
           </p>
         )}
       </div>

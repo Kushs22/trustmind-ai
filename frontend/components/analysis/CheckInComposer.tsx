@@ -72,7 +72,13 @@ export function CheckInComposer({
 
   const speech = useSpeechRecognition();
   const recorder = useVoiceRecorder();
-  const useBrowser = speech.supported;
+  // Prefer MediaRecorder + server transcription: browser STT often reports
+  // "supported" but yields empty/aborted results (Safari, locked-down Chrome).
+  const mediaRecorderAvailable =
+    typeof window !== "undefined" &&
+    typeof MediaRecorder !== "undefined" &&
+    Boolean(navigator.mediaDevices?.getUserMedia);
+  const useBrowser = speech.supported && !mediaRecorderAvailable;
 
   const listening = useBrowser
     ? speech.listening

@@ -123,27 +123,29 @@ def _build_trust_summary(
     retrieval_mode: str | None,
     calibration_notes: str | None,
 ) -> str:
-    """Short viva-friendly explanation of why this run is (or isn't) grounded."""
+    """Short user-facing explanation of why this run is (or isn't) grounded."""
+    del trust, retrieval_mode, calibration_notes  # kept for call-site compatibility
     if is_standalone_llm:
         return (
-            "No retrieved guidance — standalone model only. "
-            "Confidence reflects the LLM self-report and consistency, "
-            "not KB grounding."
+            "This run used the model on its own — no trusted guidance passages "
+            "were retrieved. Switch to LLM+RAG on the same check-in to compare."
         )
-    rq = trust.get("retrieval_quality")
-    ev = trust.get("evidence_strength")
-    mode = (retrieval_mode or "retrieval").replace("_", " ")
-    parts = [
-        f"LLM+RAG used {n_evidence} trusted passage(s) via {mode}.",
-        f"Grounding: {grounding_label}.",
-    ]
-    if rq is not None:
-        parts.append(f"Retrieval quality {rq}/100.")
-    if ev is not None:
-        parts.append(f"Evidence strength {ev}/100.")
-    if calibration_notes:
-        parts.append(str(calibration_notes).strip())
-    return " ".join(parts)
+    label = (grounding_label or "").strip()
+    if n_evidence <= 0:
+        return (
+            "LLM+RAG ran, but no matching guidance passages were found for this "
+            "check-in. Try sharing a little more about how you're feeling."
+        )
+    if label and "not" not in label.lower() and "no supporting" not in label.lower():
+        return (
+            f"This LLM+RAG run used {n_evidence} trusted guidance "
+            f"passage{'s' if n_evidence != 1 else ''} from sources like NHS and "
+            f"university wellbeing pages. {label}."
+        )
+    return (
+        f"This LLM+RAG run used {n_evidence} trusted guidance "
+        f"passage{'s' if n_evidence != 1 else ''} to ground the reflection."
+    )
 
 
 def _map_concern(prediction: str | None, abstained: bool) -> str:
