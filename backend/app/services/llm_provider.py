@@ -156,6 +156,21 @@ def _call_openai_json(
     )
 
 
+# Short aliases Render/env often set without Groq's required `openai/` org prefix.
+_GROQ_MODEL_ALIASES = {
+    "gpt-oss-120b": "openai/gpt-oss-120b",
+    "gpt-oss-20b": "openai/gpt-oss-20b",
+}
+
+
+def _normalize_groq_model(model: str) -> str:
+    """Ensure known gpt-oss short IDs become full Groq model paths."""
+    name = (model or "").strip()
+    if not name:
+        return "openai/gpt-oss-120b"
+    return _GROQ_MODEL_ALIASES.get(name, name)
+
+
 def _call_groq_json(
     *,
     system: str,
@@ -166,7 +181,9 @@ def _call_groq_json(
 ) -> tuple[str, str]:
     if not settings.groq_api_key:
         return "", "GROQ_API_KEY missing"
-    model_name = (model or settings.groq_model or "openai/gpt-oss-120b").strip()
+    model_name = _normalize_groq_model(
+        model or settings.groq_model or "openai/gpt-oss-120b"
+    )
     return _call_openai_compatible_json(
         api_key=settings.groq_api_key,
         base_url=(settings.groq_base_url or "https://api.groq.com/openai/v1").rstrip("/"),
