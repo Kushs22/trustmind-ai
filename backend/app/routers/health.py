@@ -1,8 +1,44 @@
+import os
+from pathlib import Path
+
 from fastapi import APIRouter
 
 from app.config import database_url_safe_summary, settings
 
 router = APIRouter(tags=["health"])
+
+# Bump when production KB / RAG behaviour must be verifiable after deploy.
+APP_VERSION = "1.2.3"
+RELEASE_NOTE = (
+    "Literature PDF sources in BM25 KB (LIT_*) + health KB fingerprint for deploy checks"
+)
+
+
+def _kb_fingerprint(repo_root: Path) -> dict[str, object]:
+    """Lightweight KB stats so we can confirm Render deployed the latest index."""
+    chunks_path = repo_root / "knowledge_base" / "chunks" / "chunks.jsonl"
+    bm25_path = repo_root / "knowledge_base" / "indexes" / "bm25" / "bm25.pkl"
+    total = 0
+    lit = 0
+    if chunks_path.is_file():
+        try:
+            with chunks_path.open(encoding="utf-8") as fh:
+                for line in fh:
+                    if not line.strip():
+                        continue
+                    total += 1
+                    if '"source_id": "LIT_' in line or '"source_id":"LIT_' in line:
+                        lit += 1
+        except OSError:
+            pass
+    return {
+        "chunks_jsonl_exists": chunks_path.is_file(),
+        "chunks_total": total,
+        "lit_chunks": lit,
+        "bm25_bytes": bm25_path.stat().st_size if bm25_path.is_file() else 0,
+        "git_commit": (os.getenv("RENDER_GIT_COMMIT") or os.getenv("GIT_COMMIT") or "")[:12],
+        "git_branch": os.getenv("RENDER_GIT_BRANCH") or "",
+    }
 
 
 def _pipeline_diagnostics() -> dict[str, object]:
@@ -16,6 +52,7 @@ def _pipeline_diagnostics() -> dict[str, object]:
         "repo_root": str(repo_root),
         "faiss_index_exists": faiss_path.is_file(),
         "bm25_index_exists": bm25_path.is_file(),
+        "kb": _kb_fingerprint(repo_root),
         "rag_import_ok": False,
         "llm_baseline_import_ok": False,
         "llm_pipeline_local_helpers_ok": False,
@@ -70,8 +107,8 @@ def health_check() -> dict[str, object]:
     return {
         "status": "ok",
         "service": "trustmind-ai-backend",
-        "version": "1.2.2",
-        "release_note": "BM25-first RAG sources + support resources (NHS/Samaritans/UWE) without OpenAI embeddings",
+        "version": APP_VERSION,
+        "release_note": RELEASE_NOTE,
         "database": database_url_safe_summary(settings.database_url),
         "database_is_sqlite": settings.is_sqlite,
         "database_is_postgres": settings.is_postgres,
