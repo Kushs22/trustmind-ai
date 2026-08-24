@@ -355,6 +355,36 @@ function payloadFromOpeningText(text: string): LastCheckInPayload | null {
   };
 }
 
+/**
+ * Chat follow-ups do not hit BM25. When the user asks to ground / reframe with
+ * trusted sources (or sends a long new check-in while in LLM+RAG), re-run analyse
+ * so Grounded sources refresh — otherwise they only get the light continuity chat.
+ */
+function shouldRerunAnalyseForFollowUp(
+  message: string,
+  mode: Exclude<PipelineMode, "auto">,
+): boolean {
+  if (mode !== "rag") return false;
+  const t = message.toLowerCase();
+  const cues = [
+    "trusted source",
+    "trusted sources",
+    "ground it",
+    "ground this",
+    "grounding",
+    "biological",
+    "psychosocial",
+    "spiritual dimension",
+    "peer-reviewed",
+    "research paper",
+    "cite",
+    "based on source",
+    "wellbeing guidance",
+  ];
+  if (cues.some((c) => t.includes(c))) return true;
+  return message.trim().split(/\s+/).filter(Boolean).length >= 35;
+}
+
 function payloadFromMessages(
   messages: ChatMessage[],
 ): LastCheckInPayload | null {
@@ -1137,7 +1167,31 @@ export function AnalyseForm() {
 
   async function handleChatSend() {
     const outgoing = chatDraft.trim();
-    if (!outgoing || chatSending) return;
+    if (!outgoing || chatSending || isProcessing) return;
+
+    // LLM+RAG + grounding-style follow-up → full analyse (BM25 + trust panel).
+    if (shouldRerunAnalyseForFollowUp(outgoing, pipelineMode)) {
+      setChatError(null);
+      setChatDraft("");
+      const priorPayload = lastCheckInRef.current;
+      const payload: LastCheckInPayload = {
+        typed_text: outgoing,
+        userOpening: outgoing,
+        image_context: priorPayload?.image_context ?? [],
+        pdf_context: priorPayload?.pdf_context ?? [],
+      };
+      // Fresh opening exchange so Grounded sources match this message
+      // (re-analyse-on-empty-thread path), not the previous check-in wording.
+      messagesRef.current = [];
+      setMessages([]);
+      await runAnalyse({
+        mode: pipelineMode,
+        payload,
+        clearComposer: false,
+      });
+      return;
+    }
+
     setChatSending(true);
     setChatError(null);
     setChatDraft("");
