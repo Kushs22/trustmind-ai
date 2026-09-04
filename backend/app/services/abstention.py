@@ -147,6 +147,7 @@ _EMOTION_CONTENT_HINTS = frozenset(
         "worried",
         "sad",
         "depressed",
+        "depression",
         "hopeless",
         "exhausted",
         "burnout",

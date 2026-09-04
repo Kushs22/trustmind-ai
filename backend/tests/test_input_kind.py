@@ -69,6 +69,12 @@ class InputKindTests(unittest.TestCase):
     def test_emotion_heuristic_heartbreak(self) -> None:
         self.assertEqual(emotion_theme_heuristic(COACH_WITH_FEELINGS), "depression")
 
+    def test_emotion_heuristic_depression_noun(self) -> None:
+        self.assertEqual(
+            emotion_theme_heuristic("I have severe depression"),
+            "depression",
+        )
+
     def test_coaching_invite_payload(self) -> None:
         raw = coaching_invite_result_fields()
         self.assertEqual(raw["prediction"], "offmychest")

@@ -601,6 +601,8 @@ class TrustExplainabilityTests(unittest.TestCase):
         self.assertTrue(is_low_signal_checkin("jdokewnf"))
         self.assertFalse(is_low_signal_checkin("stressed"))
         self.assertFalse(is_low_signal_checkin("I feel sad"))
+        self.assertFalse(is_low_signal_checkin("I have severe depression"))
+        self.assertFalse(is_low_signal_checkin("I'm suffering from depression. Helop"))
 
         fake = {
             "prediction": "Anxiety",  # spurious model label must be cleared
@@ -630,6 +632,37 @@ class TrustExplainabilityTests(unittest.TestCase):
         self.assertIn("how you feel", (result.explanation or "").lower())
         self.assertEqual(result.explanation, LOW_SIGNAL_INVITE_MESSAGE)
         self.assertEqual(result.reasoning, LOW_SIGNAL_INVITE_MESSAGE)
+
+    def test_severe_depression_is_not_low_signal_or_capped(self) -> None:
+        """Noun 'depression' is a real check-in — do not clear the label or cap at 30%."""
+        from app.config import settings
+        from app.schemas.analyse import AnalyseRequest
+        from app.services import pipeline_controller as pc
+
+        fake = {
+            "prediction": None,
+            "confidence": 0.2,
+            "reasoning": "",
+            "sources": [],
+            "retrieved_passages": [],
+            "pipeline_used": "LLM",
+            "latency_ms": 5.0,
+            "uncertainty": "High",
+        }
+        req = AnalyseRequest(
+            text="I have severe depression",
+            typed_text="I have severe depression",
+            pipeline_mode="llm",
+            analyse_privately=True,
+        )
+        with patch("app.services.llm_pipeline.run_llm_pipeline", return_value=fake), patch.object(
+            pc.settings, "openai_api_key", "sk-test"
+        ), patch.object(settings, "enable_abstention", True):
+            result = pc.run_configured_pipeline(req)
+
+        self.assertEqual(result.prediction, "depression")
+        self.assertGreaterEqual(result.confidence, 0.55)
+        self.assertNotIn("thanks for checking in", (result.explanation or "").lower())
 
     def test_abstain_still_returns_retrieved_evidence(self) -> None:
         """Crisis abstention must not hide RAG sources used for transparency."""

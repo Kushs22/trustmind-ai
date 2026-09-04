@@ -89,6 +89,67 @@ class Bm25FallbackRetrievalTests(unittest.TestCase):
         self.assertEqual(result.get("retrieval_mode"), "bm25_only")
         self.assertIn("RAG", (result.get("pipeline_used") or "").upper())
 
+    def test_enrich_depression_noun_adds_kb_terms(self) -> None:
+        from rag.query_enrichment import enrich_wellbeing_query
+
+        enriched = enrich_wellbeing_query("I have severe depression")
+        lower = enriched.lower()
+        self.assertIn("depression", lower)
+        self.assertIn("low mood", lower)
+        self.assertIn("student", lower)
+
+    def test_prefer_student_guidance_over_literature_pdf(self) -> None:
+        from rag.retriever import RetrievedPassage, prefer_student_guidance
+
+        lit = RetrievedPassage(
+            source="LIT_ALI_ANX_FINLAND_2025",
+            title="Psychiatria Fennica ALI",
+            organisation="Psychiatria Fennica",
+            similarity_score=0.9,
+            text="Finnish student welfare intervention study.",
+            chunk_id="lit-1",
+        )
+        nhs = RetrievedPassage(
+            source="NHS_DEP_001",
+            title="Depression in adults – Overview",
+            organisation="NHS",
+            similarity_score=0.4,
+            text="NHS overview of depression in adults.",
+            chunk_id="nhs-1",
+        )
+        ranked = prefer_student_guidance(
+            [lit, nhs],
+            "I have severe depression",
+            top_k=1,
+        )
+        self.assertEqual(ranked[0].source, "NHS_DEP_001")
+
+    def test_research_query_keeps_literature_first(self) -> None:
+        from rag.retriever import RetrievedPassage, prefer_student_guidance
+
+        lit = RetrievedPassage(
+            source="LIT_ALI_ANX_FINLAND_2025",
+            title="Psychiatria Fennica ALI",
+            organisation="Psychiatria Fennica",
+            similarity_score=0.9,
+            text="Finnish student welfare intervention study.",
+            chunk_id="lit-1",
+        )
+        nhs = RetrievedPassage(
+            source="NHS_DEP_001",
+            title="Depression in adults – Overview",
+            organisation="NHS",
+            similarity_score=0.4,
+            text="NHS overview of depression in adults.",
+            chunk_id="nhs-1",
+        )
+        ranked = prefer_student_guidance(
+            [lit, nhs],
+            "cite the peer-reviewed research paper",
+            top_k=1,
+        )
+        self.assertEqual(ranked[0].source, "LIT_ALI_ANX_FINLAND_2025")
+
 
 if __name__ == "__main__":
     unittest.main()
