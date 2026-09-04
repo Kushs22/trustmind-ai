@@ -227,6 +227,7 @@ def emotion_theme_heuristic(text: str | None) -> str | None:
         "cant move forward",
         "emotionally stuck",
         "depressed",
+        "depression",
         "worthless",
         "exhausted",
         "exhaustion",

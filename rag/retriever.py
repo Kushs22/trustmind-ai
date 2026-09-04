@@ -13,6 +13,39 @@ from rag.query_enrichment import enrich_wellbeing_query
 
 logger = logging.getLogger(__name__)
 
+# Short personal check-ins should surface NHS / charity pages, not literature PDFs.
+_RESEARCH_QUERY_CUES = (
+    "research paper",
+    "peer-reviewed",
+    "peer reviewed",
+    "literature",
+    "journal article",
+    "academic paper",
+    "cite sources",
+    "cite the paper",
+)
+_GUIDANCE_SOURCE_PREFIXES = (
+    "NHS_",
+    "MIND_",
+    "SM_",
+    "STUDENTMINDS",
+    "YM_",
+    "YOUNGMINDS",
+    "UWE_",
+    "SAM_",
+    "SAMARITANS",
+    "PAPYRUS",
+)
+_GUIDANCE_ORG_NEEDLES = (
+    "nhs",
+    "mind",
+    "student minds",
+    "youngminds",
+    "young minds",
+    "samaritans",
+    "uwe",
+)
+
 
 @dataclass
 class RetrievedPassage:
@@ -63,6 +96,51 @@ def reciprocal_rank_fusion(
                 continue
             scores[chunk_id] = scores.get(chunk_id, 0.0) + 1.0 / (rrf_k + rank)
     return sorted(scores.items(), key=lambda pair: pair[1], reverse=True)
+
+
+def query_asks_for_research(query: str) -> bool:
+    """True when the user is explicitly asking for papers / literature."""
+    lower = (query or "").lower()
+    return any(cue in lower for cue in _RESEARCH_QUERY_CUES)
+
+
+def is_literature_source(source_id: str) -> bool:
+    return (source_id or "").upper().startswith("LIT_")
+
+
+def is_guidance_source(source_id: str, organisation: str = "") -> bool:
+    """Student-facing official / charity guidance (NHS, Mind, Student Minds…)."""
+    sid = (source_id or "").upper()
+    if is_literature_source(sid):
+        return False
+    if any(sid.startswith(prefix) for prefix in _GUIDANCE_SOURCE_PREFIXES):
+        return True
+    org = (organisation or "").lower()
+    return any(needle in org for needle in _GUIDANCE_ORG_NEEDLES)
+
+
+def prefer_student_guidance(
+    passages: list[RetrievedPassage],
+    query: str,
+    top_k: int,
+) -> list[RetrievedPassage]:
+    """
+    Keep RRF order, but put NHS/charity pages before LIT_* PDFs on personal
+    check-ins. Research-seeking queries keep the raw ranking.
+    """
+    if query_asks_for_research(query) or not passages:
+        return passages[:top_k]
+    guidance: list[RetrievedPassage] = []
+    other: list[RetrievedPassage] = []
+    literature: list[RetrievedPassage] = []
+    for passage in passages:
+        if is_literature_source(passage.source):
+            literature.append(passage)
+        elif is_guidance_source(passage.source, passage.organisation):
+            guidance.append(passage)
+        else:
+            other.append(passage)
+    return (guidance + other + literature)[:top_k]
 
 
 class HybridRetriever:
@@ -165,6 +243,8 @@ class HybridRetriever:
 
         passages: list[RetrievedPassage] = []
         seen: set[str] = set()
+        # Scan past top_k so a later NHS hit can outrank an early LIT_* PDF.
+        scan_limit = max(k * 4, 16)
         for chunk_id, rrf_score in fused:
             if chunk_id in seen:
                 continue
@@ -186,20 +266,21 @@ class HybridRetriever:
                     faiss_score=faiss_scores.get(chunk_id, 0.0),
                 )
             )
-            if len(passages) >= k:
+            if len(passages) >= scan_limit:
                 break
 
+        ranked = prefer_student_guidance(passages, query, k)
         mode = "hybrid" if faiss_hits else "bm25_only"
         logger.info(
             "Hybrid retrieve: mode=%s bm25=%s faiss=%s fused_top=%s query_chars=%s%s",
             mode,
             len(bm25_hits),
             len(faiss_hits),
-            len(passages),
+            len(ranked),
             len(query),
             f" faiss_error={faiss_error}" if faiss_error else "",
         )
-        return passages
+        return ranked
 
 
 def retrieve_bm25_only(

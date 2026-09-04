@@ -30,8 +30,16 @@ _ENRICHMENT_RULES: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
         ("stress", "anxiety", "student"),
     ),
     (
-        ("low mood", "depressed", "hopeless", "empty", "numb", "sad"),
-        ("low mood", "depression", "student"),
+        (
+            "low mood",
+            "depressed",
+            "depression",
+            "hopeless",
+            "empty",
+            "numb",
+            "sad",
+        ),
+        ("low mood", "depression", "student", "adults"),
     ),
     (
         ("anxious", "anxiety", "worry", "worried", "panic", "chest feels tight"),

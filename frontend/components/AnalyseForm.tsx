@@ -355,34 +355,81 @@ function payloadFromOpeningText(text: string): LastCheckInPayload | null {
   };
 }
 
+/** Feeling / condition language that should start a new analyse, not light chat. */
+const WELLBEING_CHECKIN_CUES = [
+  "depression",
+  "depressed",
+  "anxiety",
+  "anxious",
+  "stressed",
+  "stress",
+  "sad",
+  "hopeless",
+  "panic",
+  "worried",
+  "worry",
+  "lonely",
+  "overwhelmed",
+  "suicidal",
+  "suicide",
+  "self-harm",
+  "self harm",
+  "selfharm",
+  "low mood",
+  "i feel",
+  "i'm feeling",
+  "im feeling",
+  "i am feeling",
+  "i've been",
+  "ive been",
+  "suffering from",
+];
+
+const RAG_GROUNDING_CUES = [
+  "trusted source",
+  "trusted sources",
+  "ground it",
+  "ground this",
+  "grounding",
+  "biological",
+  "psychosocial",
+  "spiritual dimension",
+  "peer-reviewed",
+  "research paper",
+  "cite",
+  "based on source",
+  "wellbeing guidance",
+];
+
+function looksLikeWellbeingCheckIn(message: string): boolean {
+  const t = message.toLowerCase();
+  return WELLBEING_CHECKIN_CUES.some((cue) => t.includes(cue));
+}
+
 /**
- * Chat follow-ups do not hit BM25. When the user asks to ground / reframe with
- * trusted sources (or sends a long new check-in while in LLM+RAG), re-run analyse
- * so Grounded sources refresh — otherwise they only get the light continuity chat.
+ * Light chat skips BM25 and the trust panel. Re-run full analyse when the
+ * follow-up is a new wellbeing check-in (either pipeline), asks to ground
+ * sources (LLM+RAG), or is a long new narrative in LLM+RAG.
  */
 function shouldRerunAnalyseForFollowUp(
   message: string,
   mode: Exclude<PipelineMode, "auto">,
 ): boolean {
+  if (looksLikeWellbeingCheckIn(message)) return true;
   if (mode !== "rag") return false;
   const t = message.toLowerCase();
-  const cues = [
-    "trusted source",
-    "trusted sources",
-    "ground it",
-    "ground this",
-    "grounding",
-    "biological",
-    "psychosocial",
-    "spiritual dimension",
-    "peer-reviewed",
-    "research paper",
-    "cite",
-    "based on source",
-    "wellbeing guidance",
-  ];
-  if (cues.some((c) => t.includes(c))) return true;
+  if (RAG_GROUNDING_CUES.some((c) => t.includes(c))) return true;
   return message.trim().split(/\s+/).filter(Boolean).length >= 35;
+}
+
+function latestWellbeingUserText(messages: ChatMessage[]): string | null {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const item = messages[i];
+    if (item.role !== "user") continue;
+    const text = (item.transcript || item.content || "").trim();
+    if (text && looksLikeWellbeingCheckIn(text)) return text;
+  }
+  return null;
 }
 
 function payloadFromMessages(
@@ -589,6 +636,17 @@ export function AnalyseForm() {
   }
 
   function resolveReanalysePayload(): LastCheckInPayload | null {
+    const latestWellbeing = latestWellbeingUserText(messagesRef.current);
+    const prior = lastCheckInRef.current;
+    const priorText = (prior?.typed_text || prior?.userOpening || "").trim();
+    if (latestWellbeing && latestWellbeing !== priorText) {
+      return {
+        typed_text: latestWellbeing,
+        userOpening: latestWellbeing,
+        image_context: prior?.image_context ?? [],
+        pdf_context: prior?.pdf_context ?? [],
+      };
+    }
     if (lastCheckInRef.current?.typed_text?.trim()) {
       return lastCheckInRef.current;
     }
@@ -1169,7 +1227,7 @@ export function AnalyseForm() {
     const outgoing = chatDraft.trim();
     if (!outgoing || chatSending || isProcessing) return;
 
-    // LLM+RAG + grounding-style follow-up → full analyse (BM25 + trust panel).
+    // New wellbeing check-in or RAG grounding follow-up → full analyse.
     if (shouldRerunAnalyseForFollowUp(outgoing, pipelineMode)) {
       setChatError(null);
       setChatDraft("");

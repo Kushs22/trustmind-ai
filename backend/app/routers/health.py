@@ -8,7 +8,7 @@ from app.config import database_url_safe_summary, settings
 router = APIRouter(tags=["health"])
 
 # Bump when production KB / RAG behaviour must be verifiable after deploy.
-APP_VERSION = "1.2.3"
+APP_VERSION = "1.2.4"
 RELEASE_NOTE = (
     "Literature PDF sources in BM25 KB (LIT_*) + health KB fingerprint for deploy checks"
 )
