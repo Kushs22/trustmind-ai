@@ -11,6 +11,7 @@ BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
 sys.path.insert(0, str(ROOT))
 
+from app.services.abstention import is_positive_low_distress_checkin  # noqa: E402
 from app.services.support_urgency import compute_support_urgency  # noqa: E402
 
 
@@ -58,6 +59,19 @@ class SupportUrgencyTests(unittest.TestCase):
         self.assertEqual(u.band, "elevated")
         self.assertFalse(u.uncertain)
 
+    def test_support_links_alone_do_not_make_happy_checkin_urgent(self) -> None:
+        u = compute_support_urgency(
+            safety_triggered=False,
+            concern_level="Low",
+            confidence=0.85,
+            status="accepted",
+            prediction="offmychest",
+            early_signs=["offmychest"],
+            support_resources_present=True,
+        )
+        self.assertLessEqual(u.score, 34)
+        self.assertEqual(u.band, "low")
+
     def test_low_concern_stays_low(self) -> None:
         u = compute_support_urgency(
             safety_triggered=False,
@@ -69,6 +83,11 @@ class SupportUrgencyTests(unittest.TestCase):
         )
         self.assertLessEqual(u.score, 34)
         self.assertEqual(u.band, "low")
+
+    def test_happy_is_positive_not_crisis(self) -> None:
+        self.assertTrue(is_positive_low_distress_checkin("I'm happy"))
+        self.assertTrue(is_positive_low_distress_checkin("I feel happy"))
+        self.assertFalse(is_positive_low_distress_checkin("I'm happy but I want to die"))
 
     def test_deterministic(self) -> None:
         kwargs = dict(

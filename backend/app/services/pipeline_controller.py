@@ -17,6 +17,7 @@ from app.services.abstention import (
     LIMITED_CONFIDENCE_DISCLAIMER,
     apply_abstention,
     is_low_signal_checkin,
+    is_positive_low_distress_checkin,
     is_underspecified_input,
     low_signal_invite_message,
     short_checkin_reflection,
@@ -38,7 +39,6 @@ from app.services.llm_provider import keyword_fallback_grounding_status
 from app.services.support_resources import (
     get_support_resources,
     is_high_risk_prediction,
-    sources_indicate_crisis,
     user_text_indicates_crisis,
 )
 from app.services.support_urgency import compute_support_urgency
@@ -154,7 +154,7 @@ def _map_concern(prediction: str | None, abstained: bool) -> str:
     key = prediction.lower()
     if key == "suicidewatch":
         return "High"
-    if key in {"depression", "anxiety", "bipolar"}:
+    if key in {"depression", "anxiety"}:
         return "Moderate"
     return "Low"
 
@@ -283,7 +283,7 @@ def run_configured_pipeline(
     passages = list(raw.get("retrieved_passages") or [])
     # Mode B must still surface KB passages when generation fell to keyword
     # fallback after a quota failure (common on free Groq/Gemini tiers).
-    if use_rag and not passages:
+    if use_rag and not passages and not is_positive_low_distress_checkin(text):
         try:
             from rag.config import get_rag_config
             from rag.retriever import retrieve_bm25_only
@@ -428,10 +428,11 @@ def run_configured_pipeline(
 
     # Safety (crisis) independent of confidence / RAG; support links for
     # Moderate+ concern, depression/anxiety predictions, and serious user language.
+    # Crisis = user language or SuicideWatch label only.
+    # Retrieved Samaritans/NHS pages must not mark a happy check-in as urgent.
     high_risk = bool(
         is_high_risk_prediction(prediction)
         or user_text_indicates_crisis(text)
-        or sources_indicate_crisis(sources, reasoning)
     )
     support = get_support_resources(
         prediction=prediction,
@@ -497,7 +498,7 @@ def run_configured_pipeline(
         # when we abstain from a labelled category (ethics / trustworthiness).
         shown_evidence = evidence_dicts if settings.enable_source_display else []
 
-    pred_display = prediction_display_name(final_prediction)
+    pred_display = prediction_display_name(final_prediction, user_text=text)
 
     if abstained:
         abstention_status = "Abstention triggered — no clinical prediction"

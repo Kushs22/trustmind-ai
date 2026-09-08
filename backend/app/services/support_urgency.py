@@ -85,9 +85,10 @@ def compute_support_urgency(
     conf = _confidence_0_1(confidence)
     concern = (concern_level or "Low").strip().title()
     abstained = (status or "").lower() == "abstained"
+    # Showing NHS/Samaritans cards is ethics, not a crisis signal.
+    # Never treat support_resources_present as "user is in urgent need".
     crisis = (
         bool(safety_triggered)
-        or support_resources_present
         or _is_high_risk_prediction(prediction)
         or _has_crisis_theme(early_signs)
     )
@@ -97,7 +98,7 @@ def compute_support_urgency(
         score = 88
         if _is_high_risk_prediction(prediction) or _has_crisis_theme(early_signs):
             score = 94
-        if safety_triggered or support_resources_present:
+        if safety_triggered:
             score = max(score, 90)
         score = _clamp(score)
         return SupportUrgency(

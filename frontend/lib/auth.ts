@@ -1,7 +1,7 @@
 const TOKEN_KEY = "trustmind_access_token";
 const ANON_KEY = "trustmind_is_anonymous";
 /** Cleared analyse UI must not resume after logout / account switch. */
-export const ANALYSE_SESSIONS_KEY = "trustmind_analyse_sessions_v1";
+export const ANALYSE_SESSIONS_KEY = "trustmind_analyse_sessions_v2";
 export const ANALYSE_FORCE_FRESH_KEY = "trustmind_force_fresh_analyse";
 export const AUTH_EPOCH_KEY = "trustmind_auth_epoch";
 
@@ -27,6 +27,7 @@ export function clearAnalyseWorkspaceStorage(): void {
   if (typeof window === "undefined") return;
   try {
     sessionStorage.removeItem(ANALYSE_SESSIONS_KEY);
+    sessionStorage.removeItem("trustmind_analyse_sessions_v1");
     sessionStorage.setItem(ANALYSE_FORCE_FRESH_KEY, "1");
   } catch {
     // ignore

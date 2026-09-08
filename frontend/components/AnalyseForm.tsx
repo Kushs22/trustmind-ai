@@ -34,6 +34,7 @@ import {
   isRegisteredUser,
 } from "@/lib/auth";
 import {
+  isPositiveLowDistressCheckin,
   predictionDisplayName,
   sanitizeAnalyseForUserText,
 } from "@/lib/displayLabels";
@@ -386,6 +387,12 @@ const WELLBEING_CHECKIN_CUES = [
   "i've been",
   "ive been",
   "suffering from",
+  "happy",
+  "happier",
+  "glad",
+  "grateful",
+  "feeling good",
+  "feel good",
 ];
 
 const RAG_GROUNDING_CUES = [
@@ -620,20 +627,19 @@ export function AnalyseForm() {
     setChatMode(session.chatMode);
     messagesRef.current = session.messages;
     setMessages(session.messages);
-    setResult(
-      session.result
-        ? sanitizeAnalyseForUserText(
-            session.result,
-            restoredPayload?.typed_text || restoredPayload?.userOpening || "",
-          )
-        : session.result,
-    );
+    const restoredText =
+      restoredPayload?.typed_text || restoredPayload?.userOpening || "";
+    const safeResult = session.result
+      ? sanitizeAnalyseForUserText(session.result, restoredText)
+      : session.result;
+    setResult(safeResult);
     setLastCheckIn(restoredPayload);
     setPipelineMode(session.pipelineMode);
-    const resources =
-      session.chatSupportResources?.length
+    const resources = isPositiveLowDistressCheckin(restoredText)
+      ? []
+      : session.chatSupportResources?.length
         ? session.chatSupportResources
-        : session.result?.support_resources || [];
+        : safeResult?.support_resources || [];
     setChatSupportResources(resources);
     setToneDisclaimer(session.toneDisclaimer);
     setChatDraft(session.chatDraft);
@@ -1282,7 +1288,14 @@ export function AnalyseForm() {
       if (response.persisted && response.check_in_id) {
         setActiveCheckInId(response.check_in_id);
       }
-      if (response.support_resources?.length) {
+      if (
+        response.support_resources?.length &&
+        !isPositiveLowDistressCheckin(
+          lastCheckInRef.current?.typed_text ||
+            lastCheckInRef.current?.userOpening ||
+            outgoing,
+        )
+      ) {
         setChatSupportResources(response.support_resources);
       }
     } catch (err) {
@@ -1323,7 +1336,13 @@ export function AnalyseForm() {
       if (response.persisted && response.check_in_id) {
         setActiveCheckInId(response.check_in_id);
       }
-      if (response.support_resources?.length) {
+      if (
+        response.support_resources?.length &&
+        !isPositiveLowDistressCheckin(
+          lastCheckInRef.current?.typed_text ||
+            lastCheckInRef.current?.userOpening,
+        )
+      ) {
         setChatSupportResources(response.support_resources);
       }
       if (response.tone_disclaimer) {
@@ -1359,17 +1378,29 @@ export function AnalyseForm() {
       ? "Check-in will be saved to your history"
       : "Analysis processed securely · Not saved to history";
 
-  const evidenceAll = result ? evidenceFromResult(result) : [];
+  const checkInTextForDisplay = (
+    lastCheckIn?.typed_text ||
+    lastCheckIn?.userOpening ||
+    latestWellbeingUserText(messages) ||
+    messages.find((m) => m.role === "user")?.content ||
+    text
+  ).trim();
+  const panelResult = result
+    ? sanitizeAnalyseForUserText(result, checkInTextForDisplay)
+    : null;
+  const positiveCheckIn = isPositiveLowDistressCheckin(checkInTextForDisplay);
+
+  const evidenceAll = panelResult ? evidenceFromResult(panelResult) : [];
   const evidenceVisible = showMoreEvidence
     ? evidenceAll
     : evidenceAll.slice(0, 3);
-  const resultIsStandaloneLlm = result
-    ? isStandaloneLlmPipeline(result)
+  const resultIsStandaloneLlm = panelResult
+    ? isStandaloneLlmPipeline(panelResult)
     : pipelineMode === "llm";
   const ranAsRagIntent =
     pipelineMode === "rag" ||
-    (result?.pipeline_used || "").toUpperCase().includes("RAG");
-  const isQuotaFallback = (result?.pipeline_used || "")
+    (panelResult?.pipeline_used || "").toUpperCase().includes("RAG");
+  const isQuotaFallback = (panelResult?.pipeline_used || "")
     .toLowerCase()
     .includes("keyword");
   const canReanalyse =
@@ -1394,12 +1425,15 @@ export function AnalyseForm() {
     Boolean(activeCheckInId);
 
   const displaySupportResources: SupportResource[] = (() => {
+    if (positiveCheckIn) return [];
     if (chatSupportResources.length > 0) return chatSupportResources;
-    if (result?.support_resources?.length) return result.support_resources;
-    const band = result?.support_urgency_band;
-    const concern = (result?.concern_level || "").toLowerCase();
+    if (panelResult?.support_resources?.length) {
+      return panelResult.support_resources;
+    }
+    const band = panelResult?.support_urgency_band;
+    const concern = (panelResult?.concern_level || "").toLowerCase();
     const serious =
-      Boolean(result?.safety_triggered) ||
+      Boolean(panelResult?.safety_triggered) ||
       band === "urgent" ||
       band === "elevated" ||
       concern === "high" ||
@@ -1454,14 +1488,14 @@ export function AnalyseForm() {
 
   // Strip provider suffix e.g. "LLM+RAG (groq)" → "LLM+RAG"
   const pipelineLabel = (
-    result?.pipeline_used ||
+    panelResult?.pipeline_used ||
     (resultIsStandaloneLlm ? "LLM" : "LLM+RAG")
   )
     .replace(/\s*\([^)]*\)\s*$/g, "")
     .replace(/^keyword_fallback$/i, "Basic check-in (AI busy)")
     .trim();
 
-  const trustDetailsCard = result ? (
+  const trustDetailsCard = panelResult ? (
     <div className="rounded-xl border border-slate-200/80 bg-white/90 px-4 py-4 dark:border-slate-700/80 dark:bg-slate-900/90">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
@@ -1488,9 +1522,12 @@ export function AnalyseForm() {
             What it sounds like
           </dt>
           <dd className="mt-0.5 font-medium text-slate-800 dark:text-slate-100">
-            {result.prediction_display ||
-              predictionDisplayName(result.prediction) ||
-              result.concern_level ||
+            {panelResult.prediction_display ||
+              predictionDisplayName(
+                panelResult.prediction,
+                checkInTextForDisplay,
+              ) ||
+              panelResult.concern_level ||
               "—"}
           </dd>
         </div>
@@ -1499,29 +1536,29 @@ export function AnalyseForm() {
             How sure we are
           </dt>
           <dd className="mt-0.5 font-medium tabular-nums text-slate-800 dark:text-slate-100">
-            {result.ai_confidence ||
-              (typeof result.confidence === "number"
-                ? `${Math.round(result.confidence * 100)}%`
+            {panelResult.ai_confidence ||
+              (typeof panelResult.confidence === "number"
+                ? `${Math.round(panelResult.confidence * 100)}%`
                 : "—")}
           </dd>
         </div>
         <div>
           <dt className="text-slate-500 dark:text-slate-400">Uncertainty</dt>
           <dd className="mt-0.5 font-medium text-slate-800 dark:text-slate-100">
-            {result.uncertainty_level || result.uncertainty || "—"}
+            {panelResult.uncertainty_level || panelResult.uncertainty || "—"}
           </dd>
         </div>
         <div>
           <dt className="text-slate-500 dark:text-slate-400">Concern</dt>
           <dd className="mt-0.5 font-medium text-slate-800 dark:text-slate-100">
-            {result.concern_level || "—"}
+            {panelResult.concern_level || "—"}
           </dd>
         </div>
         <div>
           <dt className="text-slate-500 dark:text-slate-400">Abstention</dt>
           <dd className="mt-0.5 font-medium text-slate-800 dark:text-slate-100">
-            {result.abstention_status ||
-              (result.status === "abstained"
+            {panelResult.abstention_status ||
+              (panelResult.status === "abstained"
                 ? "Paused / abstained"
                 : "Prediction accepted")}
           </dd>
@@ -1537,11 +1574,11 @@ export function AnalyseForm() {
                 ? "Basic check-in (AI providers busy)"
                 : resultIsStandaloneLlm && !ranAsRagIntent
                   ? "Not used in LLM-only mode"
-                  : result.grounding_status &&
+                  : panelResult.grounding_status &&
                       !/keyword|llm_only|formula|provider_/i.test(
-                        result.grounding_status,
+                        panelResult.grounding_status,
                       )
-                    ? result.grounding_status
+                    ? panelResult.grounding_status
                     : "No matching sources this time"}
           </dd>
         </div>
@@ -1553,14 +1590,14 @@ export function AnalyseForm() {
         </div>
       </dl>
 
-      {(result.potential_indicators?.length
-        ? result.potential_indicators
-        : result.early_signs || []
+      {(panelResult.potential_indicators?.length
+        ? panelResult.potential_indicators
+        : panelResult.early_signs || []
       ).length > 0 ? (
         <div className="mt-3 flex flex-wrap gap-1.5">
-          {(result.potential_indicators?.length
-            ? result.potential_indicators
-            : result.early_signs || []
+          {(panelResult.potential_indicators?.length
+            ? panelResult.potential_indicators
+            : panelResult.early_signs || []
           ).map((theme) => (
             <span
               key={theme}
@@ -1572,14 +1609,14 @@ export function AnalyseForm() {
         </div>
       ) : null}
 
-      {typeof result.support_urgency === "number" &&
-      result.support_urgency_band ? (
+      {typeof panelResult.support_urgency === "number" &&
+      panelResult.support_urgency_band ? (
         <div className="mt-4">
           <SupportUrgencyMeter
-            score={result.support_urgency}
-            band={result.support_urgency_band}
-            rationale={result.support_urgency_rationale}
-            uncertain={Boolean(result.support_urgency_uncertain)}
+            score={panelResult.support_urgency}
+            band={panelResult.support_urgency_band}
+            rationale={panelResult.support_urgency_rationale}
+            uncertain={Boolean(panelResult.support_urgency_uncertain)}
           />
         </div>
       ) : null}

@@ -91,7 +91,48 @@ SHORT_WELLBEING_LABELS: dict[str, str] = {
     "ok": "offmychest",
     "fine": "offmychest",
     "meh": "offmychest",
+    "happy": "offmychest",
+    "glad": "offmychest",
+    "grateful": "offmychest",
 }
+
+_POSITIVE_PHRASES = (
+    "happy",
+    "happier",
+    "glad",
+    "grateful",
+    "thankful",
+    "relieved",
+    "hopeful",
+    "excited",
+    "proud",
+    "content",
+    "enjoying",
+    "feeling good",
+    "feel good",
+    "feeling great",
+    "doing well",
+    "good mood",
+    "in a good place",
+)
+
+
+def is_positive_low_distress_checkin(text: str | None) -> bool:
+    """True for short upbeat check-ins with no crisis or distress language."""
+    raw = (text or "").strip()
+    if not raw:
+        return False
+    from app.services.support_resources import (
+        user_text_indicates_crisis,
+        user_text_indicates_serious,
+    )
+
+    if user_text_indicates_crisis(raw) or user_text_indicates_serious(raw):
+        return False
+    if len(raw.split()) > 60:
+        return False
+    lower = raw.lower()
+    return any(phrase in lower for phrase in _POSITIVE_PHRASES)
 
 # Soft reply when the check-in has no usable emotional content (gibberish / noise).
 # Never use a dead "Assessment completed." bubble for these.
@@ -331,13 +372,6 @@ def short_checkin_reflection(label: str | None, *, user_text: str | None = None)
             "out matters. Please use the urgent support options below — Samaritans "
             "(116 123) are there to listen any time, and if you're in immediate danger "
             "call 999 or go to A&E."
-        )
-    if key == "bipolar":
-        return (
-            "It sounds like your mood or energy has felt up-and-down lately, which can "
-            "be unsettling. You're taking a helpful step by checking in. If it helps, "
-            "note what's changed recently and talk with someone you trust. This is a "
-            "gentle reflection, not a diagnosis."
         )
     return (
         "Thank you for sharing how you're feeling — even a short check-in matters. "

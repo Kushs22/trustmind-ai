@@ -147,7 +147,16 @@ PREDICTION_DISPLAY: dict[str, str] = {
 }
 
 
-def prediction_display_name(prediction: str | None) -> str | None:
+def prediction_display_name(
+    prediction: str | None,
+    *,
+    user_text: str | None = None,
+) -> str | None:
+    if user_text:
+        from app.services.abstention import is_positive_low_distress_checkin
+
+        if is_positive_low_distress_checkin(user_text):
+            return "It sounds like you're feeling in a good place right now"
     if not prediction:
         return None
     key = prediction.strip().lower().replace(" ", "").replace("self.", "")

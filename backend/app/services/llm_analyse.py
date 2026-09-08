@@ -4,7 +4,7 @@ Open-ended early-sign wellbeing assessment via LLM for TrustMind AI.
 Detects a broad range of *possible early wellbeing signs* from any free-form
 user message. This is NOT diagnosis or clinical labelling.
 
-Dissertation SWMH 5-class classification remains a separate research notebook.
+Dissertation SWMH 4-class classification remains a separate research notebook.
 """
 
 from __future__ import annotations
@@ -120,6 +120,10 @@ User message:
 def _retrieve_context(text: str) -> tuple[str, list[str]]:
     """Optional hybrid retrieval for Mode B (USE_RAG=true)."""
     if not settings.use_rag:
+        return "", []
+    from app.services.abstention import is_positive_low_distress_checkin
+
+    if is_positive_low_distress_checkin(text):
         return "", []
     try:
         from pathlib import Path

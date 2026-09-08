@@ -14,7 +14,11 @@ function normaliseKey(label: string): string {
   return label.trim().toLowerCase().replace(/\s+/g, "").replace(/^self\./, "");
 }
 
-export function predictionDisplayName(prediction: string | null | undefined): string {
+export function predictionDisplayName(
+  prediction: string | null | undefined,
+  userText?: string | null,
+): string {
+  if (isPositiveLowDistressCheckin(userText)) return POSITIVE_DISPLAY;
   if (!prediction) return "A gentle read of what you shared";
   const key = normaliseKey(prediction);
   return PREDICTION_DISPLAY[key] ?? prediction;
@@ -63,7 +67,7 @@ export function isPositiveLowDistressCheckin(
   text: string | null | undefined,
 ): boolean {
   const raw = (text || "").trim();
-  if (!raw || raw.split(/\s+/).length > 30) return false;
+  if (!raw || raw.split(/\s+/).length > 60) return false;
   const lower = raw.toLowerCase();
   if (DISTRESS_PHRASES.some((p) => lower.includes(p))) return false;
   return POSITIVE_PHRASES.some((p) => lower.includes(p));
@@ -94,5 +98,7 @@ export function sanitizeAnalyseForUserText(
     evidence_used: [],
     sources_detail: [],
     sources: [],
+    early_signs: [],
+    potential_indicators: [],
   };
 }

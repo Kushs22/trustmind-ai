@@ -72,11 +72,19 @@ def run_rag_pipeline(text: str, continuity_context: str = "") -> dict[str, Any]:
     retrieval_mode = "none"
     started = time.perf_counter()
 
+    from app.services.abstention import is_positive_low_distress_checkin
+
+    skip_retrieval = is_positive_low_distress_checkin(text)
+
     # Prefer BM25 first so Groq/Gemini Mode B still gets KB passages without
     # OpenAI embeddings. Optionally enrich with FAISS when embeddings work.
     try:
-        passages = retrieve_bm25_only(
-            text, top_k=settings.rag_top_k, config=rag_cfg
+        passages = (
+            []
+            if skip_retrieval
+            else retrieve_bm25_only(
+                text, top_k=settings.rag_top_k, config=rag_cfg
+            )
         )
         if passages:
             retrieval_mode = "bm25_only"
@@ -101,7 +109,7 @@ def run_rag_pipeline(text: str, continuity_context: str = "") -> dict[str, Any]:
 
     # Optional FAISS only when BM25 found nothing — never block Groq Mode B on
     # OpenAI embedding quota. Prefer BM25 hits over empty hybrid failures.
-    if not passages and client is not None:
+    if not skip_retrieval and not passages and client is not None:
         try:
             retriever = HybridRetriever(rag_cfg, client=client)
             hybrid = retriever.retrieve(text, top_k=settings.rag_top_k)

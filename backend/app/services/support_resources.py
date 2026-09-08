@@ -111,10 +111,8 @@ SERIOUS_USER_HINTS = (
 SERIOUS_PREDICTIONS = {
     "depression",
     "anxiety",
-    "bipolar",
     "suicidewatch",
     "self.suicidewatch",
-    "offmychest",
 }
 
 
