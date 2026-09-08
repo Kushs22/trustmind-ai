@@ -33,7 +33,10 @@ import {
   isAuthenticated,
   isRegisteredUser,
 } from "@/lib/auth";
-import { predictionDisplayName } from "@/lib/displayLabels";
+import {
+  predictionDisplayName,
+  sanitizeAnalyseForUserText,
+} from "@/lib/displayLabels";
 import { useFileUpload } from "@/hooks/useFileUpload";
 
 const PROCESSING_DURATION_MS = 350;
@@ -617,7 +620,14 @@ export function AnalyseForm() {
     setChatMode(session.chatMode);
     messagesRef.current = session.messages;
     setMessages(session.messages);
-    setResult(session.result);
+    setResult(
+      session.result
+        ? sanitizeAnalyseForUserText(
+            session.result,
+            restoredPayload?.typed_text || restoredPayload?.userOpening || "",
+          )
+        : session.result,
+    );
     setLastCheckIn(restoredPayload);
     setPipelineMode(session.pipelineMode);
     const resources =
@@ -1048,7 +1058,11 @@ export function AnalyseForm() {
 
       lastCheckInRef.current = options.payload;
       setLastCheckIn(options.payload);
-      setResult(analysis);
+      const visible = sanitizeAnalyseForUserText(
+        analysis,
+        options.payload.typed_text || options.payload.userOpening,
+      );
+      setResult(visible);
 
       const assistantOpening = buildAssistantOpening(analysis);
       // Re-analyse / mode toggle: refresh opening exchange only; keep follow-ups.
@@ -1079,7 +1093,7 @@ export function AnalyseForm() {
           ? analysis.id!
           : null;
       setActiveCheckInId(nextCheckInId);
-      setChatSupportResources(analysis.support_resources || []);
+      setChatSupportResources(visible.support_resources || []);
       setChatError(null);
       setChatDraft("");
       setToneDisclaimer(null);
@@ -1103,10 +1117,10 @@ export function AnalyseForm() {
         ),
         chatMode: true,
         messages: nextMessages,
-        result: analysis,
+        result: visible,
         lastCheckIn: options.payload,
         pipelineMode: options.mode,
-        chatSupportResources: analysis.support_resources || [],
+        chatSupportResources: visible.support_resources || [],
         toneDisclaimer: null,
         chatDraft: "",
       };
