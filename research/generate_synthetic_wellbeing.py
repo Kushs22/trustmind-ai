@@ -2,17 +2,18 @@
 """
 Generate a fully synthetic wellbeing classification dataset (SWMH-compatible schema).
 
-Version 3 — real-world length + emotional breadth:
+Version 3.1 — four theme classes (bipolar folded into depression / Anxiety):
   - overlapping symptom language across classes
   - short / messy / medium / long / very_long first-person posts
   - loneliness, heartbreak, stress, mixed feelings, relief/hope, anger,
-    guilt/shame, numbness, energy swings (non-diagnostic), stuckness,
+    guilt/shame, numbness, energy-down and racing/restlessness language
+    (non-diagnostic; no standalone bipolar class), stuckness,
     rejection/abandonment themes
   - ambiguous / borderline posts
   - fewer template “giveaway” phrases
 
 No scraped Reddit or social-media posts. Seed-reproducible.
-Default size: train=1600, val=400, test=500 → total 2500 (balanced).
+Default size: train=1600, val=400, test=500 → total 2500 (4-class balanced).
 """
 
 from __future__ import annotations
@@ -28,7 +29,6 @@ LABELS = (
     "self.depression",
     "self.SuicideWatch",
     "self.Anxiety",
-    "self.bipolar",
     "self.offmychest",
 )
 
@@ -191,24 +191,36 @@ def _gen_depression(rng: random.Random, style: str) -> str:
             f"cant get myself to care about {h} today. just blank.",
             f"everything with {h} feels muted. not sad exactly just empty.",
             f"woke up already tired of {h}. scrolling then nothing.",
+            f"cant get moving after a crash around {h}. energy gone. just heavy.",
+            f"ideas for {h} came then i cant move. wiped out all week.",
         ],
         "messy": [
             f"{f} {h} is fine on paper but i cancel everything and sit there. "
             f"food is meh friends feel far. not dramatic just flat for days",
             f"people ask about {h} and i say im ok then do nothing all evening. "
             f"like moving through glue. small stuff takes forever",
+            f"{f} started {h} projects then i cant answer a text. "
+            f"friends notice im down and slow",
+            f"then nothing after {h}. sleep appetite focus all crashed. "
+            f"sitting there empty",
         ],
         "medium": [
             f"Around {h} I have been low for a while. I still show up but interest is gone "
             f"and I replay mistakes until I shut down. Not looking for a label, just stuck.",
             f"Motivation for {h} disappeared. I sleep odd hours, leave messages unread, "
             f"and feel heavy without a clear reason.",
+            f"Energy around {h} dropped hard. The crash wipes out what I started. "
+            f"I feel heavy and shut down, not looking for a label.",
+            f"I talked about {h} then shut down the next stretch. Planning and spending "
+            f"feel pointless now. Trying to track the low.",
         ],
         "ambiguous": [
             f"stressed about {h} but also just... numb? worry comes then fades into nothing. "
             f"hard to tell if im overthinking or just done",
             f"{h} has me drained. chest feels tight some nights then i feel nothing next morning. "
             f"{f}",
+            f"some days {h} im useless and flat. could be stress could be more. idk",
+            f"sleep returned with a crash while dealing with {h}. mood followed it down. {f}",
         ],
         "long": [
             f"For the last few weeks around {h} I have felt hollow more than tearful. "
@@ -218,6 +230,11 @@ def _gen_depression(rng: random.Random, style: str) -> str:
             f"myself — I just want language for this flatness and the way interest keeps "
             f"slipping away. Sleep is weird: either too much or broken. I keep hoping tomorrow "
             f"will feel different and it mostly does not.",
+            f"My energy around {h} dropped after a stretch of doing too much. Now the crash "
+            f"is here and I can barely reply to a message. Heavy limbs, flat mood, cancelled "
+            f"plans, and shame about what I started. I am not asking an app to diagnose "
+            f"anything medical — I want a careful theme read about low mood and energy-down "
+            f"days affecting daily life, sleep, and follow-through.",
         ],
         "very_long": [
             f"I keep writing and deleting this because talking about low mood around {h} "
@@ -231,6 +248,13 @@ def _gen_depression(rng: random.Random, style: str) -> str:
             f"other evenings I feel nothing and that scares me more. I am not looking for a "
             f"clinical label from an app — I want a careful read of how heavy this has been "
             f"and whether support options might help while I try to rebuild a bit of routine.",
+            f"I am trying to describe the crash without claiming a clinical label. Around {h}, "
+            f"a drop hits: heavy limbs, flat mood, cancelled plans, and shame about what I "
+            f"started when I had more energy. Tracking sleep and appetite helps a bit. "
+            f"Stress can deepen the low. Mixed days confuse me — restless and empty at once, "
+            f"but the empty part is what I cannot shake. Please reflect the low-mood and "
+            f"energy-down pattern supportively and keep language non-diagnostic; I already "
+            f"know software cannot replace a clinician.",
         ],
     }
     text = rng.choice(bank[style])
@@ -297,21 +321,33 @@ def _gen_anxiety(rng: random.Random, style: str) -> str:
         "short": [
             f"heart racing before {h} again. worst case playlist on loop.",
             f"cant stop checking {h}. then checking again.",
+            f"two days buzzing about {h} barely sleeping. brain wont sit still.",
+            f"ideas for {h} come too fast. racing and restless all week.",
         ],
         "messy": [
             f"{f} {h} makes my stomach drop. i rehearse conversations then avoid them. "
             f"sleep is broken cos my brain wont shut up",
             f"on edge all day about {h}. sweaty hands shallow breath then i feel silly after",
+            f"{f} started {h} projects at 2am felt unstoppable wired. "
+            f"friends say i flip too quick",
+            f"irritable then suddenly on a high about {h}. sleep appetite focus "
+            f"all over the place",
         ],
         "medium": [
             f"Uncertainty around {h} keeps me scanning for danger. I seek reassurance then doubt it "
             f"five minutes later. Physical tension will not switch off.",
             f"Before {h} I spiral into what-ifs. I leave early even when people are kind.",
+            f"Energy around {h} will not sit still. Elevated spells feel risky; I talk too fast "
+            f"and try to track the restlessness.",
+            f"Talking too fast about {h} one week. Mood changes how I plan and spend. "
+            f"I feel wired and sharp.",
         ],
         "ambiguous": [
             f"worried sick about {h} and also weirdly flat after the panic fades. "
             f"am i anxious or just burnt out",
             f"{h} stress sits in my chest. not crying just restless and snappy. {f}",
+            f"some days {h} im wired and sharp. could be stress could be more. idk",
+            f"sleep vanished while dealing with {h}. mood followed the restlessness. {f}",
         ],
         "long": [
             f"My body treats {h} like a threat even when nothing has gone wrong yet. Chest tight, "
@@ -320,6 +356,11 @@ def _gen_anxiety(rng: random.Random, style: str) -> str:
             f"I cancel social things to avoid the spiral, which makes next week worse. This is not "
             f"a diagnosis request — I want a clear reflection that this is worry and bodily tension "
             f"piling up, and some gentle next steps.",
+            f"My energy around {h} runs too fast. For a stretch I sleep little, talk quickly, "
+            f"start too many plans, and feel oddly wired. Friends say I seem restless across "
+            f"the week. I am not asking an app to diagnose anything medical — I want a careful "
+            f"theme read about racing thoughts and restlessness affecting daily life, sleep, "
+            f"and spending.",
         ],
         "very_long": [
             f"Stress around {h} has stopped being a one-day spike. For weeks I wake with dread, "
@@ -330,53 +371,13 @@ def _gen_anxiety(rng: random.Random, style: str) -> str:
             f"or both? I am trying to track triggers: sleep debt, caffeine, unread emails. I do not "
             f"want clinical certainty from software; I want acknowledgement that this worry loop is "
             f"real and that support exists if it keeps growing.",
-        ],
-    }
-    text = rng.choice(bank[style])
-    if style == "long":
-        return _expand_to_words(rng, text, 150, 320)
-    if style == "very_long":
-        return _expand_to_words(rng, text, 350, 750)
-    return text
-
-
-def _gen_bipolar(rng: random.Random, style: str) -> str:
-    h = rng.choice(HOOKS)
-    f = rng.choice(FILLERS)
-    bank = {
-        "short": [
-            f"two days buzzing about {h} barely sleeping then crash. different person vibes.",
-            f"ideas for {h} come too fast then i cant move. swingy week.",
-        ],
-        "messy": [
-            f"{f} started {h} projects at 2am felt unstoppable now i cant answer a text. "
-            f"friends say i flip too quick",
-            f"irritable then suddenly on a high about {h} then nothing. sleep appetite focus all over the place",
-        ],
-        "medium": [
-            f"Energy around {h} will not stay steady. Elevated spells feel risky; the drop wipes out "
-            f"what I started. Trying to track the pattern.",
-            f"Talking too fast about {h} one week, shut down the next. Mood changes how I plan and spend.",
-        ],
-        "ambiguous": [
-            f"some days {h} im wired and sharp other days im useless. could be stress could be more. idk",
-            f"sleep vanished then returned with a crash while dealing with {h}. mood followed it. {f}",
-        ],
-        "long": [
-            f"My energy around {h} swings hard. For a stretch I sleep little, talk fast, start too many "
-            f"plans, and feel oddly invincible. Then the drop arrives and I can barely reply to a message. "
-            f"Friends say I seem like different people across the week. I am not asking an app to diagnose "
-            f"anything medical — I want a careful theme read about up-and-down mood and energy affecting "
-            f"daily life, sleep, and spending.",
-        ],
-        "very_long": [
-            f"I am trying to describe the pattern without claiming a clinical label. Around {h}, elevated "
-            f"spells show up as racing ideas, irritability, and nights where sleep feels optional. I spend "
-            f"more, promise more, and feel sharp in a way that later looks reckless. Then a crash hits: "
-            f"heavy limbs, flat mood, cancelled plans, and shame about what I started. Tracking sleep and "
-            f"appetite helps a bit. Stress can trigger either end. Mixed days confuse me most — restless "
-            f"and low at once. Please reflect the swing pattern supportively and keep language "
-            f"non-diagnostic; I already know software cannot replace a clinician.",
+            f"I am trying to describe the wired stretch without claiming a clinical label. Around {h}, "
+            f"racing ideas, irritability, and nights where sleep feels optional show up together. "
+            f"I spend more, promise more, and feel sharp in a way that later looks reckless. "
+            f"Tracking sleep helps a bit. Stress can trigger the restlessness. Mixed days confuse "
+            f"me — restless and tense at once. Please reflect the racing and worry pattern "
+            f"supportively and keep language non-diagnostic; I already know software cannot "
+            f"replace a clinician.",
         ],
     }
     text = rng.choice(bank[style])
@@ -440,7 +441,6 @@ GENERATORS = {
     "self.depression": _gen_depression,
     "self.SuicideWatch": _gen_suicidewatch,
     "self.Anxiety": _gen_anxiety,
-    "self.bipolar": _gen_bipolar,
     "self.offmychest": _gen_offmychest,
 }
 
@@ -523,9 +523,9 @@ def length_stats(rows: list[dict[str, str]]) -> dict[str, float | int]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--train-per-class", type=int, default=320)
-    parser.add_argument("--val-per-class", type=int, default=80)
-    parser.add_argument("--test-per-class", type=int, default=100)
+    parser.add_argument("--train-per-class", type=int, default=400)
+    parser.add_argument("--val-per-class", type=int, default=100)
+    parser.add_argument("--test-per-class", type=int, default=125)
     parser.add_argument(
         "--out-dir",
         type=Path,
@@ -546,12 +546,13 @@ def main() -> None:
 
     manifest = {
         "name": "TrustMind Synthetic Wellbeing (SWMH-schema)",
-        "version": "3.0",
+        "version": "3.1",
         "purpose": "Ethical SWMH-schema corpus with longer, broader emotional check-ins",
         "design": {
             "goal": "Cover short-to-long first-person posts including loneliness, heartbreak, "
             "stress, mixed feelings, relief/hope, anger, guilt/shame, numbness, and "
-            "non-diagnostic energy swings",
+            "non-diagnostic energy-down / racing-restlessness language folded into "
+            "depression and Anxiety (no standalone bipolar class)",
             "style_mix": dict(STYLE_WEIGHTS),
             "traits": [
                 "shared everyday vocabulary across classes",
@@ -559,13 +560,14 @@ def main() -> None:
                 "ambiguous borderline posts",
                 "long and very_long multi-paragraph check-ins (~150–800 words)",
                 "non-graphic SuicideWatch language with help-seeking cues",
-                "non-diagnostic bipolar/energy-swing wording",
+                "former bipolar-bank fragments split: energy-down → depression, "
+                "racing/restlessness → Anxiety (seed 42)",
             ],
         },
         "columns": ["text", "label"],
         "labels": list(LABELS),
         "seed": args.seed,
-        "generation": "template+combinatorial v3 (long-form); no scraped social posts",
+        "generation": "template+combinatorial v3.1 (4-class; long-form); no scraped social posts",
         "splits": {
             "train": {
                 "n": len(train),
@@ -591,13 +593,18 @@ def main() -> None:
             "Not clinical data; not for diagnosis.",
             "Live TrustMind product uses LLM classification; this corpus supports eval/RAG research.",
             "Absolute metrics may still differ from real social media; interpret cautiously.",
+            "v3.1 drops self.bipolar. Energy-down fragments sit under depression; "
+            "racing/worry/restlessness fragments sit under Anxiety. Ambiguous swing "
+            "templates were split ~50/50 under seed 42.",
+            "Published n=500 LLM vs RAG metrics (0.860 vs 0.832) used the 5-class v3.0 "
+            "schema including bipolar and are not comparable without a re-run.",
         ],
     }
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     print(
         json.dumps(
             {
-                "version": "3.0",
+                "version": "3.1",
                 "total": manifest["total"],
                 "splits": {
                     k: {"n": v["n"], "length": v["length"]}
