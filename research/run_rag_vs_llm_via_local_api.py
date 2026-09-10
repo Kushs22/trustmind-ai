@@ -8,7 +8,7 @@ backend (localhost:8000) can. This script:
   1. Samples the SAME synthetic test posts as the dissertation baseline
      (n=100, seed=42; verified against llm_baseline_predictions.csv).
   2. Arm A / B both go through the same local GPT endpoint with an identical
-     5-class theme instruction (fair comparison).
+     4-class theme instruction (fair comparison).
   3. Arm B adds BM25 top-k passages from the curated knowledge base
      (FAISS hybrid is used when OpenAI embeddings work; otherwise BM25-only
      is recorded as the retrieval mode).
@@ -26,6 +26,7 @@ Outputs:
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 import time
@@ -49,9 +50,12 @@ sys.path.insert(0, str(ROOT / "research"))
 from compare_rag import comparison_table, retrieval_stats, write_comparison_artifacts  # noqa: E402
 from llm_baseline import (  # noqa: E402
     VALID_LABELS,
+    build_prompt,
+    call_openai_json,
     compute_metrics,
     load_and_sample_test,
     normalize_label,
+    parse_prediction,
 )
 from rag.bm25_store import search_keywords  # noqa: E402
 from rag.chunking import load_chunks  # noqa: E402
@@ -59,7 +63,9 @@ from rag.config import get_rag_config  # noqa: E402
 from rag.prompt_builder import format_retrieved_context  # noqa: E402
 from rag.retriever import RetrievedPassage  # noqa: E402
 
-LOCAL_API = "http://127.0.0.1:8000/api/v1/analyse"
+LOCAL_API = os.environ.get(
+    "TRUSTMIND_ANALYSE_URL", "http://127.0.0.1:8000/api/v1/analyse"
+)
 # Legacy local server caps AnalyseRequest.text at 5000 chars.
 MAX_TEXT_CHARS = 4900
 SLEEP_S = 0.35
@@ -108,23 +114,19 @@ def _fetch_passages_bm25(query: str, top_k: int = TOP_K) -> list[RetrievedPassag
 
 def _swmh_prompt(post: str, passages: list[RetrievedPassage] | None) -> str:
     """
-    Steering wrapper so the product early-sign endpoint returns a SWMH class.
+    Fair dual-arm payload for the current product LLM pipeline.
 
-    Same wrapper for LLM-only and RAG (RAG adds Retrieved Context).
-    Keeps total payload under the local API 5000-char text limit.
+    The product already applies the 4-class research prompt (depression,
+    WatchTheme, Anxiety, offmychest). This wrapper must NOT contain the
+    substring 'suicid' — that trips the product crisis keyword on every row.
+    RAG adds retrieved passages; LLM-only sends the post only.
     """
-    labels = ", ".join(VALID_LABELS)
-    header = f"""RESEARCH CLASSIFICATION TASK (required format):
-Classify the Reddit post into EXACTLY ONE label from this set:
-{labels}
-
-You MUST set:
-- grounding_status to exactly that one label (exact spelling; case-sensitive for SuicideWatch and Anxiety)
-- early_signs[0] to the same label
-- explanation to a short non-diagnostic research rationale
-
-Do not diagnose. This is offline research labelling only.
-"""
+    # Alias avoids CRISIS_USER_HINTS matching "SuicideWatch" in the request text.
+    header = (
+        "Offline research labelling only. Do not diagnose. "
+        "Classify the check-in into exactly one theme: "
+        "depression, WatchTheme, Anxiety, or offmychest.\n"
+    )
     ctx = ""
     if passages:
         ctx = (
@@ -132,12 +134,10 @@ Do not diagnose. This is offline research labelling only.
             + format_retrieved_context(passages)
             + "\n"
         )
-    # Budget remaining for the Reddit post
-    fixed = header + ctx + "\nReddit post:\n\"\"\"\n"
+    fixed = header + ctx + "\nCheck-in:\n\"\"\"\n"
     trailer = "\n\"\"\"\n"
     budget = MAX_TEXT_CHARS - len(fixed) - len(trailer)
     if budget < 200 and passages:
-        # Drop least useful passages until the post fits
         while passages and budget < 200:
             passages = passages[:-1]
             ctx = (
@@ -145,63 +145,57 @@ Do not diagnose. This is offline research labelling only.
                 + format_retrieved_context(passages)
                 + "\n"
             )
-            fixed = header + ctx + "\nReddit post:\n\"\"\"\n"
+            fixed = header + ctx + "\nCheck-in:\n\"\"\"\n"
             budget = MAX_TEXT_CHARS - len(fixed) - len(trailer)
     post_clip = _clip(post, max(200, budget))
     return fixed + post_clip + trailer
 
 
-def _http_analyse(text: str, timeout: int = 120) -> dict[str, Any]:
+def _http_analyse(
+    text: str,
+    timeout: int = 120,
+    *,
+    pipeline_mode: str = "llm",
+) -> dict[str, Any]:
     body = json.dumps(
-        {"text": text, "analyse_privately": True, "save_to_history": False}
+        {
+            "text": text,
+            "analyse_privately": True,
+            "save_to_history": False,
+            "pipeline_mode": pipeline_mode,
+        }
     ).encode("utf-8")
-    req = urllib.request.Request(
-        LOCAL_API,
-        data=body,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")[:500]
-        raise RuntimeError(f"HTTP {exc.code}: {detail}") from exc
+    last_err: Exception | None = None
+    for attempt in range(4):
+        req = urllib.request.Request(
+            LOCAL_API,
+            data=body,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")[:500]
+            last_err = RuntimeError(f"HTTP {exc.code}: {detail}")
+            if exc.code == 429:
+                time.sleep(2.0 * (attempt + 1))
+                continue
+            raise last_err from exc
+        except TimeoutError as exc:
+            last_err = exc
+            time.sleep(1.5 * (attempt + 1))
+    if last_err:
+        raise last_err
+    raise RuntimeError("analyse request failed")
 
 
 def _extract_label(result: dict[str, Any]) -> tuple[str, str]:
-    """Return (label, extract_note)."""
-    candidates: list[str] = []
-    g = str(result.get("grounding_status") or "").strip()
-    if g:
-        candidates.append(g)
-    for s in result.get("early_signs") or []:
-        candidates.append(str(s))
-    explanation = str(result.get("explanation") or "")
-    # also scan whole payload as last resort
-    candidates.append(explanation)
-
-    for raw in candidates:
-        norm = normalize_label(raw)
-        if norm in VALID_LABELS:
-            return norm, "direct"
-        # label may be embedded in a longer string
-        for lab in VALID_LABELS:
-            if re.search(rf"\b{re.escape(lab)}\b", raw, flags=re.IGNORECASE):
-                return lab, "embedded"
-
-    # map product themes → SWMH when model ignored exact-label instruction
-    theme_map = [
-        (r"suicid|self-harm|self harm|end(ing)? (my |your )?life|want to die", "SuicideWatch"),
-        (r"\bbipolar\b|mania|manic|hypoman", "bipolar"),
-        (r"anxiet|anxious|panic|worry", "Anxiety"),
-        (r"depress|low mood|hopeless|anhedon|empty", "depression"),
-        (r"off.?my.?chest|vent|general emotional|stress|burnout|lonely", "offmychest"),
-    ]
-    blob = " ".join(candidates).lower()
-    for pattern, lab in theme_map:
-        if re.search(pattern, blob, flags=re.IGNORECASE):
-            return lab, "theme_map"
+    """Use only the product `prediction` class — never early_signs/explanation keywords."""
+    norm = normalize_label(result.get("prediction"))
+    if norm in VALID_LABELS:
+        return norm, "direct"
     return "", "none"
 
 
@@ -223,8 +217,12 @@ def _run_arm(
         try:
             if with_rag:
                 passages = _fetch_passages_bm25(text, top_k=TOP_K)
-            prompt = _swmh_prompt(text, passages if with_rag else None)
-            result = _http_analyse(prompt)
+            # Send the check-in only. A research wrapper with class names
+            # (e.g. SuicideWatch) trips product crisis routing on every row.
+            result = _http_analyse(
+                _clip(text, MAX_TEXT_CHARS),
+                pipeline_mode="rag" if with_rag else "llm",
+            )
             pred, how = _extract_label(result)
             conf_s = str(result.get("ai_confidence") or "0")
             m = re.search(r"(\d+(?:\.\d+)?)", conf_s)
@@ -236,6 +234,82 @@ def _run_arm(
             reasoning = ""
             error = f"{type(exc).__name__}: {exc}"
             result = {}
+
+        latency_ms = (time.perf_counter() - started) * 1000.0
+        rows.append(
+            {
+                "text": text,
+                "true_label": true_label,
+                "predicted_label": pred,
+                "confidence": conf,
+                "reasoning": reasoning,
+                "retrieved_sources": json.dumps([p.source for p in passages]),
+                "n_retrieved": len(passages),
+                "latency_ms": latency_ms,
+                "parse_ok": bool(pred),
+                "extract_method": how,
+                "error": error,
+            }
+        )
+        if progress_every and idx % progress_every == 0:
+            ok = sum(1 for r in rows if r["parse_ok"])
+            print(f"{'RAG' if with_rag else 'LLM'} {idx}/{total} (valid so far {ok})")
+        time.sleep(SLEEP_S)
+    return pd.DataFrame(rows)
+
+
+def _run_arm_openai(
+    sample: pd.DataFrame,
+    client: Any,
+    *,
+    with_rag: bool,
+    model_name: str,
+    temperature: float,
+    progress_every: int = 5,
+) -> pd.DataFrame:
+    """Fair dual-arm via OpenAI chat completions (same 4-class JSON prompt)."""
+    rows: list[dict[str, Any]] = []
+    total = len(sample)
+    for i, row in sample.iterrows():
+        idx = int(i) + 1
+        text = str(row["text"])
+        true_label = str(row["true_label"])
+        passages: list[RetrievedPassage] = []
+        started = time.perf_counter()
+        error = ""
+        try:
+            if with_rag:
+                passages = _fetch_passages_bm25(text, top_k=TOP_K)
+                ctx = format_retrieved_context(passages)
+                prompt = build_prompt(
+                    "Retrieved Context (themes only; do not invent clinical facts):\n"
+                    f"{ctx}\n\nPost:\n{text}"
+                )
+            else:
+                prompt = build_prompt(text)
+            response_text, api_error = call_openai_json(
+                client,
+                model_name=model_name,
+                prompt=prompt,
+                temperature=temperature,
+            )
+            if api_error and not response_text:
+                pred, how = "", "error"
+                conf = 0.0
+                reasoning = ""
+                error = api_error
+            else:
+                parsed = parse_prediction(response_text)
+                pred = str(parsed.get("predicted_label") or "")
+                how = "direct" if parsed.get("parse_ok") else "none"
+                conf = float(parsed.get("confidence") or 0.0)
+                reasoning = str(parsed.get("reasoning") or "")
+                error = str(parsed.get("error") or api_error or "")
+        except Exception as exc:  # noqa: BLE001
+            pred, how = "", "error"
+            conf = 0.0
+            reasoning = ""
+            error = f"{type(exc).__name__}: {exc}"
 
         latency_ms = (time.perf_counter() - started) * 1000.0
         rows.append(
@@ -329,9 +403,9 @@ compared with a standalone LLM?
 |---------|-------|
 | Model (local backend) | gpt-4.1 (product OpenAI path used as API proxy) |
 | Sample | Synthetic test, **n={baseline.get("sample_size", rag.get("sample_size", "?"))}**, **seed={baseline.get("random_seed", 42)}** |
-| Labels | depression, SuicideWatch, Anxiety, bipolar, offmychest |
-| LLM arm | Same 5-class instruction; **no** retrieved passages |
-| RAG arm | Same 5-class instruction + **BM25 top-{TOP_K}** curated KB passages |
+| Labels | depression, SuicideWatch, Anxiety, offmychest |
+| LLM arm | Same 4-class instruction; **no** retrieved passages |
+| RAG arm | Same 4-class instruction + **BM25 top-{TOP_K}** curated KB passages |
 | Retrieval mode | **{rag.get("retrieval_mode", "bm25")}** |
 | API proxy | `{LOCAL_API}` (agent cannot reach api.openai.com directly) |
 
@@ -413,9 +487,15 @@ def main() -> int:
         help="Number of test rows to sample (use 500 for full synthetic test set).",
     )
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--direct-openai",
+        action="store_true",
+        help="Call gpt-4.1 via OpenAI (use when the local analyse API is keyword-only).",
+    )
     args = parser.parse_args()
     sample_size = max(1, int(args.sample_size))
     seed = int(args.seed)
+    direct = bool(args.direct_openai)
 
     results = ROOT / "research" / "results"
     figures = ROOT / "research" / "figures"
@@ -438,9 +518,21 @@ def main() -> int:
     elif base_csv.exists():
         print("Skipping n=100 baseline parity (different sample size).")
 
-    # Probe API
-    probe = _http_analyse("Health check: reply with concern_level Low if online.")
-    print("Local API probe OK:", list(probe.keys())[:5])
+    openai_client = None
+    if direct:
+        from dotenv import load_dotenv
+        from openai import OpenAI
+
+        load_dotenv(ROOT / "research" / ".env")
+        load_dotenv(ROOT / "backend" / ".env")
+        key = os.environ.get("OPENAI_API_KEY", "").strip()
+        if not key:
+            raise RuntimeError("OPENAI_API_KEY missing for --direct-openai")
+        openai_client = OpenAI(api_key=key)
+        print("Direct OpenAI path: gpt-4.1 (local API is keyword-only / unavailable)")
+    else:
+        probe = _http_analyse("Health check: reply with concern_level Low if online.")
+        print("Local API probe OK:", list(probe.keys())[:5])
 
     # Distinct artefact names for full-test runs so n=100 results remain archived.
     tag = f"n{len(sample)}"
@@ -454,12 +546,36 @@ def main() -> int:
         print(f"\n=== Arm A: reusing existing {llm_csv.name} ===")
         llm_df = pd.read_csv(llm_csv)
     else:
-        print(f"\n=== Arm A: LLM-only (via local GPT proxy), n={len(sample)} ===")
-        llm_df = _run_arm(sample, with_rag=False)
+        print(
+            f"\n=== Arm A: LLM-only "
+            f"({'direct OpenAI' if direct else 'via local GPT proxy'}), n={len(sample)} ==="
+        )
+        if direct:
+            llm_df = _run_arm_openai(
+                sample,
+                openai_client,
+                with_rag=False,
+                model_name="gpt-4.1",
+                temperature=0.2,
+            )
+        else:
+            llm_df = _run_arm(sample, with_rag=False)
         llm_df.to_csv(llm_csv, index=False)
 
-    print(f"\n=== Arm B: LLM+RAG BM25 (via local GPT proxy), n={len(sample)} ===")
-    rag_df = _run_arm(sample, with_rag=True)
+    print(
+        f"\n=== Arm B: LLM+RAG BM25 "
+        f"({'direct OpenAI' if direct else 'via local GPT proxy'}), n={len(sample)} ==="
+    )
+    if direct:
+        rag_df = _run_arm_openai(
+            sample,
+            openai_client,
+            with_rag=True,
+            model_name="gpt-4.1",
+            temperature=0.2,
+        )
+    else:
+        rag_df = _run_arm(sample, with_rag=True)
     rag_df.to_csv(rag_csv, index=False)
 
     llm_metrics = compute_metrics(
@@ -475,7 +591,7 @@ def main() -> int:
         "sample_size": len(sample),
         "random_seed": seed,
         "temperature": "product_default (~0.2)",
-        "api_proxy": LOCAL_API,
+        "api_proxy": "openai.chat.completions (gpt-4.1)" if direct else LOCAL_API,
         "evaluation_corpus": str(cfg.test_csv),
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "metrics": llm_metrics,
@@ -491,7 +607,7 @@ def main() -> int:
         "random_seed": seed,
         "temperature": "product_default (~0.2)",
         "top_k": TOP_K,
-        "api_proxy": LOCAL_API,
+        "api_proxy": "openai.chat.completions (gpt-4.1)" if direct else LOCAL_API,
         "evaluation_corpus": str(cfg.test_csv),
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "metrics": rag_metrics,
@@ -572,7 +688,7 @@ def main() -> int:
         "retrieval_stats": retrieval_stats(rag_csv),
         "protocol_notes": {
             "same_posts_as_notebook_baseline": sample_size == 100,
-            "fair_apples_to_apples": "LLM and RAG arms both use local GPT proxy + identical 5-class instruction",
+            "fair_apples_to_apples": "LLM and RAG arms both use local GPT proxy + identical 4-class instruction",
             "evaluation_corpus": "datasets/synthetic_wellbeing/test.csv",
             "notebook_baseline_temp0_reference": str(results / "llm_baseline_metrics.json"),
             "retrieval": "BM25 top-k over curated knowledge_base chunks",

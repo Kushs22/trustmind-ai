@@ -2,8 +2,7 @@
 
 Trusted wellbeing and mental-health **source collection** for the MSc dissertation project TrustMind AI.
 
-This stage prepares documents that may later support Retrieval-Augmented Generation (RAG).  
-**RAG, embeddings, FAISS, BM25, chunking, and retrieval are not implemented yet.**
+This knowledge base is the allow-listed corpus behind TrustMind RAG: NHS / Mind / Samaritans / Student Minds / UWE and related public guidance. Chunks are indexed with **BM25** (`rank-bm25`). The live product can also use **FAISS + RRF**. The dissertation comparison (Table 3) uses **BM25 top-3 only**.
 
 ## Purpose
 
