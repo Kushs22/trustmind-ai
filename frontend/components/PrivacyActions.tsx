@@ -88,9 +88,8 @@ export function PrivacyActions() {
         Your controls
       </h2>
       <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-        Signed-in users can download a JSON export of profile metadata and saved
-        check-ins, or permanently delete the account (cascades all check-ins and
-        clears this browser session).
+        If you have an account, you can download a copy of your information or
+        permanently delete your account and saved check-ins.
       </p>
 
       {error && (
