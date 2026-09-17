@@ -7,64 +7,48 @@ import { PrivacyActions } from "@/components/PrivacyActions";
 export const metadata: Metadata = {
   title: "Privacy — TrustMind AI",
   description:
-    "How TrustMind AI stores and processes check-in data for this student/dissertation demo.",
+    "How TrustMind AI handles your information, including what we collect and how you can export or delete it.",
 };
 
 const sections: { title: string; body: string[] }[] = [
   {
-    title: "What we store",
+    title: "What we collect",
     body: [
-      "Account: email and a hashed password if you sign up (plain passwords are never stored).",
-      "Saved check-ins: concern level, confidence, explanations, previews, support-urgency metadata, and optional conversation_json chat threads when you choose to save history.",
-      "Anonymous sessions: a temporary account id so the API can associate a browser session — not an email identity.",
+      "If you create an account, we keep your email and a securely stored password. We never store your password in readable form.",
+      "If you choose to save a check-in, we keep the reflection you received and the notes needed to show it in your history.",
+      "You can also use TrustMind without an account. In that case we do not create a lasting identity for you.",
     ],
   },
   {
-    title: "Where data lives",
+    title: "Passwords and access",
     body: [
-      "Application data is stored in PostgreSQL hosted on Render (via DATABASE_URL on the API service).",
-      "The frontend is served from Vercel; it keeps only your access token in the browser (localStorage), not your check-in history.",
-      "This is a university dissertation / public demo — not a commercial clinical product.",
+      "Passwords are stored securely. We cannot see or recover your password.",
+      "Choose a password of at least 8 characters, including a letter and a number or symbol.",
+      "Signing out or deleting your account ends access from this browser.",
     ],
   },
   {
-    title: "Passwords & access",
+    title: "Private and anonymous use",
     body: [
-      "Passwords are hashed before storage. We cannot read your password back.",
-      "New accounts require a password of at least 8 characters with a letter and a number or special character.",
-      "API requests use a bearer token after login. Logging out or deleting your account clears the token from this browser.",
+      "You can continue without signing up.",
+      "If you analyse privately or turn off save to history, your check-in is not kept as a saved record.",
+      "Anonymous use still works, and it does not create a lasting account.",
     ],
   },
   {
-    title: "Private & anonymous modes",
+    title: "Files you upload",
     body: [
-      "You can continue anonymously without an email account.",
-      "“Analyse privately” and turning off “save to history” limit what is written to Postgres — private saves may keep metadata without raw text, and unsaved sessions stay on the device for that visit only.",
-      "Anonymous / private analyse still works without creating a lasting identity.",
+      "You can attach an image or PDF to give extra context for a check-in.",
+      "Uploads are used only to generate that reflection, then discarded. We do not keep a file library.",
+      "If you save a check-in, a short extract may appear in your history. The original file is not stored for download.",
     ],
   },
   {
-    title: "Uploads (images & PDFs)",
+    title: "How long we keep information",
     body: [
-      "Images and PDFs are for analysis context only — not a permanent document vault.",
-      "Files are processed in memory / short-lived temp storage on the server, then discarded. Binary uploads are not kept long-term in the database.",
-      "If you save a check-in, derived text (for example extracted notes) may appear in previews or conversation history — the original file is not retained as a downloadable archive.",
-    ],
-  },
-  {
-    title: "AI / LLM processing",
-    body: [
-      "To generate insights, text (and extracted upload context) is sent to configured LLM providers (for example OpenAI, and optionally Groq or Gemini depending on deployment settings).",
-      "Providers process requests under their own terms. We do not use your wellbeing text to train public models on our side.",
-      "Crisis-related language may surface support links; that is not a clinical triage service.",
-    ],
-  },
-  {
-    title: "Retention & your rights",
-    body: [
-      "Saved history remains until you delete it or delete your account.",
-      "Signed-in users can export their profile metadata and check-ins as JSON, or permanently delete their account and associated check-ins.",
-      "Deleting your account removes your user row and cascaded check_ins from our database and invalidates the session in this browser.",
+      "Saved history stays until you delete it or delete your account.",
+      "You can download a copy of your information, or permanently delete your account and saved check-ins.",
+      "Deleting your account removes your profile and history, and signs you out of this browser.",
     ],
   },
 ];
@@ -84,9 +68,8 @@ export default function PrivacyPage() {
               Your data, your control
             </h1>
             <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-slate-600 dark:text-slate-400">
-              Plain-language practices for this TrustMind AI demo. We explain
-              what is stored, where it lives, and how you can export or delete
-              it.
+              We keep only what we need to run your check-in, and you can
+              export or delete it at any time.
             </p>
           </div>
 
@@ -128,10 +111,9 @@ export default function PrivacyPage() {
                 Honest scope
               </h2>
               <p className="mt-3 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
-                This policy describes how the demo is built today. It is not
-                legal advice and is not a claim of GDPR certification or a law
-                firm review. We aim for privacy-by-design: minimal collection,
-                clear purpose, export, and deletion.
+                This page describes how we handle information today. It is not
+                legal advice. We collect as little as we can, explain why we
+                need it, and let you export or delete it.
               </p>
             </div>
 

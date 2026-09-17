@@ -17,7 +17,6 @@ VALID_LABELS = (
     "depression",
     "SuicideWatch",
     "Anxiety",
-    "bipolar",
     "offmychest",
 )
 
@@ -28,10 +27,11 @@ LABEL_ALIASES = {
     "self.suicidewatch": "SuicideWatch",
     "anxiety": "Anxiety",
     "self.anxiety": "Anxiety",
-    "bipolar": "bipolar",
-    "self.bipolar": "bipolar",
     "offmychest": "offmychest",
     "self.offmychest": "offmychest",
+    "watchtheme": "SuicideWatch",
+    "watch_theme": "SuicideWatch",
+    "swatch": "SuicideWatch",
 }
 
 
@@ -58,7 +58,6 @@ Classify the following Reddit post into EXACTLY ONE of these labels:
 - depression
 - SuicideWatch
 - Anxiety
-- bipolar
 - offmychest
 
 Return ONLY valid JSON in this format:
@@ -323,7 +322,7 @@ def compute_metrics(y_true: list[str], y_pred: list[str]) -> dict[str, Any]:
     # Empty / invalid predictions never match a true label → count as errors.
     accuracy = float(sum(t == p for t, p in zip(y_true, y_pred)) / n) if n else 0.0
 
-    # sklearn metrics over the five SWMH classes only.
+    # sklearn metrics over the four SWMH-compatible theme classes only.
     metrics = {
         "n_samples": n,
         "n_valid_predictions": n_valid,

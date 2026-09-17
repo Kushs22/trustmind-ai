@@ -166,7 +166,7 @@ def _write_rq_summary(
 ## Ethical framing (required for this result)
 
 1. **Evaluation data (synthetic wellbeing)** — group-prepared fictional posts with
-   SWMH-compatible five-class labels (`datasets/synthetic_wellbeing/`). No scraped Reddit
+   SWMH-compatible four-class labels (`datasets/synthetic_wellbeing/`). No scraped Reddit
    posts. Labels are **theme proxies for academic classification**, not clinical diagnoses.
    Results are **not** valid for patient care.
 

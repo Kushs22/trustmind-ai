@@ -1,9 +1,9 @@
 {
   "name": "TrustMind Synthetic Wellbeing (SWMH-schema)",
-  "version": "3.0",
+  "version": "3.1",
   "purpose": "Ethical SWMH-schema corpus with longer, broader emotional check-ins",
   "design": {
-    "goal": "Cover short-to-long first-person posts including loneliness, heartbreak, stress, mixed feelings, relief/hope, anger, guilt/shame, numbness, and non-diagnostic energy swings",
+    "goal": "Cover short-to-long first-person posts including loneliness, heartbreak, stress, mixed feelings, relief/hope, anger, guilt/shame, numbness, and non-diagnostic energy-down / racing-restlessness language folded into depression and Anxiety (no standalone bipolar class)",
     "style_mix": {
       "ambiguous": 0.22,
       "messy": 0.18,
@@ -18,7 +18,7 @@
       "ambiguous borderline posts",
       "long and very_long multi-paragraph check-ins (~150\u2013800 words)",
       "non-graphic SuicideWatch language with help-seeking cues",
-      "non-diagnostic bipolar/energy-swing wording"
+      "former bipolar-bank fragments split: energy-down \u2192 depression, racing/restlessness \u2192 Anxiety (seed 42)"
     ]
   },
   "columns": [
@@ -29,64 +29,60 @@
     "self.depression",
     "self.SuicideWatch",
     "self.Anxiety",
-    "self.bipolar",
     "self.offmychest"
   ],
   "seed": 42,
-  "generation": "template+combinatorial v3 (long-form); no scraped social posts",
+  "generation": "template+combinatorial v3.1 (4-class; long-form); no scraped social posts",
   "splits": {
     "train": {
       "n": 1600,
-      "per_class": 320,
+      "per_class": 400,
       "counts": {
-        "self.depression": 320,
-        "self.SuicideWatch": 320,
-        "self.Anxiety": 320,
-        "self.bipolar": 320,
-        "self.offmychest": 320
+        "self.depression": 400,
+        "self.SuicideWatch": 400,
+        "self.Anxiety": 400,
+        "self.offmychest": 400
       },
       "length": {
         "min": 8,
-        "median": 25,
-        "mean": 95.1,
+        "median": 24,
+        "mean": 88.5,
         "max": 376,
-        "pct_ge_150": 33.0
+        "pct_ge_150": 30.8
       }
     },
     "val": {
       "n": 400,
-      "per_class": 80,
-      "counts": {
-        "self.depression": 80,
-        "self.SuicideWatch": 80,
-        "self.Anxiety": 80,
-        "self.bipolar": 80,
-        "self.offmychest": 80
-      },
-      "length": {
-        "min": 8,
-        "median": 26,
-        "mean": 95.2,
-        "max": 370,
-        "pct_ge_150": 35.2
-      }
-    },
-    "test": {
-      "n": 500,
       "per_class": 100,
       "counts": {
         "self.depression": 100,
         "self.SuicideWatch": 100,
         "self.Anxiety": 100,
-        "self.bipolar": 100,
         "self.offmychest": 100
       },
       "length": {
         "min": 8,
-        "median": 26,
-        "mean": 100.8,
-        "max": 372,
-        "pct_ge_150": 36.2
+        "median": 27,
+        "mean": 105.8,
+        "max": 373,
+        "pct_ge_150": 38.5
+      }
+    },
+    "test": {
+      "n": 500,
+      "per_class": 125,
+      "counts": {
+        "self.depression": 125,
+        "self.SuicideWatch": 125,
+        "self.Anxiety": 125,
+        "self.offmychest": 125
+      },
+      "length": {
+        "min": 8,
+        "median": 27,
+        "mean": 102.9,
+        "max": 371,
+        "pct_ge_150": 36.6
       }
     }
   },
@@ -94,6 +90,8 @@
   "notes": [
     "Not clinical data; not for diagnosis.",
     "Live TrustMind product uses LLM classification; this corpus supports eval/RAG research.",
-    "Absolute metrics may still differ from real social media; interpret cautiously."
+    "Absolute metrics may still differ from real social media; interpret cautiously.",
+    "v3.1 drops self.bipolar. Energy-down fragments sit under depression; racing/worry/restlessness fragments sit under Anxiety. Ambiguous swing templates were split ~50/50 under seed 42.",
+    "Published n=500 LLM vs RAG metrics (0.860 vs 0.832) used the 5-class v3.0 schema including bipolar and are not comparable without a re-run."
   ]
 }

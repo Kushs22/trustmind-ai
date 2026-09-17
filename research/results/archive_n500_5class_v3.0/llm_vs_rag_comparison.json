@@ -6,42 +6,42 @@
   "comparison_table": [
     {
       "metric": "Accuracy",
-      "llm_only": 0.818,
-      "llm_rag": 0.828,
-      "delta_rag_minus_baseline": 0.010000000000000009
+      "llm_only": 0.86,
+      "llm_rag": 0.832,
+      "delta_rag_minus_baseline": -0.028000000000000025
     },
     {
       "metric": "Precision (macro)",
-      "llm_only": 0.844830327559298,
-      "llm_rag": 0.8604921858346517,
-      "delta_rag_minus_baseline": 0.015661858275353713
+      "llm_only": 0.8832400091606549,
+      "llm_rag": 0.8529931472856631,
+      "delta_rag_minus_baseline": -0.030246861874991815
     },
     {
       "metric": "Recall (macro)",
-      "llm_only": 0.8180000000000001,
-      "llm_rag": 0.8280000000000001,
-      "delta_rag_minus_baseline": 0.010000000000000009
+      "llm_only": 0.86,
+      "llm_rag": 0.8320000000000001,
+      "delta_rag_minus_baseline": -0.027999999999999914
     },
     {
       "metric": "Macro F1",
-      "llm_only": 0.8109480411411827,
-      "llm_rag": 0.82274620829404,
-      "delta_rag_minus_baseline": 0.011798167152857308
+      "llm_only": 0.8632148211049714,
+      "llm_rag": 0.8352629513986033,
+      "delta_rag_minus_baseline": -0.027951869706368093
     }
   ],
   "retrieval_stats": {
     "n_rows": 500,
     "mean_n_retrieved": 3.0,
     "median_n_retrieved": 3.0,
-    "mean_confidence": 0.8618599999999998,
-    "median_confidence": 0.85,
-    "mean_latency_ms": 1439.7265735818073,
-    "median_latency_ms": 1368.879207991995,
+    "mean_confidence": 0.84508,
+    "median_confidence": 0.82,
+    "mean_latency_ms": 2241.8992985966615,
+    "median_latency_ms": 2198.3312495285645,
     "pct_with_sources": 1.0
   },
   "protocol_notes": {
     "same_posts_as_notebook_baseline": false,
-    "fair_apples_to_apples": "LLM and RAG arms both use local GPT proxy + identical 4-class instruction",
+    "fair_apples_to_apples": "LLM and RAG arms both use local GPT proxy + identical 5-class instruction",
     "evaluation_corpus": "datasets/synthetic_wellbeing/test.csv",
     "notebook_baseline_temp0_reference": "/Users/kushsharma/Desktop/trustmind-ai/research/results/llm_baseline_metrics.json",
     "retrieval": "BM25 top-k over curated knowledge_base chunks"

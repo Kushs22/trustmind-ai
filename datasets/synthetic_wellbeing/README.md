@@ -1,16 +1,16 @@
 # Synthetic Wellbeing Dataset (SWMH-compatible schema)
 
-**Version 3.0** — real-world length + emotional breadth (long / very_long styles, broader themes).  
+**Version 3.1** — four theme classes (bipolar bank folded into depression / Anxiety).  
 Ethical replacement for Reddit-sourced SWMH. No scraped social media.
 
 ## Files
 
 | File | Rows | Per class |
 |------|------|-----------|
-| `train.csv` | 1,600 | 320 |
-| `val.csv` | 400 | 80 |
-| `test.csv` | 500 | 100 |
-| **Total** | **2,500** | balanced |
+| `train.csv` | 1,600 | 400 |
+| `val.csv` | 400 | 100 |
+| `test.csv` | 500 | 125 |
+| **Total** | **2,500** | balanced (4 classes) |
 
 Also: `manifest.json`, `DATASET_CARD.md`, `processed/*_clean.csv`.
 
@@ -19,14 +19,16 @@ Also: `manifest.json`, `DATASET_CARD.md`, `processed/*_clean.csv`.
 | Column | Description |
 |--------|-------------|
 | `text` | Synthetic first-person wellbeing post |
-| `label` | `self.depression`, `self.SuicideWatch`, `self.Anxiety`, `self.bipolar`, `self.offmychest` |
+| `label` | `self.depression`, `self.SuicideWatch`, `self.Anxiety`, `self.offmychest` |
 
-## v3 design (length + emotion)
+v3.1 drops `self.bipolar`. Energy-down / crash fragments sit under `self.depression`; racing / worry / restlessness fragments sit under `self.Anxiety`. Ambiguous swing templates were split ~50/50 under seed 42. SuicideWatch and offmychest are unchanged.
+
+## v3.1 design (length + emotion)
 
 - Styles: messy / short / medium / ambiguous / **long** / **very_long** (~150–800 word targets)
-- Themes: loneliness, heartbreak, stress, mixed feelings, relief/hope, anger, guilt/shame, numbness, non-diagnostic energy swings, stuckness, rejection
+- Themes: loneliness, heartbreak, stress, mixed feelings, relief/hope, anger, guilt/shame, numbness, energy-down and racing/restlessness language (non-diagnostic), stuckness, rejection
 - Shared everyday vocabulary across classes; ambiguous borderline posts
-- About **33%+** of posts are ≥150 words (product-realistic long check-ins)
+- About **31–39%** of posts are ≥150 words depending on split (product-realistic long check-ins)
 - Live TrustMind product still classifies primarily via **LLM**; this corpus supports eval / research
 
 ## Regenerate

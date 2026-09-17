@@ -16,14 +16,14 @@
 !knowledge_base/logs/rag/.gitkeep
 !knowledge_base/raw/.gitkeep
 # Allow committed production indexes so Render can run USE_RAG without a rebuild step.
-# Do not reintroduce scraped SWMH Reddit CSVs
+# Do not reintroduce scraped SWMH Reddit CSVs. Eval uses datasets/synthetic_wellbeing/ only.
 # Knowledge base raw HTML (large / reproducible locally)
 # Local eval noise
 # Node / frontend
 # Operator DB dumps (never commit)
 # Python / backend / local envs
 # RAG artifacts (regenerable; can be large)
-# Research secrets / LLM outputs containing raw posts
+# Research secrets / LLM outputs containing check-in text
 *.sql
 *.zip
 .DS_Store
