@@ -172,6 +172,8 @@ class AnalyseResponse(BaseModel):
     llm_provider: str | None = None
     calibration_notes: str | None = None
     trust_summary: str | None = None
+    # True when the message had no usable content; show a gentle invite only.
+    needs_more_input: bool = False
     debug: AnalyseDebugOut | None = None
     # Multimodal metadata (attachments are user context, not trusted RAG)
     input_summary: InputSummaryOut | None = None

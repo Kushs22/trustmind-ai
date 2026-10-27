@@ -20,8 +20,8 @@ ABSTENTION_MESSAGE_WITH_SOURCES = (
     "available if you need it."
 )
 ABSTENTION_RECOMMENDATION = (
-    "If you'd like support, consider contacting your GP, NHS services, or your "
-    "university wellbeing team."
+    "If you'd like support, consider contacting your GP, NHS services, or a "
+    "mental health charity such as Mind or Samaritans."
 )
 
 # Short check-ins skip abstention. Longer inputs keep a trust floor, but only
@@ -45,7 +45,7 @@ ABSTENTION_MESSAGE_SHORT_INPUT = (
 )
 ABSTENTION_RECOMMENDATION_SHORT_INPUT = (
     "Example: \"I've been feeling stressed for about two weeks. It's hard to sleep "
-    "and I'm falling behind on coursework. Things feel heavier than usual.\" "
+    "and I'm falling behind at work. Things feel heavier than usual.\" "
     + ABSTENTION_RECOMMENDATION
 )
 

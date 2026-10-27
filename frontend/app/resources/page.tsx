@@ -5,7 +5,7 @@ import { PageBackground } from "@/components/PageBackground";
 export const metadata: Metadata = {
   title: "Resources — TrustMind AI",
   description:
-    "Support resources for crisis help, UWE wellbeing, NHS services, and more.",
+    "Support resources for crisis help, text and phone lines, NHS services, and more.",
 };
 
 const resourceCategories = [
@@ -26,29 +26,34 @@ const resourceCategories = [
     ],
   },
   {
-    title: "UWE Wellbeing Support",
-    description: "Support services for UWE Bristol students.",
+    title: "Text and phone lines",
+    description: "Free, confidential support at any time of day.",
     items: [
       {
-        name: "UWE Wellbeing Service",
-        detail: "Counselling, mental health advice, and student support.",
-        href: "https://www.uwe.ac.uk/students/support",
+        name: "Shout — text 85258",
+        detail: "Free 24/7 text support if you are struggling to cope.",
+        href: "https://giveusashout.org/",
       },
       {
-        name: "UWE Out of Hours Support",
-        detail: "Support options outside standard office hours.",
-        href: "https://www.uwe.ac.uk/students/support",
+        name: "Childline — call 0800 1111",
+        detail: "Free, confidential support for anyone under 19.",
+        href: "https://www.childline.org.uk/",
+      },
+      {
+        name: "Papyrus HOPELINEUK — call 0800 068 4141",
+        detail: "Support for anyone under 35 having thoughts of suicide, and those worried about them.",
+        href: "https://www.papyrus-uk.org/",
       },
     ],
   },
   {
-    title: "Wisdom App",
-    description: "Digital wellbeing tools and guided support.",
+    title: "Mind",
+    description: "Mental health charity with advice and local services.",
     items: [
       {
-        name: "Wisdom App",
-        detail: "A wellbeing app with exercises, tracking, and guided content.",
-        href: "https://www.wisdom.app/",
+        name: "Mind — information and support",
+        detail: "Clear guides on conditions, treatment and where to find help.",
+        href: "https://www.mind.org.uk/",
       },
     ],
   },
@@ -85,18 +90,13 @@ const resourceCategories = [
     ],
   },
   {
-    title: "Academic Stress Support",
-    description: "Help managing study pressure and academic wellbeing.",
+    title: "Local support in Bristol",
+    description: "Services for people in and around Bristol.",
     items: [
       {
-        name: "UWE Study Support",
-        detail: "Academic skills, exam preparation, and study wellbeing.",
-        href: "https://www.uwe.ac.uk/students/support",
-      },
-      {
-        name: "Student Minds",
-        detail: "UK student mental health charity with guides and resources.",
-        href: "https://www.studentminds.org.uk/",
+        name: "Bristol Mindline — 0117 203 4419",
+        detail: "Wed–Sun 7pm–11pm. Check the website for current hours.",
+        href: "https://www.bristolmindline.org.uk/",
       },
     ],
   },
@@ -105,9 +105,9 @@ const resourceCategories = [
     description: "Practical support that can affect wellbeing.",
     items: [
       {
-        name: "UWE Money Advice",
-        detail: "Financial guidance and hardship support for students.",
-        href: "https://www.uwe.ac.uk/students/support",
+        name: "Citizens Advice",
+        detail: "Free advice on money, benefits, housing and work.",
+        href: "https://www.citizensadvice.org.uk/",
       },
       {
         name: "Shelter housing advice",

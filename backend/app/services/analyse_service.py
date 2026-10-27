@@ -52,6 +52,9 @@ class AnalyseResult:
     debug: dict | None = None
     input_summary: dict | None = None
     processed_attachments: list = field(default_factory=list)
+    # True when the message had no usable content (gibberish / noise): the UI shows
+    # only a gentle invite, with no scores, labels or sources.
+    needs_more_input: bool = False
 
 
 # Heuristic theme detectors for keyword fallback (non-LLM mode)
@@ -128,7 +131,7 @@ SAFETY_NOTE = (
 
 DEFAULT_NEXT_STEPS = [
     "If it helps, talk with someone you trust about how you're feeling",
-    "Explore UWE wellbeing support if you are a student",
+    "Explore free NHS talking therapies, which you can often self-refer to",
     "Reach out for professional support if things feel heavier or worsen",
 ]
 
@@ -185,7 +188,7 @@ def _run_keyword_analysis(request: AnalyseRequest) -> AnalyseResult:
             safe_next_steps=[
                 "If you are in immediate danger, call 999 or go to A&E",
                 "You can reach Samaritans on 116 123 (UK) any time — they're there to listen",
-                "Please speak to someone you trust, or contact UWE wellbeing support",
+                "Please speak to someone you trust, or contact a support service such as Mind or Shout (text 85258)",
             ],
             safety_note=SAFETY_NOTE,
             early_signs=early_signs or ["self-harm / suicidal crisis signs"],
@@ -203,7 +206,7 @@ def _run_keyword_analysis(request: AnalyseRequest) -> AnalyseResult:
             ),
             recommendation=(
                 "If you'd like support, consider contacting your GP, NHS services, "
-                "or your university wellbeing team."
+                "or a mental health charity such as Mind or Samaritans."
             ),
             pipeline_used="keyword_fallback",
             support_resources=get_support_resources(force=True),
@@ -365,6 +368,7 @@ def run_analysis(
             llm_provider=pipe.llm_provider,
             calibration_notes=pipe.calibration_notes,
             trust_summary=pipe.trust_summary,
+            needs_more_input=pipe.needs_more_input,
             debug=pipe.debug,
             input_summary=normalised.input_summary.model_dump(),
             processed_attachments=[

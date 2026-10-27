@@ -42,12 +42,15 @@ import { useFileUpload } from "@/hooks/useFileUpload";
 
 const PROCESSING_DURATION_MS = 350;
 const SHORT_INPUT_TIP_WORDS = 12;
+// Research tooling (LLM vs LLM+RAG switch, scores, pipeline details) is hidden in
+// the product. Set NEXT_PUBLIC_RESEARCH_MODE=true to show it for evaluation work.
+const RESEARCH_MODE = process.env.NEXT_PUBLIC_RESEARCH_MODE === "true";
 const INPUT_GUIDANCE =
-  "The more you share, the better we can support you. A few sentences about how long this has lasted and how it affects sleep, study, or daily life often helps — one-word check-ins still work.";
+  "The more you share, the better we can support you. A few sentences about how long this has lasted and how it affects sleep, work, or daily life often helps — one-word check-ins still work.";
 const SHORT_INPUT_TIP =
   "Optional tip: adding a little more detail usually improves how well we can reflect what you're going through — short check-ins are still welcome.";
 const SHORT_INPUT_EXAMPLE =
-  "I've been feeling stressed for about two weeks. It's hard to sleep and I'm falling behind on coursework. Things feel heavier than usual.";
+  "I've been feeling stressed for about two weeks. It's hard to sleep and I'm falling behind at work. Things feel heavier than usual.";
 
 /** Client fallback when urgency is high but API omitted support_resources. */
 const FALLBACK_SUPPORT_RESOURCES: SupportResource[] = [
@@ -71,17 +74,22 @@ const FALLBACK_SUPPORT_RESOURCES: SupportResource[] = [
     url: "https://www.nhs.uk/mental-health/talking-therapies/",
   },
   {
-    name: "Student Minds",
-    description: "Student mental health charity with advice and peer support.",
-    contact: "See website for support options",
-    url: "https://www.studentminds.org.uk/",
+    name: "Shout",
+    description: "Free, confidential text support any time of day.",
+    contact: "Text SHOUT to 85258",
+    url: "https://giveusashout.org/",
   },
   {
-    name: "UWE Student Wellbeing",
-    description:
-      "University of the West of England wellbeing service for students.",
-    contact: "See UWE wellbeing contact page",
-    url: "https://www.uwe.ac.uk/life/health-and-wellbeing/get-wellbeing-support/wellbeing-service",
+    name: "Mind",
+    description: "Mental health charity with advice and support options.",
+    contact: "See website for urgent help and support lines",
+    url: "https://www.mind.org.uk/need-urgent-help/",
+  },
+  {
+    name: "Childline",
+    description: "Free, confidential support for anyone under 19.",
+    contact: "Call 0800 1111",
+    url: "https://www.childline.org.uk/",
   },
 ];
 
@@ -284,7 +292,7 @@ function labelFromMessages(
 
 function emptySession(
   id: string,
-  pipelineMode: Exclude<PipelineMode, "auto"> = "llm",
+  pipelineMode: Exclude<PipelineMode, "auto"> = "rag",
 ): AnalyseSession {
   return {
     id,
@@ -459,7 +467,7 @@ export function AnalyseForm() {
   const [usePastCheckins, setUsePastCheckins] = useState(false);
   const [hasSavedHistory, setHasSavedHistory] = useState(false);
   const [pipelineMode, setPipelineMode] =
-    useState<Exclude<PipelineMode, "auto">>("llm");
+    useState<Exclude<PipelineMode, "auto">>("rag");
   const [result, setResult] = useState<AnalyseResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
@@ -522,7 +530,7 @@ export function AnalyseForm() {
     suppressUrlLoadRef.current = true;
     setCheckInQuery(null);
     setArchiveState([]);
-    const next = emptySession(newSessionId(), "llm");
+    const next = emptySession(newSessionId(), "rag");
     activeSessionIdRef.current = next.id;
     applySession(next);
     // Keep the force-fresh flag set by logout; do not write the old thread back.
@@ -634,7 +642,8 @@ export function AnalyseForm() {
       : session.result;
     setResult(safeResult);
     setLastCheckIn(restoredPayload);
-    setPipelineMode(session.pipelineMode);
+    // One pipeline in the product: sessions saved with the old "llm" mode move to rag.
+    setPipelineMode("rag");
     const resources = isPositiveLowDistressCheckin(restoredText)
       ? []
       : session.chatSupportResources?.length
@@ -804,7 +813,7 @@ export function AnalyseForm() {
         },
         // Rebuild from opening turn so LLM ↔ LLM+RAG can re-run the same text.
         lastCheckIn: openingPayload,
-        pipelineMode: "llm",
+        pipelineMode: "rag",
         chatSupportResources: [],
         toneDisclaimer: null,
         chatDraft: "",
@@ -831,7 +840,7 @@ export function AnalyseForm() {
         clearPersistedSessions();
         setCheckInQuery(null);
         setArchiveState([]);
-        const next = emptySession(newSessionId(), "llm");
+        const next = emptySession(newSessionId(), "rag");
         activeSessionIdRef.current = next.id;
         applySession(next);
         // Leave force-fresh cleared; do not re-persist the prior account thread.
@@ -1214,7 +1223,7 @@ export function AnalyseForm() {
     const payload = resolveReanalysePayload();
     if (!payload) {
       setError(
-        "Nothing to re-analyse yet — send a check-in first, then switch LLM ↔ LLM+RAG.",
+        "Nothing to re-analyse yet — send a message first.",
       );
       return;
     }
@@ -1234,7 +1243,7 @@ export function AnalyseForm() {
     const payload = resolveReanalysePayload();
     if (!payload) {
       setError(
-        "Nothing to re-analyse yet — send a check-in first, then switch LLM ↔ LLM+RAG.",
+        "Nothing to re-analyse yet — send a message first.",
       );
       return;
     }
@@ -1448,12 +1457,12 @@ export function AnalyseForm() {
         role="alert"
       >
         <p className="text-xs font-medium uppercase tracking-wide text-rose-800 dark:text-rose-300">
-          Support / ethics resources
+          Help and support
         </p>
         <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">
           If you are in immediate danger, call 999 or go to A&amp;E. These
-          services can help you talk to someone — NHS, Samaritans, Student
-          Minds, UWE wellbeing.
+          services are free and can help you talk to someone, including the NHS,
+          Samaritans, Shout and Mind.
         </p>
         <ul className="mt-3 space-y-3">
           {displaySupportResources.map((resource) => (
@@ -1494,6 +1503,84 @@ export function AnalyseForm() {
     .replace(/\s*\([^)]*\)\s*$/g, "")
     .replace(/^keyword_fallback$/i, "Basic check-in (AI busy)")
     .trim();
+
+  // Gibberish / noise: show only the gentle invite in the chat. No scores, labels,
+  // sources or next steps.
+  const needsMoreInput = Boolean(panelResult?.needs_more_input);
+
+  const supportSuggestion = (() => {
+    if (!panelResult || needsMoreInput || positiveCheckIn) return "";
+    switch (panelResult.support_urgency_band) {
+      case "urgent":
+        return "Please reach out to someone today. The help options below are free and available now.";
+      case "elevated":
+        return "It would be worth speaking to a GP or a mental health service soon. The options below can help you take that step.";
+      case "moderate":
+        return "Talking to someone you trust, or to your GP, may help. Support options are listed below.";
+      case "low":
+        return "Small steps like rest, a short walk and talking to someone you trust can help. Support is there if things get heavier.";
+      default:
+        return "";
+    }
+  })();
+
+  // Plain-language summary that replaces the research "Trust details" panel.
+  const aboutReplyCard =
+    panelResult && !needsMoreInput ? (
+      <div className="rounded-xl border border-slate-200/80 bg-white/90 px-4 py-4 dark:border-slate-700/80 dark:bg-slate-900/90">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            About this reply
+          </p>
+          {activeCheckInId ? (
+            <Link
+              href={`/dashboard/${activeCheckInId}`}
+              className="text-sm text-teal-700 underline dark:text-teal-300"
+            >
+              View saved check-in
+            </Link>
+          ) : null}
+        </div>
+
+        {(panelResult.potential_indicators?.length
+          ? panelResult.potential_indicators
+          : panelResult.early_signs || []
+        ).length > 0 ? (
+          <div className="mt-3">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              What I picked up on
+            </p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {(panelResult.potential_indicators?.length
+                ? panelResult.potential_indicators
+                : panelResult.early_signs || []
+              ).map((theme) => (
+                <span
+                  key={theme}
+                  className="rounded-full border border-teal-200/80 bg-teal-50/70 px-2.5 py-0.5 text-xs font-medium text-teal-800 dark:border-teal-800 dark:bg-teal-950/40 dark:text-teal-200"
+                >
+                  {theme}
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {supportSuggestion ? (
+          <p className="mt-3 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+            {supportSuggestion}
+          </p>
+        ) : null}
+
+        <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+          {evidenceAll.length > 0
+            ? `This reply drew on ${evidenceAll.length} trusted guidance source${
+                evidenceAll.length === 1 ? "" : "s"
+              }, such as NHS or Mind pages. You can see them under “Where this comes from”.`
+            : "No guidance page matched closely this time, so treat this as general support and not advice from a specific source."}
+        </p>
+      </div>
+    ) : null;
 
   const trustDetailsCard = panelResult ? (
     <div className="rounded-xl border border-slate-200/80 bg-white/90 px-4 py-4 dark:border-slate-700/80 dark:bg-slate-900/90">
@@ -1791,7 +1878,7 @@ export function AnalyseForm() {
       <div className="rounded-xl border-2 border-teal-400/80 bg-teal-50/50 px-4 py-4 shadow-sm dark:border-teal-600/80 dark:bg-teal-950/30">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <p className="text-xs font-medium uppercase tracking-wide text-teal-800 dark:text-teal-300">
-            Grounded sources / retrieved passages
+            Where this comes from
           </p>
           {!resultIsStandaloneLlm && evidenceAll.length > 0 ? (
             <span className="rounded-full bg-teal-600 px-2.5 py-0.5 text-[11px] font-semibold text-white dark:bg-teal-500">
@@ -1801,11 +1888,9 @@ export function AnalyseForm() {
         </div>
         {showAsStandalonePanel ? (
           <p className="mt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
-            This check-in used the model on its own, so no trusted guidance
-            pages were pulled in. Switch to{" "}
-            <span className="font-semibold">LLM+RAG</span> and re-analyse the
-            same text to see supporting extracts from places like the NHS,
-            Samaritans, or UWE wellbeing.
+            No trusted guidance pages were used for this reply, so treat it as
+            general support. For advice you can rely on, see the NHS or Mind
+            pages linked under help and support.
           </p>
         ) : evidenceVisible.length > 0 ? (
           <>
@@ -1870,9 +1955,9 @@ export function AnalyseForm() {
           </ul>
         ) : (
           <p className="mt-2 text-sm leading-relaxed text-amber-900 dark:text-amber-100">
-            {ranAsRagIntent && isQuotaFallback
-              ? "You selected LLM+RAG, but AI providers are temporarily limited, so trusted pages could not be fully loaded. Wait a few minutes and press Re-analyse — or set LLM_PROVIDER=auto with OpenAI on the server as a backstop."
-              : "We looked for trusted guidance pages that match what you shared, but nothing close enough came back this time. A little more detail about how you feel — and for how long — usually helps us find useful sources."}
+            {isQuotaFallback
+              ? "We're having trouble loading guidance pages right now. Please try again in a few minutes."
+              : "We looked for trusted guidance pages that match what you shared, but nothing close enough came back this time. A little more detail about how you feel, and for how long, usually helps us find useful sources."}
           </p>
         )}
       </div>
@@ -1985,13 +2070,16 @@ export function AnalyseForm() {
               ) : null}
             </select>
           </div>
-          <button
-            type="button"
-            onClick={handleNewChat}
-            className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-700 transition-colors hover:border-teal-200 hover:bg-teal-50/60 dark:border-slate-600 dark:text-slate-200 dark:hover:border-teal-700 dark:hover:bg-teal-950/40"
-          >
-            New chat
-          </button>
+          {/* While chatting, the thread header already has a New chat button. */}
+          {!chatMode && (
+            <button
+              type="button"
+              onClick={handleNewChat}
+              className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-700 transition-colors hover:border-teal-200 hover:bg-teal-50/60 dark:border-slate-600 dark:text-slate-200 dark:hover:border-teal-700 dark:hover:bg-teal-950/40"
+            >
+              New chat
+            </button>
+          )}
         </div>
       )}
 
@@ -2049,15 +2137,17 @@ export function AnalyseForm() {
             onNewChat={handleNewChat}
           />
 
-          {pipelineCompareBar}
-          {trustDetailsCard}
-          {groundingReliabilityPanel}
-          {groundedSourcesPanel}
+          {RESEARCH_MODE ? pipelineCompareBar : null}
+          {RESEARCH_MODE ? trustDetailsCard : aboutReplyCard}
+          {RESEARCH_MODE ? groundingReliabilityPanel : null}
+          {needsMoreInput ? null : groundedSourcesPanel}
           {supportResourcesPanel}
 
           {result && (
             <div className="space-y-3">
-              {result.safe_next_steps && result.safe_next_steps.length > 0 && (
+              {!needsMoreInput &&
+                result.safe_next_steps &&
+                result.safe_next_steps.length > 0 && (
                 <div className="rounded-xl border border-teal-200/70 bg-teal-50/40 px-4 py-4 dark:border-teal-900/70 dark:bg-teal-950/25">
                   <p className="text-xs font-medium uppercase tracking-wide text-teal-700 dark:text-teal-300">
                     Supportive next steps
@@ -2095,8 +2185,7 @@ export function AnalyseForm() {
                   </p>
                 ) : null}
                 <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-                  Curious about confidence, grounding, or how LLM vs LLM+RAG
-                  works?{" "}
+                  Want to know how this works?{" "}
                   <Link
                     href="/#how-it-works"
                     className="text-teal-700 underline dark:text-teal-300"
@@ -2137,15 +2226,6 @@ export function AnalyseForm() {
                 Share how you&apos;re feeling — then keep talking here
               </p>
             </div>
-            {(sessionArchive.length > 0 || Boolean(activeCheckInId)) && (
-              <button
-                type="button"
-                onClick={handleNewChat}
-                className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 px-3 text-sm font-medium text-slate-700 transition-colors hover:border-teal-200 hover:bg-teal-50/60 dark:border-slate-600 dark:text-slate-200 dark:hover:border-teal-700 dark:hover:bg-teal-950/40"
-              >
-                New chat
-              </button>
-            )}
           </div>
 
           <div className="flex flex-1 flex-col justify-center px-4 py-10 sm:px-5">
@@ -2162,8 +2242,8 @@ export function AnalyseForm() {
                   Looking at what you&apos;ve shared
                 </h2>
                 <p className="mt-2 max-w-md text-sm text-slate-500 dark:text-slate-400">
-                  This usually takes a few seconds. If the API was idle, free
-                  hosting may need up to about a minute to wake up first.
+                  This usually takes a few seconds. The first message after a
+                  quiet spell can take a little longer.
                 </p>
               </div>
             ) : (

@@ -140,7 +140,7 @@ export function HeroSection() {
           </h1>
 
           <p className="animate-fade-in-up animate-delay-200 mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-slate-600 dark:text-slate-400">
-            TrustMind AI gives students and everyday users thoughtful,
+            TrustMind AI gives anyone thoughtful,
             evidence-informed wellbeing insights—without compromising your
             privacy. A calm platform built for clarity when you need support
             you can trust.

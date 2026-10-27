@@ -15,6 +15,7 @@ from app.config import settings
 from app.schemas.analyse import AnalyseRequest
 from app.services.abstention import (
     LIMITED_CONFIDENCE_DISCLAIMER,
+    AbstentionDecision,
     apply_abstention,
     is_low_signal_checkin,
     is_positive_low_distress_checkin,
@@ -111,6 +112,9 @@ class PipelineResult:
     llm_provider: str | None = None
     calibration_notes: str | None = None
     trust_summary: str | None = None
+    # True when the message had no usable content (gibberish / noise). The UI then
+    # shows only a gentle invite: no scores, labels or sources.
+    needs_more_input: bool = False
     debug: dict[str, Any] | None = None
 
 
@@ -140,7 +144,7 @@ def _build_trust_summary(
         return (
             f"This LLM+RAG run used {n_evidence} trusted guidance "
             f"passage{'s' if n_evidence != 1 else ''} from sources like NHS and "
-            f"university wellbeing pages. {label}."
+            f"mental health charity pages. {label}."
         )
     return (
         f"This LLM+RAG run used {n_evidence} trusted guidance "
@@ -169,11 +173,11 @@ def _default_next_steps(high_risk: bool) -> list[str]:
         return [
             "If you are in immediate danger, call 999 or go to A&E",
             "You can reach Samaritans on 116 123 (UK) any time — they're there to listen",
-            "Please speak to someone you trust, or contact UWE wellbeing support",
+            "Please speak to someone you trust, or contact a support service such as Mind or Shout (text 85258)",
         ]
     return [
         "If it helps, talk with someone you trust about how you're feeling",
-        "Explore UWE wellbeing support if you are a student",
+        "Explore free NHS talking therapies, which you can often self-refer to",
         "Reach out for professional support if things feel heavier or worsen",
     ]
 
@@ -344,14 +348,27 @@ def run_configured_pipeline(
         combined_text=text,
     )
     user_probe = request.typed_text or request.speech_transcript or text
-    low_signal = is_low_signal_checkin(user_probe) and not kind.coaching_without_story
+    # The low-signal check is English-only. Never let it swallow a message the model
+    # or the crisis-language check has flagged (for example non-English text).
+    flagged_crisis = bool(
+        is_high_risk_prediction(prediction) or user_text_indicates_crisis(text)
+    )
+    low_signal = (
+        is_low_signal_checkin(user_probe)
+        and not kind.coaching_without_story
+        and not flagged_crisis
+    )
 
-    # Gibberish / no emotional content: soft invite — never invent a label or
-    # fall through to a dead "Assessment completed." bubble.
+    # Gibberish / no emotional content: soft invite — never invent a label, show
+    # scores, or attach "matched" sources, and never fall through to a dead
+    # "Assessment completed." bubble.
     if low_signal:
         prediction = None
         confidence = min(float(confidence or 0.0), 0.3) or 0.2
         reasoning = low_signal_invite_message()
+        passages = []
+        sources = []
+        raw["retrieved_passages"] = []
     # Short check-ins: ensure a usable label when cues are clear (LLM may omit one).
     elif short_input and not prediction:
         heuristic = short_wellbeing_heuristic_label(user_probe)
@@ -391,6 +408,15 @@ def run_configured_pipeline(
         prediction=prediction,
         has_retrieved_sources=bool(passages),
     )
+    if low_signal:
+        # A gentle invite is not an abstention; avoid the "holding back a category"
+        # research copy for long nonsense input.
+        decision = AbstentionDecision(
+            abstained=False,
+            status="accepted",
+            message="",
+            recommendation="",
+        )
     abstained = decision.abstained
     final_prediction = None if abstained else prediction
     # Short-input tip lives under the prompt/input UI — never repeat it in results.
@@ -669,14 +695,15 @@ def run_configured_pipeline(
         evidence_used=shown_evidence,
         sources_detail=evidence_dicts,
         safety_triggered=high_risk,
-        support_urgency=urgency.score,
-        support_urgency_band=urgency.band,
-        support_urgency_rationale=urgency.rationale,
-        support_urgency_uncertain=urgency.uncertain,
+        support_urgency=None if low_signal else urgency.score,
+        support_urgency_band=None if low_signal else urgency.band,
+        support_urgency_rationale=None if low_signal else urgency.rationale,
+        support_urgency_uncertain=False if low_signal else urgency.uncertain,
         retrieval_mode=retrieval_mode,
         llm_provider=llm_provider,
         calibration_notes=calibration_notes or None,
-        trust_summary=trust_summary,
+        trust_summary="" if low_signal else trust_summary,
+        needs_more_input=low_signal,
         debug=debug,
     )
 

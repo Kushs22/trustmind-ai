@@ -27,7 +27,7 @@ high-confidence cut) still return a label with a limited-confidence note.
 Crisis routing is independent of confidence.
 
 **High-risk:** when the prediction is `SuicideWatch` (or crisis sources are
-retrieved), `support_resources` lists NHS / Samaritans / Student Minds / UWE links.
+retrieved), `support_resources` lists NHS / Samaritans / Mind / Shout / Childline links.
 These are support services — not a diagnosis.
 """
 
@@ -91,7 +91,7 @@ These are support services — not a diagnosis.
                                 ),
                                 "recommendation": (
                                     "If you'd like support, consider contacting your GP, "
-                                    "NHS services, or your university wellbeing team."
+                                    "NHS services, or a mental health charity such as Mind or Samaritans."
                                 ),
                                 "sources": [],
                                 "pipeline_used": "LLM",

@@ -49,7 +49,7 @@ def analyse_and_optionally_save(
     result = run_analysis(payload, continuity_context=continuity_context)
 
     # Guarantee support-urgency fields even if a pipeline path omitted them.
-    if result.support_urgency is None:
+    if result.support_urgency is None and not getattr(result, "needs_more_input", False):
         from app.services.support_urgency import compute_support_urgency
 
         urgency = compute_support_urgency(
@@ -77,7 +77,8 @@ def analyse_and_optionally_save(
         or result.explanation
         or ""
     )[:500]
-    if payload.save_to_history:
+    # Nothing worth keeping when the message had no usable content.
+    if payload.save_to_history and not getattr(result, "needs_more_input", False):
         if user is None:
             raise PermissionError("Sign in or continue anonymously to save check-ins")
 
@@ -199,6 +200,7 @@ def analyse_and_optionally_save(
         llm_provider=getattr(result, "llm_provider", None),
         calibration_notes=getattr(result, "calibration_notes", None),
         trust_summary=getattr(result, "trust_summary", None),
+        needs_more_input=bool(getattr(result, "needs_more_input", False)),
         debug=debug,
         input_summary=input_summary,
         processed_attachments=processed,

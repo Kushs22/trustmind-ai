@@ -129,6 +129,8 @@ export type AnalyseResponse = {
   llm_provider?: string | null;
   calibration_notes?: string | null;
   trust_summary?: string | null;
+  /** True when the message had no usable content; show a gentle invite only. */
+  needs_more_input?: boolean;
   debug?: AnalyseDebug | null;
   input_summary?: InputSummary | null;
   processed_attachments?: ProcessedAttachment[];

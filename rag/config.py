@@ -41,6 +41,10 @@ class RagConfig:
     bm25_candidate_k: int = 20
     faiss_candidate_k: int = 20
     rrf_k: int = 60  # Reciprocal Rank Fusion constant
+    # Minimum cosine similarity for a vector hit to be used at all. Without this a
+    # nearest-neighbour search always returns something, even for nonsense input.
+    # Needs calibrating against real queries (see FAISS_MIN_SCORE).
+    faiss_min_score: float = 0.25
 
     # Experiment parity with LLM-only baseline
     sample_size: int = 100
@@ -116,6 +120,7 @@ def get_rag_config() -> RagConfig:
         bm25_candidate_k=int(os.getenv("BM25_CANDIDATE_K", "20")),
         faiss_candidate_k=int(os.getenv("FAISS_CANDIDATE_K", "20")),
         rrf_k=int(os.getenv("RRF_K", "60")),
+        faiss_min_score=float(os.getenv("FAISS_MIN_SCORE", "0.25")),
         sample_size=int(os.getenv("RAG_SAMPLE_SIZE", "100")),
         random_seed=int(os.getenv("RAG_RANDOM_SEED", "42")),
         sleep_between_calls=float(os.getenv("RAG_SLEEP_BETWEEN_CALLS", "0.5")),
