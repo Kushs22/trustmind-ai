@@ -278,8 +278,8 @@ async function request<T>(
       throw new ApiError(
         0,
         aborted
-          ? "The service timed out while starting. Free hosting can take up to a minute to wake — wait a moment and try again."
-          : "Unable to reach the service right now. It may be waking up from a cold start — wait a few seconds and try again.",
+          ? "The service is taking longer than usual to start. Please wait a moment and try again."
+          : "Unable to reach the service right now. Please wait a few seconds and try again.",
       );
     }
   }
