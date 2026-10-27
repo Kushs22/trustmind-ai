@@ -235,7 +235,7 @@ export function Footer() {
               <span className="font-semibold text-slate-800 dark:text-slate-100">TrustMind AI</span>
             </div>
             <p className="mt-3 max-w-md text-sm leading-relaxed text-slate-500 dark:text-slate-400">
-              Trustworthy AI wellbeing support for students and everyday users.
+              Trustworthy AI wellbeing information and signposting for anyone.
               Text-based analysis with privacy, transparency, and care.
             </p>
           </div>

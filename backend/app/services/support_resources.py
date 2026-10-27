@@ -45,16 +45,22 @@ DEFAULT_RESOURCES: tuple[SupportResource, ...] = (
         url="https://www.nhs.uk/mental-health/talking-therapies/",
     ),
     SupportResource(
-        name="Student Minds",
-        description="Student mental health charity with advice and peer support.",
-        contact="See website for support options",
-        url="https://www.studentminds.org.uk/",
+        name="Shout",
+        description="Free 24/7 text support if you are struggling to cope.",
+        contact="Text SHOUT to 85258",
+        url="https://giveusashout.org/",
     ),
     SupportResource(
-        name="UWE Student Wellbeing",
-        description="University of the West of England wellbeing service for students.",
-        contact="See UWE wellbeing contact page",
-        url="https://www.uwe.ac.uk/life/health-and-wellbeing/get-wellbeing-support/wellbeing-service",
+        name="Mind",
+        description="Mental health charity with advice, information and local services.",
+        contact="Infoline 0300 123 3393",
+        url="https://www.mind.org.uk/",
+    ),
+    SupportResource(
+        name="Childline",
+        description="Free confidential support for anyone under 19.",
+        contact="Call 0800 1111",
+        url="https://www.childline.org.uk/",
     ),
 )
 

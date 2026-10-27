@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { WarmBackend } from "@/components/WarmBackend";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -31,7 +32,10 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} scroll-smooth antialiased`}
     >
       <body className="min-h-screen font-sans text-slate-800 dark:text-slate-100">
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <WarmBackend />
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );

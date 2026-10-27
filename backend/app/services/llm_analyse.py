@@ -227,13 +227,13 @@ def _normalise_result(data: dict[str, Any]) -> AnalyseResult:
         steps = [
             "Take a short break and notice how you're feeling",
             "If it helps, talk with someone you trust",
-            "Explore UWE wellbeing support if you are a student",
+            "Explore free NHS talking therapies, which you can often self-refer to",
         ]
     if concern == "High" or any("suicid" in s.lower() or "self-harm" in s.lower() for s in early_signs):
         crisis_steps = [
             "If you are in immediate danger, please contact emergency services",
             "You can reach Samaritans on 116 123 (UK) or local crisis support",
-            "Please speak to someone you trust or UWE wellbeing support",
+            "Please speak to someone you trust or a support service such as Mind or Shout (text 85258)",
         ]
         steps = crisis_steps + [s for s in steps if s not in crisis_steps]
 

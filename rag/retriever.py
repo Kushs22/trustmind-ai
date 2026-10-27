@@ -234,6 +234,19 @@ class HybridRetriever:
                     faiss_error,
                 )
 
+        # Drop weak vector matches: nearest-neighbour search returns results even
+        # when nothing is relevant, which let nonsense input "match" a source.
+        min_score = float(getattr(cfg, "faiss_min_score", 0.0) or 0.0)
+        if min_score > 0 and faiss_hits:
+            kept = [h for h in faiss_hits if float(h["score"]) >= min_score]
+            if len(kept) != len(faiss_hits):
+                logger.info(
+                    "Dropped %s weak FAISS hits below min score %.2f",
+                    len(faiss_hits) - len(kept),
+                    min_score,
+                )
+            faiss_hits = kept
+
         ranked_lists = [bm25_hits]
         if faiss_hits:
             ranked_lists.append(faiss_hits)

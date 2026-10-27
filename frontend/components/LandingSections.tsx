@@ -140,7 +140,7 @@ export function HeroSection() {
           </h1>
 
           <p className="animate-fade-in-up animate-delay-200 mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-slate-600 dark:text-slate-400">
-            TrustMind AI gives students and everyday users thoughtful,
+            TrustMind AI gives anyone thoughtful,
             evidence-informed wellbeing insights—without compromising your
             privacy. A calm platform built for clarity when you need support
             you can trust.
@@ -172,63 +172,25 @@ export function HeroSection() {
                   <span className="h-3 w-3 rounded-full bg-slate-300 dark:bg-slate-600" />
                 </div>
                 <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                  Trust assessment preview
+                  Example conversation
                 </span>
               </div>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {[
-                  {
-                    label: "Emotional distress level",
-                    value: "Moderate",
-                    detail: "Based on your input",
-                    detailClass: "text-amber-600",
-                  },
-                  {
-                    label: "AI confidence",
-                    value: "87%",
-                    detail: "High certainty",
-                    detailClass: "text-teal-600",
-                  },
-                  {
-                    label: "Uncertainty level",
-                    value: "Low",
-                    detail: "Clear signal detected",
-                    detailClass: "text-teal-600",
-                  },
-                  {
-                    label: "Grounding evidence",
-                    value: "3 sources",
-                    detail: "Verified references",
-                    detailClass: "text-blue-600",
-                  },
-                  {
-                    label: "Abstention status",
-                    value: "Not triggered",
-                    detail: "Response provided",
-                    detailClass: "text-teal-600",
-                  },
-                  {
-                    label: "Privacy protection",
-                    value: "Active",
-                    detail: "HTTPS · hashed passwords",
-                    detailClass: "text-teal-600",
-                  },
-                ].map((metric) => (
-                  <div
-                    key={metric.label}
-                    className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-600 dark:bg-slate-800"
-                  >
-                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                      {metric.label}
-                    </p>
-                    <p className="mt-1 text-xl font-semibold text-slate-800 dark:text-slate-100">
-                      {metric.value}
-                    </p>
-                    <p className={`mt-1 text-sm ${metric.detailClass} dark:opacity-90`}>
-                      {metric.detail}
-                    </p>
-                  </div>
-                ))}
+              <div className="space-y-4">
+                <div className="ml-auto max-w-md rounded-2xl rounded-br-sm bg-teal-600 px-4 py-3 text-sm text-white">
+                  I&apos;ve been feeling really overwhelmed at work and I can&apos;t
+                  switch off at night.
+                </div>
+                <div className="max-w-xl rounded-2xl rounded-bl-sm border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
+                  <p>
+                    That sounds exhausting. Feeling overwhelmed and struggling to
+                    wind down are common, and there are small things that can
+                    help. Here are a few ideas, plus services you can contact for
+                    free if it keeps up.
+                  </p>
+                  <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+                    Based on NHS and Mind guidance · Not a diagnosis
+                  </p>
+                </div>
               </div>
             </div>
           </div>
