@@ -16,9 +16,12 @@ def _engine_kwargs() -> dict:
     if settings.is_sqlite:
         return {"connect_args": {"check_same_thread": False}}
     # psycopg2 connect_timeout is seconds; keeps lifespan from hanging indefinitely.
+    # Point DATABASE_URL at a pooler (e.g. Supabase/Neon port 6543) in production.
     return {
         "pool_pre_ping": True,
         "pool_recycle": 1800,
+        "pool_size": max(1, int(settings.db_pool_size)),
+        "max_overflow": max(0, int(settings.db_max_overflow)),
         "connect_args": {"connect_timeout": 15},
     }
 

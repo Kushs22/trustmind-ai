@@ -1,7 +1,9 @@
 # TrustMind AI
 
-**Trustworthy, non-diagnostic wellbeing assessment** — MSc Artificial Intelligence (UWE Bristol).  
-Compare a **standalone LLM** with **LLM + hybrid RAG** over an allow-listed knowledge base, with calibrated confidence, grounding, abstention, and multimodal input.
+A **private, non-diagnostic wellbeing check-in** for anyone who needs support.  
+Grounded in trusted UK guidance (NHS, Mind, Samaritans, CALM, Rethink), with **live Bristol community listings** from [Nyata AI](https://nyataai.co.uk).
+
+The MSc dissertation compared a standalone LLM with the same model plus RAG. That evaluation stays under `research/`. The live product is a general tool.
 
 ---
 
@@ -16,15 +18,15 @@ Compare a **standalone LLM** with **LLM + hybrid RAG** over an allow-listed know
 | **Health / version** | [https://trustmind-ai.onrender.com/health](https://trustmind-ai.onrender.com/health) |
 | **Source code** | [https://github.com/Kushs22/trustmind-ai](https://github.com/Kushs22/trustmind-ai) |
 
-> **First open note:** the free Render backend may cold-start (up to ~50s on first request). Then try **LLM** and **LLM+RAG** on the analyse page.
+> **Keep-alive:** a sleeping host still causes a slow first request. Ping `GET /warmup` every 5–10 minutes (UptimeRobot, or the GitHub Action in `.github/workflows/keepalive.yml`). That is a stopgap. **True always-on needs a paid Render/Fly instance** (`min_machines_running = 1` / Starter plan). Do not claim the API is always warm until hosting is upgraded.
 
 ---
 
 ## What it does
 
-1. User shares how they feel (**typed text**, optional **speech / image / PDF**).
-2. They choose **LLM** (model only) or **LLM+RAG** (grounded in approved sources).
-3. Backend runs GPT-4.1 (with optional hybrid **BM25 + FAISS + RRF** retrieval).
+1. User shares how they feel (**typed text**, optional **speech / image / PDF**). Anonymous is the default.
+2. They can compare a **Quick check** (model only) with a **Grounded check** (approved sources).
+3. Backend runs the model (hybrid **BM25 + FAISS + RRF** on the grounded path), then may query **Nyata** for Bristol listings. Nyata results are never cached.
 4. Response includes:
    - non-diagnostic **research category** (e.g. Anxiety-related indicators)
    - **calibrated confidence** + **uncertainty**
@@ -32,11 +34,24 @@ Compare a **standalone LLM** with **LLM + hybrid RAG** over an allow-listed know
    - **trust signals** (model / evidence / retrieval — RAG only)
    - **reasoning** (non-diagnostic language)
    - **retrieved sources + evidence cards** (RAG only)
-   - **crisis support links** when safety language or high-risk category appears
+   - **crisis support links** when safety language appears
+  - **local Bristol cards** from Nyata AI when the key is configured
 
 Uploaded files are **user context only** — never written into the trusted RAG index.
 
-This is **not** clinical diagnosis or a replacement for UWE Wisdom / Health Assured EAP services.
+This is **not** a diagnosis, therapy, or crisis intervention service.
+
+### Nyata AI partnership
+
+After the TrustMind assessment, the API can call `POST https://nyataai.co.uk/external_api.php` with `X-API-Key` (`NYATA_API_KEY`). Bristol is sent as `city` plus `location` `{latitude: 51.4545, longitude: -2.5879}`. Confirm the key with Ibrahim before production tests — credentials were deactivated 27 Oct 2026.
+
+Nyata capability notes: OpenAI-style chat completions, text reply plus `nyata.results` listings. No documented streaming of the TrustMind verifier path. Do not stream unverified model text.
+
+### Traffic
+
+- Postgres: use a **connection pooler** (Supabase/Neon port 6543) and `DB_POOL_SIZE`.
+- National RAG hits are TTL-cached (`RAG_CACHE_TTL_SECONDS=3600`). **Do not cache Nyata.**
+- Frontend calls `/warmup` on load. Add an uptime ping as above.
 
 ---
 
@@ -68,11 +83,11 @@ Browser (Next.js · Vercel)  https://trustmind-ai.vercel.app
     ▼
 POST /api/v1/analyse  →  FastAPI (Render)  https://trustmind-ai.onrender.com
     │
-    ├─ pipeline_mode=llm  →  GPT-4.1 only
-    └─ pipeline_mode=rag  →  BM25 + FAISS → RRF → top-k passages → GPT-4.1
+    ├─ pipeline_mode=llm  →  model only (Quick check)
+    └─ pipeline_mode=rag  →  BM25 + FAISS → RRF → grounded generation
     │
     ▼
-Calibrated confidence → abstention (optional) → grounding / trust signals
+Nyata AI (optional) → live Bristol listings (never cached)
     │
     ▼
 Support resources if crisis language / high-risk category

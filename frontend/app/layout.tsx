@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { HelpChrome } from "@/components/HelpChrome";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { WarmupClient } from "@/components/WarmupClient";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,9 +16,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TrustMind AI — Trustworthy AI Wellbeing Support",
+  title: "TrustMind AI — a calm place to check in",
   description:
-    "A privacy-first platform for thoughtful, evidence-informed mental wellbeing insights. Professional, calm, and built on trust.",
+    "Private, non-diagnostic wellbeing check-ins for anyone who needs support. Grounded in trusted UK guidance, with live Bristol help from Nyata AI.",
 };
 
 export default function RootLayout({
@@ -31,7 +33,11 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} scroll-smooth antialiased`}
     >
       <body className="min-h-screen font-sans text-slate-800 dark:text-slate-100">
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <WarmupClient />
+          {children}
+          <HelpChrome />
+        </ThemeProvider>
       </body>
     </html>
   );

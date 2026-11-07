@@ -39,15 +39,16 @@ import {
   sanitizeAnalyseForUserText,
 } from "@/lib/displayLabels";
 import { useFileUpload } from "@/hooks/useFileUpload";
+import { LocalSupportCard } from "@/components/LocalSupportCard";
 
 const PROCESSING_DURATION_MS = 350;
 const SHORT_INPUT_TIP_WORDS = 12;
 const INPUT_GUIDANCE =
-  "The more you share, the better we can support you. A few sentences about how long this has lasted and how it affects sleep, study, or daily life often helps — one-word check-ins still work.";
+  "The more you share, the better we can support you. A few sentences about how long this has lasted and how it affects sleep, work, or daily life often helps — short check-ins still work.";
 const SHORT_INPUT_TIP =
   "Optional tip: adding a little more detail usually improves how well we can reflect what you're going through — short check-ins are still welcome.";
 const SHORT_INPUT_EXAMPLE =
-  "I've been feeling stressed for about two weeks. It's hard to sleep and I'm falling behind on coursework. Things feel heavier than usual.";
+  "I've been feeling stressed for about two weeks. It's hard to sleep and getting through the day is heavier than usual.";
 
 /** Client fallback when urgency is high but API omitted support_resources. */
 const FALLBACK_SUPPORT_RESOURCES: SupportResource[] = [
@@ -71,17 +72,17 @@ const FALLBACK_SUPPORT_RESOURCES: SupportResource[] = [
     url: "https://www.nhs.uk/mental-health/talking-therapies/",
   },
   {
-    name: "Student Minds",
-    description: "Student mental health charity with advice and peer support.",
-    contact: "See website for support options",
-    url: "https://www.studentminds.org.uk/",
+    name: "Mind",
+    description:
+      "Information and support for anyone experiencing a mental health problem.",
+    contact: "Infoline 0300 123 3393",
+    url: "https://www.mind.org.uk/",
   },
   {
-    name: "UWE Student Wellbeing",
-    description:
-      "University of the West of England wellbeing service for students.",
-    contact: "See UWE wellbeing contact page",
-    url: "https://www.uwe.ac.uk/life/health-and-wellbeing/get-wellbeing-support/wellbeing-service",
+    name: "CALM",
+    description: "Support if you are struggling to cope.",
+    contact: "Call 0800 58 58 58 (5pm–midnight)",
+    url: "https://www.thecalmzone.net/",
   },
 ];
 
@@ -284,7 +285,7 @@ function labelFromMessages(
 
 function emptySession(
   id: string,
-  pipelineMode: Exclude<PipelineMode, "auto"> = "llm",
+  pipelineMode: Exclude<PipelineMode, "auto"> = "rag",
 ): AnalyseSession {
   return {
     id,
@@ -459,7 +460,7 @@ export function AnalyseForm() {
   const [usePastCheckins, setUsePastCheckins] = useState(false);
   const [hasSavedHistory, setHasSavedHistory] = useState(false);
   const [pipelineMode, setPipelineMode] =
-    useState<Exclude<PipelineMode, "auto">>("llm");
+    useState<Exclude<PipelineMode, "auto">>("rag");
   const [result, setResult] = useState<AnalyseResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
@@ -1214,7 +1215,7 @@ export function AnalyseForm() {
     const payload = resolveReanalysePayload();
     if (!payload) {
       setError(
-        "Nothing to re-analyse yet — send a check-in first, then switch LLM ↔ LLM+RAG.",
+        "Nothing to re-run yet — send a check-in first, then try Quick check or Grounded check.",
       );
       return;
     }
@@ -1234,7 +1235,7 @@ export function AnalyseForm() {
     const payload = resolveReanalysePayload();
     if (!payload) {
       setError(
-        "Nothing to re-analyse yet — send a check-in first, then switch LLM ↔ LLM+RAG.",
+        "Nothing to re-run yet — send a check-in first, then try Quick check or Grounded check.",
       );
       return;
     }
@@ -1452,8 +1453,7 @@ export function AnalyseForm() {
         </p>
         <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">
           If you are in immediate danger, call 999 or go to A&amp;E. These
-          services can help you talk to someone — NHS, Samaritans, Student
-          Minds, UWE wellbeing.
+          services can help you talk to someone — NHS, Samaritans, Mind, CALM.
         </p>
         <ul className="mt-3 space-y-3">
           {displaySupportResources.map((resource) => (
@@ -1503,7 +1503,7 @@ export function AnalyseForm() {
             Trust details
           </p>
           <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-            Updates each time you re-analyse — useful for LLM vs LLM+RAG.
+            Updates each time you re-run — useful when comparing methods.
           </p>
         </div>
         {activeCheckInId ? (
@@ -1628,16 +1628,16 @@ export function AnalyseForm() {
     if (evidenceAll.length > 0) {
       return `This reflection drew on ${evidenceAll.length} trusted guidance source${
         evidenceAll.length === 1 ? "" : "s"
-      } (for example NHS or university wellbeing pages).`;
+      } (for example NHS or Mind pages).`;
     }
     if (ranAsRagIntent && isQuotaFallback) {
-      return "You chose LLM+RAG, but AI providers hit a temporary limit, so this used a basic check-in. Trusted guidance pages should still appear below when the knowledge base matches — or try Re-analyse in a few minutes.";
+      return "The grounded check hit a temporary limit, so this used a basic read. Trusted pages should still appear below when they match — or try again in a few minutes.";
     }
     if (resultIsStandaloneLlm && !ranAsRagIntent) {
-      return "This check-in used the model on its own — no trusted guidance pages were pulled in. Switch to LLM+RAG on the same text to compare.";
+      return "This used the model on its own — no trusted guidance pages were pulled in. Switch to Grounded check on the same text to compare.";
     }
     if (ranAsRagIntent) {
-      return "LLM+RAG ran, but no matching guidance pages were found for this check-in. A little more detail about how you feel usually helps.";
+      return "The grounded check ran, but no matching guidance pages were found. A little more detail about how you feel usually helps.";
     }
     return "We looked for matching guidance pages, but nothing close enough came back this time.";
   })();
@@ -1703,87 +1703,93 @@ export function AnalyseForm() {
   ) : null;
 
   const pipelineCompareBar = (
-    <div className="rounded-xl border border-slate-200/80 bg-white/90 px-4 py-3 dark:border-slate-700/80 dark:bg-slate-900/90">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            Compare assessment mode
-          </p>
-          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-            {canReanalyse
-              ? "Switch LLM ↔ LLM+RAG and re-run the same check-in text."
-              : "Re-analyse needs a check-in from this page (not available for opened history threads)."}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div
-            className="inline-flex rounded-lg border border-slate-200 p-0.5 dark:border-slate-600"
-            role="radiogroup"
-            aria-label="Assessment mode"
-          >
-            <button
-              type="button"
-              role="radio"
-              aria-checked={pipelineMode === "llm"}
-              disabled={isProcessing}
-              onClick={() => handlePipelineModeSelect("llm")}
-              className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                pipelineMode === "llm"
-                  ? "bg-teal-600 text-white dark:bg-teal-500"
-                  : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-              }`}
-            >
-              LLM
-            </button>
-            <button
-              type="button"
-              role="radio"
-              aria-checked={pipelineMode === "rag"}
-              disabled={isProcessing}
-              onClick={() => handlePipelineModeSelect("rag")}
-              className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                pipelineMode === "rag"
-                  ? "bg-teal-600 text-white dark:bg-teal-500"
-                  : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-              }`}
-            >
-              LLM+RAG
-            </button>
-          </div>
-          <button
-            type="button"
-            disabled={!canReanalyse}
-            onClick={() => void handleReanalyse(pipelineMode)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-teal-300 bg-teal-50 px-3 py-1.5 text-sm font-semibold text-teal-800 transition-colors hover:bg-teal-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-teal-700 dark:bg-teal-950/50 dark:text-teal-200 dark:hover:bg-teal-950"
-          >
-            {isProcessing ? (
-              <>
-                <Spinner className="h-3.5 w-3.5" />
-                Re-analysing…
-              </>
-            ) : (
-              "Re-analyse"
-            )}
-          </button>
-        </div>
+    <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm dark:border-slate-700/80 dark:bg-slate-900">
+      <div className="border-b border-slate-100 px-4 py-3 dark:border-slate-800 sm:px-5">
+        <p className="text-xs font-semibold uppercase tracking-wide text-teal-700 dark:text-teal-300">
+          How this reply was built
+        </p>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+          {canReanalyse
+            ? "Compare a quick model-only read with a grounded read that uses trusted guidance pages. Same words, two methods."
+            : "Re-run is available for check-ins started on this page."}
+        </p>
       </div>
-      {result ? (
-        <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
-          Last run:{" "}
-          <span className="font-medium text-slate-700 dark:text-slate-200">
-            {pipelineLabel}
-          </span>
-          {evidenceAll.length > 0 ? (
-            <> · Grounding: matched trusted guidance</>
-          ) : ranAsRagIntent && isQuotaFallback ? (
-            <> · Grounding: AI providers busy — try again shortly</>
-          ) : resultIsStandaloneLlm && !ranAsRagIntent ? (
-            <> · Grounding: not used in this mode</>
+      <div className="grid gap-0 sm:grid-cols-2">
+        <button
+          type="button"
+          role="radio"
+          aria-checked={pipelineMode === "llm"}
+          disabled={isProcessing}
+          onClick={() => handlePipelineModeSelect("llm")}
+          className={`px-4 py-4 text-left transition-colors disabled:opacity-50 sm:px-5 ${
+            pipelineMode === "llm"
+              ? "bg-slate-50 dark:bg-slate-800/80"
+              : "hover:bg-slate-50/70 dark:hover:bg-slate-800/40"
+          }`}
+        >
+          <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+            Quick check
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+            The model reads your words only. Faster, with no source cards.
+          </p>
+        </button>
+        <button
+          type="button"
+          role="radio"
+          aria-checked={pipelineMode === "rag"}
+          disabled={isProcessing}
+          onClick={() => handlePipelineModeSelect("rag")}
+          className={`border-t border-slate-100 px-4 py-4 text-left transition-colors disabled:opacity-50 dark:border-slate-800 sm:border-l sm:border-t-0 sm:px-5 ${
+            pipelineMode === "rag"
+              ? "bg-teal-50/80 dark:bg-teal-950/30"
+              : "hover:bg-slate-50/70 dark:hover:bg-slate-800/40"
+          }`}
+        >
+          <p className="text-sm font-semibold text-teal-800 dark:text-teal-200">
+            Grounded check
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+            Trusted UK guidance is searched first, then the model answers.
+          </p>
+        </button>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-4 py-3 dark:border-slate-800 sm:px-5">
+        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+          {result ? (
+            <>
+              Last run:{" "}
+              <span className="font-medium text-slate-700 dark:text-slate-200">
+                {pipelineMode === "rag" ? "Grounded check" : "Quick check"}
+              </span>
+              {evidenceAll.length > 0
+                ? " · matched trusted guidance"
+                : ranAsRagIntent && isQuotaFallback
+                  ? " · providers busy — try again shortly"
+                  : resultIsStandaloneLlm && !ranAsRagIntent
+                    ? " · no retrieval in this mode"
+                    : " · no matching sources this time"}
+            </>
           ) : (
-            <> · Grounding: no matching sources this time</>
+            "Grounded check is the default for everyday use."
           )}
         </p>
-      ) : null}
+        <button
+          type="button"
+          disabled={!canReanalyse}
+          onClick={() => void handleReanalyse(pipelineMode)}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {isProcessing ? (
+            <>
+              <Spinner className="h-3.5 w-3.5" />
+              Updating…
+            </>
+          ) : (
+            "Run this method"
+          )}
+        </button>
+      </div>
     </div>
   );
 
@@ -1803,9 +1809,9 @@ export function AnalyseForm() {
           <p className="mt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
             This check-in used the model on its own, so no trusted guidance
             pages were pulled in. Switch to{" "}
-            <span className="font-semibold">LLM+RAG</span> and re-analyse the
-            same text to see supporting extracts from places like the NHS,
-            Samaritans, or UWE wellbeing.
+            <span className="font-semibold">Grounded check</span> on the
+            same text to see extracts from places like the NHS, Mind, or
+            Samaritans.
           </p>
         ) : evidenceVisible.length > 0 ? (
           <>
@@ -1871,7 +1877,7 @@ export function AnalyseForm() {
         ) : (
           <p className="mt-2 text-sm leading-relaxed text-amber-900 dark:text-amber-100">
             {ranAsRagIntent && isQuotaFallback
-              ? "You selected LLM+RAG, but AI providers are temporarily limited, so trusted pages could not be fully loaded. Wait a few minutes and press Re-analyse — or set LLM_PROVIDER=auto with OpenAI on the server as a backstop."
+              ? "The grounded check hit a temporary provider limit, so trusted pages could not be fully loaded. Wait a few minutes and run this method again."
               : "We looked for trusted guidance pages that match what you shared, but nothing close enough came back this time. A little more detail about how you feel — and for how long — usually helps us find useful sources."}
           </p>
         )}
@@ -2053,6 +2059,9 @@ export function AnalyseForm() {
           {trustDetailsCard}
           {groundingReliabilityPanel}
           {groundedSourcesPanel}
+          {result?.local_support ? (
+            <LocalSupportCard support={result.local_support} />
+          ) : null}
           {supportResourcesPanel}
 
           {result && (
@@ -2095,8 +2104,8 @@ export function AnalyseForm() {
                   </p>
                 ) : null}
                 <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-                  Curious about confidence, grounding, or how LLM vs LLM+RAG
-                  works?{" "}
+                  Curious about how a quick check compares with a grounded
+                  check?{" "}
                   <Link
                     href="/#how-it-works"
                     className="text-teal-700 underline dark:text-teal-300"
@@ -2161,9 +2170,15 @@ export function AnalyseForm() {
                 <h2 className="mt-4 text-lg font-semibold text-slate-800 dark:text-slate-100">
                   Looking at what you&apos;ve shared
                 </h2>
-                <p className="mt-2 max-w-md text-sm text-slate-500 dark:text-slate-400">
-                  This usually takes a few seconds. If the API was idle, free
-                  hosting may need up to about a minute to wake up first.
+                <div className="mt-5 w-full max-w-sm space-y-2" aria-hidden="true">
+                  <div className="h-3 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
+                  <div className="h-3 w-5/6 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
+                  <div className="h-3 w-2/3 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
+                </div>
+                <p className="mt-4 max-w-md text-sm text-slate-500 dark:text-slate-400">
+                  This usually takes a few seconds. If nobody has used the
+                  service for a while, the first reply can take up to a minute
+                  while the server wakes.
                 </p>
               </div>
             ) : (

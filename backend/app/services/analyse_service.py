@@ -52,6 +52,7 @@ class AnalyseResult:
     debug: dict | None = None
     input_summary: dict | None = None
     processed_attachments: list = field(default_factory=list)
+    local_support: dict | None = None
 
 
 # Heuristic theme detectors for keyword fallback (non-LLM mode)
@@ -128,7 +129,7 @@ SAFETY_NOTE = (
 
 DEFAULT_NEXT_STEPS = [
     "If it helps, talk with someone you trust about how you're feeling",
-    "Explore UWE wellbeing support if you are a student",
+    "Look at NHS, Mind, or Samaritans if you want extra support",
     "Reach out for professional support if things feel heavier or worsen",
 ]
 
@@ -185,7 +186,7 @@ def _run_keyword_analysis(request: AnalyseRequest) -> AnalyseResult:
             safe_next_steps=[
                 "If you are in immediate danger, call 999 or go to A&E",
                 "You can reach Samaritans on 116 123 (UK) any time — they're there to listen",
-                "Please speak to someone you trust, or contact UWE wellbeing support",
+                "Please speak to someone you trust, or a local support service",
             ],
             safety_note=SAFETY_NOTE,
             early_signs=early_signs or ["self-harm / suicidal crisis signs"],
@@ -370,6 +371,7 @@ def run_analysis(
             processed_attachments=[
                 a.model_dump() for a in normalised.processed_attachments
             ],
+            local_support=getattr(pipe, "local_support", None),
         )
     except Exception as exc:
         logger.exception("Configured pipeline failed; using keyword fallback")

@@ -112,6 +112,22 @@ class PipelineResult:
     calibration_notes: str | None = None
     trust_summary: str | None = None
     debug: dict[str, Any] | None = None
+    local_support: dict[str, Any] | None = None
+
+
+def _attach_local_support(result: PipelineResult, user_text: str) -> None:
+    """Additive Nyata Bristol listings. Failures never block the check-in."""
+    if not settings.enable_nyata or not (settings.nyata_api_key or "").strip():
+        return
+    try:
+        from app.services.nyata_client import get_bristol_support, map_concern_to_category
+        from app.services.nyata_response import build_local_support_card
+
+        category = map_concern_to_category(result.prediction, user_text)
+        card = build_local_support_card(get_bristol_support(user_text, category=category))
+        result.local_support = card
+    except Exception:  # noqa: BLE001
+        logger.exception("Nyata local support lookup failed")
 
 
 def _build_trust_summary(
@@ -128,7 +144,7 @@ def _build_trust_summary(
     if is_standalone_llm:
         return (
             "This run used the model on its own — no trusted guidance passages "
-            "were retrieved. Switch to LLM+RAG on the same check-in to compare."
+            "were retrieved. Switch to Grounded check on the same text to compare."
         )
     label = (grounding_label or "").strip()
     if n_evidence <= 0:
@@ -169,11 +185,11 @@ def _default_next_steps(high_risk: bool) -> list[str]:
         return [
             "If you are in immediate danger, call 999 or go to A&E",
             "You can reach Samaritans on 116 123 (UK) any time — they're there to listen",
-            "Please speak to someone you trust, or contact UWE wellbeing support",
+            "Please speak to someone you trust, or a local support service",
         ]
     return [
         "If it helps, talk with someone you trust about how you're feeling",
-        "Explore UWE wellbeing support if you are a student",
+        "Look at NHS, Mind, or Samaritans if you want extra support",
         "Reach out for professional support if things feel heavier or worsen",
     ]
 
@@ -678,7 +694,9 @@ def run_configured_pipeline(
         calibration_notes=calibration_notes or None,
         trust_summary=trust_summary,
         debug=debug,
+        local_support=None,
     )
+    _attach_local_support(result, text)
 
     log_analyse_run(
         {

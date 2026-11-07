@@ -113,6 +113,21 @@ class Settings(BaseSettings):
     # Mode A (false) = standalone LLM | Mode B (true) = hybrid RAG
     use_rag: bool = False
     rag_top_k: int = 5
+    # Cache BM25/FAISS hits for repeated queries. Never cache Nyata (live data).
+    rag_cache_ttl_seconds: int = 3600
+    rag_cache_max_entries: int = 256
+
+    # Nyata AI local Bristol listings (additive; does not replace RAG)
+    enable_nyata: bool = True
+    nyata_api_key: str = ""
+    nyata_api_url: str = "https://nyataai.co.uk/external_api.php"
+    nyata_model: str = "nyata-1"
+    nyata_latitude: float = 51.4545
+    nyata_longitude: float = -2.5879
+
+    # Postgres pool (use the pooler URL / port 6543 on Neon or Supabase)
+    db_pool_size: int = 5
+    db_max_overflow: int = 10
 
     # Trust / ethics controls
     confidence_threshold: float = 0.75
