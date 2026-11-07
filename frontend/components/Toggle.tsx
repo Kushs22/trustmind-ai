@@ -44,7 +44,7 @@ export function Toggle({
         />
         <span
           aria-hidden="true"
-          className="h-6 w-11 rounded-full bg-slate-200 transition-colors peer-checked:bg-teal-600 dark:bg-slate-600 dark:peer-checked:bg-teal-600 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-teal-500"
+          className="h-6 w-11 rounded-full bg-[var(--color-border)] transition-colors peer-checked:bg-[var(--color-accent)] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--color-accent)]"
         />
         <span
           aria-hidden="true"

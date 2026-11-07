@@ -1,17 +1,12 @@
 import type { Metadata } from "next";
-import { Fraunces, Geist_Mono, Outfit } from "next/font/google";
+import { Geist_Mono, Inter } from "next/font/google";
 import { HelpChrome } from "@/components/HelpChrome";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { WarmupClient } from "@/components/WarmupClient";
 import "./globals.css";
 
-const outfit = Outfit({
-  variable: "--font-outfit",
-  subsets: ["latin"],
-});
-
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
 });
 
@@ -35,9 +30,9 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${outfit.variable} ${fraunces.variable} ${geistMono.variable} scroll-smooth antialiased`}
+      className={`${inter.variable} ${geistMono.variable} scroll-smooth antialiased`}
     >
-      <body className="min-h-screen font-sans text-stone-800 dark:text-stone-100">
+      <body className="min-h-screen font-sans">
         <ThemeProvider>
           <WarmupClient />
           {children}

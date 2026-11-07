@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Reveal } from "@/components/Reveal";
 
 function ShieldIcon({ className }: { className?: string }) {
   return (
@@ -135,63 +136,49 @@ const heroPoints = [
 
 export function HeroSection() {
   return (
-    <section className="relative overflow-hidden">
-      <div
-        className="pointer-events-none absolute inset-0"
-        aria-hidden="true"
-      >
-        <div className="absolute -right-20 top-0 h-[28rem] w-[28rem] rounded-full bg-teal-700/15 blur-3xl dark:bg-teal-400/10" />
-        <div className="absolute -left-24 bottom-10 h-80 w-80 rounded-full bg-amber-200/40 blur-3xl dark:bg-amber-500/10" />
-      </div>
-
-      <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-6 pb-20 pt-28 lg:grid-cols-[1.15fr_0.85fr] lg:gap-16 lg:px-8 lg:pb-28 lg:pt-32">
-        <div>
-          <p className="inline-flex items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--surface)] px-3 py-1 text-xs font-semibold tracking-wide text-teal-900 dark:text-teal-200">
+    <section className="relative min-h-[100vh] overflow-hidden bg-[var(--color-bg)]">
+      <div className="relative mx-auto grid min-h-[100vh] max-w-6xl items-center gap-12 px-6 py-24 lg:grid-cols-[1.15fr_0.85fr] lg:gap-16 lg:px-8">
+        <div className="hero-in">
+          <p className="inline-flex items-center gap-2 rounded-[999px] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1 text-xs font-semibold tracking-wide text-[var(--color-accent)]">
             <ShieldIcon className="h-3.5 w-3.5" />
-            TrustMind × Nyata AI
+            TrustMind AI × Nyata AI
           </p>
-          <h1 className="font-display mt-6 max-w-xl text-5xl leading-[1.1] text-stone-900 dark:text-stone-50 sm:text-6xl">
+          <h1 className="mt-6 max-w-xl font-bold">
             When things feel heavy, talk it through here.
           </h1>
-          <p className="mt-6 max-w-xl text-lg leading-relaxed text-stone-600 dark:text-stone-300">
+          <p className="mt-6 max-w-[540px] text-[var(--color-text-muted)]" style={{ lineHeight: 1.75 }}>
             A private check-in for anyone who is anxious, low, overwhelmed, or
             just needs to put something into words. We reply in your language,
             ground answers in trusted UK guidance, and can point to live
             Bristol support.
           </p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <Link
-              href="/analyse"
-              className="inline-flex h-12 items-center justify-center rounded-full bg-teal-800 px-7 text-base font-semibold text-white hover:bg-teal-900 dark:bg-teal-400 dark:text-teal-950 dark:hover:bg-teal-300"
-            >
+          <div className="mt-8 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+            <Link href="/analyse" className="btn-primary w-full sm:w-auto">
               Start a private check-in
             </Link>
-            <a
-              href="#how-it-works"
-              className="inline-flex h-12 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--surface)] px-7 text-base font-medium text-stone-700 hover:bg-white dark:text-stone-200 dark:hover:bg-stone-800"
-            >
+            <a href="#how-it-works" className="btn-secondary w-full sm:w-auto">
               See how it works
             </a>
           </div>
-          <p className="mt-4 text-sm text-stone-500 dark:text-stone-400">
+          <p className="mt-4 text-sm text-[var(--color-text-muted)]">
             Anonymous · Not a diagnosis · Get help now is always one tap away
           </p>
         </div>
 
-        <div className="rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[0_24px_80px_-40px_rgba(28,25,23,0.45)] sm:p-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-800 dark:text-teal-300">
+        <div className="hero-in surface-card p-6" style={{ animationDelay: "80ms" }}>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-accent)]">
             What you get
           </p>
           <ul className="mt-4 space-y-3">
             {heroPoints.map((point) => (
               <li
                 key={point.label}
-                className="rounded-2xl border border-[var(--line)] bg-[var(--background)] px-4 py-3.5"
+                className="rounded-[16px] border border-[var(--color-border)] bg-[var(--color-surface-alt)] px-4 py-3.5"
               >
-                <p className="text-sm font-semibold text-stone-900 dark:text-stone-50">
+                <p className="text-[15px] font-semibold text-[var(--color-text)]">
                   {point.label}
                 </p>
-                <p className="mt-1 text-sm leading-relaxed text-stone-600 dark:text-stone-300">
+                <p className="mt-1 text-[14px] leading-[1.6] text-[var(--color-text-muted)]">
                   {point.detail}
                 </p>
               </li>
@@ -228,41 +215,41 @@ export function FeaturesSection() {
   return (
     <section
       id="features"
-      className="scroll-mt-28 py-20 lg:py-28"
+      className="section scroll-mt-28 bg-[var(--color-surface)]"
     >
-      <div className="mx-auto max-w-6xl px-6 lg:px-8">
+      <Reveal className="mx-auto max-w-6xl px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-teal-800 dark:text-teal-300">
-            Why TrustMind
+          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--color-accent)]">
+            Why TrustMind AI
           </p>
-          <h2 className="font-display mt-3 text-4xl text-stone-900 dark:text-stone-50 sm:text-5xl">
+          <h2 className="mt-3">
             Built for the people around us, not a campus form
           </h2>
-          <p className="mt-4 text-lg text-stone-600 dark:text-stone-400">
+          <p className="mt-4 text-[var(--color-text-muted)]">
             Support that is easy to reach when things feel heavy — at 1am, after
             work, or on a difficult commute.
           </p>
         </div>
 
-        <div className="mt-16 grid gap-8 md:grid-cols-3">
+        <div className="mt-16 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {features.map((feature) => (
             <div
               key={feature.title}
-              className="group rounded-[1.75rem] border border-[var(--line)] bg-[var(--surface)] p-8 transition-all hover:border-teal-700/40"
+              className="card-hover reveal-child surface-card p-6"
             >
-              <div className="mb-5 inline-flex rounded-2xl bg-teal-800 p-3 text-teal-50 dark:bg-teal-500 dark:text-teal-950">
-                <feature.icon className="h-6 w-6" />
+              <div className="mb-5 inline-flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
+                <feature.icon className="h-5 w-5" />
               </div>
-              <h3 className="font-display text-2xl text-stone-900 dark:text-stone-50">
+              <h3 className="text-[15px] font-semibold">
                 {feature.title}
               </h3>
-              <p className="mt-3 leading-relaxed text-stone-600 dark:text-stone-400">
+              <p className="mt-2 text-[14px] leading-[1.6] text-[var(--color-text-muted)]">
                 {feature.description}
               </p>
             </div>
           ))}
         </div>
-      </div>
+      </Reveal>
     </section>
   );
 }
@@ -287,29 +274,21 @@ const privacyPoints = [
 
 export function PrivacySection() {
   return (
-    <section
-      id="privacy"
-      className="bg-teal-950 py-20 text-teal-50 lg:py-28"
-    >
-      <div className="mx-auto max-w-6xl px-6 lg:px-8">
-        <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-teal-100">
+    <section id="privacy" className="section bg-[var(--color-bg)]">
+      <Reveal className="mx-auto max-w-6xl px-6 lg:px-8">
+        <div className="grid items-start gap-12 lg:grid-cols-2 lg:gap-16">
+          <div className="max-w-[720px]">
+            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--color-accent)]">
               Privacy & Safety
             </p>
-            <h2 className="font-display mt-3 text-4xl sm:text-5xl">
-              Your wellbeing data stays yours
-            </h2>
-            <p className="mt-4 text-lg leading-relaxed text-teal-50/90">
+            <h2 className="mt-3">Your wellbeing data stays yours</h2>
+            <p className="mt-4 text-[var(--color-text-muted)]">
               TrustMind AI is architected with privacy as a foundation—not an
               afterthought. We believe trustworthy support requires transparent
               data practices and strict boundaries around how information is
               handled.
             </p>
-            <Link
-              href="/privacy"
-              className="mt-8 inline-flex items-center gap-2 text-sm font-medium text-teal-100 underline-offset-4 hover:underline"
-            >
+            <Link href="/privacy" className="btn-primary mt-8">
               Read our full privacy policy
             </Link>
             <ul className="mt-8 space-y-4">
@@ -319,17 +298,13 @@ export function PrivacySection() {
                 "You control retention and deletion",
               ].map((item) => (
                 <li key={item} className="flex items-start gap-3">
-                  <span className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/20">
-                    <svg
-                      className="h-3 w-3"
-                      fill="currentColor"
-                      viewBox="0 0 12 12"
-                      aria-hidden="true"
-                    >
-                      <path d="M10.28 2.28a.75.75 0 00-1.06-1.06L4.5 8.44 2.78 6.72a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.06 0l5.25-5.25z" />
-                    </svg>
+                  <span
+                    className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center text-[var(--color-accent)]"
+                    aria-hidden="true"
+                  >
+                    ✓
                   </span>
-                  <span className="text-teal-50">{item}</span>
+                  <span className="text-[var(--color-text)]">{item}</span>
                 </li>
               ))}
             </ul>
@@ -339,14 +314,14 @@ export function PrivacySection() {
             {privacyPoints.map((point) => (
               <div
                 key={point.title}
-                className="flex gap-4 rounded-xl border border-white/20 bg-white/10 p-6 backdrop-blur-sm"
+                className="reveal-child flex gap-4 rounded-[16px] border border-[var(--color-border)] border-l-[3px] border-l-[var(--color-accent)] bg-[var(--color-surface)] p-6 shadow-[var(--shadow-card)]"
               >
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white/20">
-                  <point.icon className="h-6 w-6" />
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
+                  <point.icon className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="font-semibold">{point.title}</h3>
-                  <p className="mt-1 text-sm text-teal-50/80">
+                  <h3>{point.title}</h3>
+                  <p className="mt-1 text-sm text-[var(--color-text-muted)]">
                     {point.description}
                   </p>
                 </div>
@@ -354,7 +329,7 @@ export function PrivacySection() {
             ))}
           </div>
         </div>
-      </div>
+      </Reveal>
     </section>
   );
 }
@@ -384,78 +359,60 @@ export function HowItWorksSection() {
   return (
     <section
       id="how-it-works"
-      className="scroll-mt-28 py-20 lg:py-28"
+      className="section scroll-mt-28 bg-[var(--color-surface-alt)]"
     >
-      <div className="mx-auto max-w-6xl px-6 lg:px-8">
+      <Reveal className="mx-auto max-w-6xl px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-teal-800 dark:text-teal-300">
+          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--color-accent)]">
             How it works
           </p>
-          <h2 className="font-display mt-3 text-4xl text-stone-900 dark:text-stone-50 sm:text-5xl">
-            Three steps, no account required
-          </h2>
-          <p className="mt-4 text-lg text-stone-600 dark:text-stone-400">
+          <h2 className="mt-3">Three steps, no account required</h2>
+          <p className="mt-4 text-[var(--color-text-muted)]">
             A straightforward process—no accounts required to explore.
           </p>
         </div>
 
-        <div className="mt-16 grid gap-8 lg:grid-cols-3">
+        <div className="mt-16 grid grid-cols-1 gap-8 lg:grid-cols-3">
           {steps.map((item, index) => (
             <div key={item.step} className="relative">
               {index < steps.length - 1 && (
                 <div
-                  className="absolute left-1/2 top-12 hidden h-0.5 w-full bg-gradient-to-r from-teal-200 to-blue-200 dark:from-teal-800 dark:to-blue-900 lg:block"
+                  className="absolute left-1/2 top-7 hidden w-full border-t border-dashed border-[var(--color-border)] lg:block"
                   aria-hidden="true"
                 />
               )}
-              <div className="relative rounded-[1.75rem] border border-[var(--line)] bg-[var(--surface)] p-8">
-                <span className="font-display text-4xl text-teal-800/40 dark:text-teal-300/40">
+              <div className="reveal-child relative">
+                <span className="text-[48px] font-semibold leading-none text-[var(--color-accent)]/40">
                   {item.step}
                 </span>
-                <h3 className="font-display mt-4 text-2xl text-stone-900 dark:text-stone-50">
-                  {item.title}
-                </h3>
-                <p className="mt-3 leading-relaxed text-stone-600 dark:text-stone-400">
+                <h3 className="mt-4">{item.title}</h3>
+                <p className="mt-3 text-[var(--color-text-muted)]">
                   {item.description}
                 </p>
               </div>
             </div>
           ))}
         </div>
-      </div>
+      </Reveal>
     </section>
   );
 }
 
 export function CTASection() {
   return (
-    <section className="py-20 lg:py-28">
-      <div className="mx-auto max-w-6xl px-6 lg:px-8">
-        <div className="relative overflow-hidden rounded-[2rem] bg-teal-900 px-8 py-16 text-center sm:px-16">
-          <div
-            className="pointer-events-none absolute inset-0 opacity-20"
-            aria-hidden="true"
-          >
-            <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white blur-3xl" />
-            <div className="absolute -bottom-16 -left-16 h-64 w-64 rounded-full bg-teal-300 blur-3xl" />
-          </div>
-          <div className="relative">
-            <h2 className="font-display text-4xl text-white sm:text-5xl">
-              You do not have to carry this alone
-            </h2>
-            <p className="mx-auto mt-4 max-w-xl text-lg text-teal-50">
-              Check in anonymously in a few minutes. If you want, we can also
-              point you to someone nearby in Bristol.
-            </p>
-            <Link
-              href="/analyse"
-              className="mt-8 inline-flex h-12 items-center justify-center rounded-full bg-[var(--background)] px-8 text-base font-semibold text-teal-950 hover:bg-white"
-            >
-              Start a private check-in
-            </Link>
-          </div>
+    <section className="section bg-[var(--color-bg)]">
+      <Reveal className="mx-auto max-w-6xl px-6 lg:px-8">
+        <div className="rounded-[16px] bg-[var(--color-surface)] px-8 py-16 text-center shadow-[var(--shadow-card)] sm:px-16">
+          <h2>You do not have to carry this alone</h2>
+          <p className="mx-auto mt-4 max-w-xl text-[var(--color-text-muted)]">
+            Check in anonymously in a few minutes. If you want, we can also
+            point you to someone nearby in Bristol.
+          </p>
+          <Link href="/analyse" className="btn-primary mt-8">
+            Start a private check-in
+          </Link>
         </div>
-      </div>
+      </Reveal>
     </section>
   );
 }

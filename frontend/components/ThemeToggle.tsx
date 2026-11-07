@@ -12,7 +12,7 @@ export function ThemeToggle() {
   if (!mounted) {
     return (
       <span
-        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--line)]"
+        className="inline-flex h-12 w-12 items-center justify-center rounded-[10px] border border-[var(--color-border)]"
         aria-hidden="true"
       />
     );
@@ -24,7 +24,7 @@ export function ThemeToggle() {
     <button
       type="button"
       onClick={() => setTheme(isDark ? "light" : "dark")}
-      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--surface)] text-stone-600 transition-colors hover:border-teal-700/40 hover:text-teal-800 dark:text-stone-300 dark:hover:text-teal-300"
+      className="inline-flex h-12 w-12 items-center justify-center rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:text-[var(--color-accent)]"
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       title={isDark ? "Light mode" : "Dark mode"}
     >

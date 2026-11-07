@@ -1703,7 +1703,7 @@ export function AnalyseForm() {
   ) : null;
 
   const pipelineCompareBar = (
-    <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm dark:border-slate-700/80 dark:bg-slate-900">
+    <div className="overflow-hidden rounded-[16px] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-card)]">
       <div className="border-b border-slate-100 px-4 py-3 dark:border-slate-800 sm:px-5">
         <p className="text-xs font-semibold uppercase tracking-wide text-teal-700 dark:text-teal-300">
           How this reply was built
@@ -1778,7 +1778,7 @@ export function AnalyseForm() {
           type="button"
           disabled={!canReanalyse}
           onClick={() => void handleReanalyse(pipelineMode)}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
+          className="btn-primary min-h-10 px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isProcessing ? (
             <>
@@ -2140,8 +2140,8 @@ export function AnalyseForm() {
       {!chatMode && !loadingThread && (
         <>
 
-        <div className="flex min-h-[62vh] flex-col overflow-hidden rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] shadow-[0_24px_80px_-48px_rgba(28,25,23,0.55)]">
-          <div className="flex items-center justify-between gap-3 border-b border-[var(--line)] px-4 py-3 sm:px-5">
+        <div className="flex min-h-[62vh] flex-col overflow-hidden rounded-[16px] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-card)]">
+          <div className="flex items-center justify-between gap-3 border-b border-[var(--color-border)] px-4 py-3 sm:px-5">
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-stone-800 dark:text-stone-100">
                 Check-in conversation
@@ -2187,46 +2187,19 @@ export function AnalyseForm() {
               </div>
             ) : (
               <div className="mx-auto max-w-md text-center">
-                <p className="font-display text-2xl text-stone-800 dark:text-stone-100">
-                  This is a quiet room.
+                <p className="text-sm text-[var(--color-text-muted)]">
+                  No messages yet. Share what&apos;s on your mind below — type,
+                  speak, or attach a file.
                 </p>
-                <p className="mt-2 text-sm leading-relaxed text-stone-500 dark:text-stone-400">
-                  Type, speak, or attach a note. Only share what you&apos;re
-                  comfortable with — this is not a medical diagnosis.
+                <p className="mt-2 text-xs text-[var(--color-text-muted)]">
+                  Only share what you&apos;re comfortable with. This is not a
+                  medical diagnosis.
                 </p>
-                <div className="mt-5 flex flex-wrap justify-center gap-2">
-                  {[
-                    {
-                      label: "Anxious today",
-                      text: "I've been feeling anxious and on edge today.",
-                    },
-                    {
-                      label: "Hard to sleep",
-                      text: "It's been hard to sleep and I feel worn out.",
-                    },
-                    {
-                      label: "A bit stuck",
-                      text: "I feel a bit stuck and I'm not sure what would help.",
-                    },
-                  ].map((starter) => (
-                    <button
-                      key={starter.label}
-                      type="button"
-                      onClick={() => {
-                        setText(starter.text);
-                        if (error) setError(null);
-                      }}
-                      className="rounded-full border border-[var(--line)] bg-[var(--background)] px-3 py-1.5 text-xs font-medium text-stone-700 hover:border-teal-700/40 hover:text-teal-900 dark:text-stone-200"
-                    >
-                      {starter.label}
-                    </button>
-                  ))}
-                </div>
               </div>
             )}
           </div>
 
-          <div className="border-t border-[var(--line)] bg-[var(--background)]/70 px-4 py-3 sm:px-5">
+          <div className="border-t border-[var(--color-border)] bg-[var(--color-surface-alt)] px-4 py-3 sm:px-5">
             <CheckInComposer
               embedded
               value={text}

@@ -17,14 +17,14 @@ function LogoMark() {
       aria-hidden="true"
       className="shrink-0"
     >
-      <rect width="32" height="32" rx="10" className="fill-teal-800 dark:fill-teal-500" />
+      <rect width="32" height="32" rx="10" fill="var(--color-accent)" />
       <path
         d="M8 16c0-4.4 3.6-8 8-8s8 3.6 8 8-3.6 8-8 8"
         stroke="white"
         strokeWidth="2"
         strokeLinecap="round"
       />
-      <circle cx="16" cy="16" r="3" className="fill-teal-100" />
+      <circle cx="16" cy="16" r="3" fill="var(--color-accent-soft)" />
     </svg>
   );
 }
@@ -34,6 +34,12 @@ const baseNavLinks = [
   { href: "/resources", label: "Resources" },
   { href: "/privacy", label: "Privacy" },
 ] as const;
+
+function navClass(active: boolean) {
+  return `nav-link inline-flex min-h-12 items-center lg:min-h-0 ${
+    active ? "nav-link-active" : ""
+  }`;
+}
 
 export function Header() {
   const pathname = usePathname();
@@ -69,37 +75,27 @@ export function Header() {
     : ({ href: "/login", label: "Login" } as const);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-[var(--line)] bg-[color-mix(in_srgb,var(--background)_88%,transparent)] backdrop-blur-md">
-      <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3.5 lg:px-8">
+    <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[color-mix(in_srgb,var(--color-surface)_95%,transparent)] backdrop-blur-[8px]">
+      <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3 lg:px-8">
         <Link href="/" className="flex items-center gap-2.5">
           <LogoMark />
-          <span className="font-display text-xl tracking-tight text-stone-900 dark:text-stone-50">
-            TrustMind
+          <span className="text-[17px] font-bold text-[var(--color-accent)]">
+            TrustMind AI
           </span>
         </Link>
 
         <div className="hidden items-center gap-6 lg:flex">
-          <a
-            href={sectionHref("how-it-works")}
-            className="text-sm font-medium text-stone-600 transition-colors hover:text-teal-800 dark:text-stone-400 dark:hover:text-teal-300"
-          >
+          <a href={sectionHref("how-it-works")} className="nav-link">
             How it works
           </a>
-          <a
-            href={sectionHref("features")}
-            className="text-sm font-medium text-stone-600 transition-colors hover:text-teal-800 dark:text-stone-400 dark:hover:text-teal-300"
-          >
+          <a href={sectionHref("features")} className="nav-link">
             Why TrustMind AI
           </a>
           {baseNavLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className={`text-sm font-medium transition-colors hover:text-teal-800 dark:hover:text-teal-300 ${
-                pathname === link.href
-                  ? "text-teal-800 dark:text-teal-300"
-                  : "text-stone-600 dark:text-stone-400"
-              }`}
+              className={navClass(pathname === link.href)}
             >
               {link.label}
             </Link>
@@ -107,44 +103,33 @@ export function Header() {
           {accountLink ? (
             <Link
               href={accountLink.href}
-              className={`text-sm font-medium transition-colors hover:text-teal-800 dark:hover:text-teal-300 ${
-                pathname === accountLink.href
-                  ? "text-teal-800 dark:text-teal-300"
-                  : "text-stone-600 dark:text-stone-400"
-              }`}
+              className={navClass(pathname === accountLink.href)}
             >
               {accountLink.label}
             </Link>
           ) : (
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="text-sm font-medium text-stone-600 transition-colors hover:text-teal-800 dark:text-stone-400 dark:hover:text-teal-300"
-            >
+            <button type="button" onClick={handleLogout} className="nav-link">
               Log out
             </button>
           )}
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={openHelpPanel}
-            className="hidden rounded-full border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-800 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-200 dark:hover:bg-rose-950/50 sm:inline-flex"
+            className="btn-crisis hidden min-h-12 items-center px-2 lg:inline-flex"
           >
             Get help now
           </button>
           <ThemeToggle />
-          <Link
-            href="/analyse"
-            className="hidden rounded-full bg-teal-800 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-teal-900 sm:inline-flex dark:bg-teal-500 dark:text-teal-950 dark:hover:bg-teal-400"
-          >
+          <Link href="/analyse" className="btn-nav-cta hidden sm:inline-flex">
             Check in
           </Link>
           <button
             type="button"
             onClick={() => setMobileOpen((open) => !open)}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--line)] text-stone-600 dark:text-stone-400 lg:hidden"
+            className="inline-flex h-12 w-12 items-center justify-center rounded-[10px] border border-[var(--color-border)] text-[var(--color-text)] lg:hidden"
             aria-expanded={mobileOpen}
             aria-label="Toggle navigation menu"
           >
@@ -175,19 +160,19 @@ export function Header() {
       </nav>
 
       {mobileOpen && (
-        <div className="border-t border-[var(--line)] bg-[var(--surface)] px-6 py-4 lg:hidden">
-          <div className="flex flex-col gap-3">
+        <div className="border-t border-[var(--color-border)] bg-[var(--color-surface)] px-6 py-2 lg:hidden">
+          <div className="flex flex-col">
             <a
               href={sectionHref("how-it-works")}
               onClick={() => setMobileOpen(false)}
-              className="text-sm font-medium text-stone-600 dark:text-stone-400"
+              className="nav-link inline-flex min-h-12 items-center"
             >
               How it works
             </a>
             <a
               href={sectionHref("features")}
               onClick={() => setMobileOpen(false)}
-              className="text-sm font-medium text-stone-600 dark:text-stone-400"
+              className="nav-link inline-flex min-h-12 items-center"
             >
               Why TrustMind AI
             </a>
@@ -196,7 +181,7 @@ export function Header() {
                 key={link.href}
                 href={link.href}
                 onClick={() => setMobileOpen(false)}
-                className="text-sm font-medium text-stone-600 dark:text-stone-400"
+                className="nav-link inline-flex min-h-12 items-center"
               >
                 {link.label}
               </Link>
@@ -205,7 +190,7 @@ export function Header() {
               <Link
                 href={accountLink.href}
                 onClick={() => setMobileOpen(false)}
-                className="text-sm font-medium text-stone-600 dark:text-stone-400"
+                className="nav-link inline-flex min-h-12 items-center"
               >
                 {accountLink.label}
               </Link>
@@ -213,15 +198,25 @@ export function Header() {
               <button
                 type="button"
                 onClick={handleLogout}
-                className="text-left text-sm font-medium text-stone-600 dark:text-stone-400"
+                className="nav-link inline-flex min-h-12 items-center text-left"
               >
                 Log out
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => {
+                setMobileOpen(false);
+                openHelpPanel();
+              }}
+              className="btn-crisis inline-flex min-h-12 items-center text-left"
+            >
+              Get help now
+            </button>
             <Link
               href="/analyse"
               onClick={() => setMobileOpen(false)}
-              className="mt-2 inline-flex h-11 items-center justify-center rounded-full bg-teal-800 text-sm font-medium text-white dark:bg-teal-500 dark:text-teal-950"
+              className="btn-nav-cta mt-2 mb-3 w-full"
             >
               Check in
             </Link>
@@ -234,40 +229,44 @@ export function Header() {
 
 export function Footer() {
   return (
-    <footer className="border-t border-[var(--line)] bg-[var(--surface)]">
-      <div className="mx-auto max-w-6xl px-6 py-12 lg:px-8">
+    <footer className="bg-[#1a1a1a] text-white">
+      <div className="mx-auto max-w-6xl px-6 py-16 lg:px-8">
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-4">
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-1">
             <div className="flex items-center gap-2.5">
               <LogoMark />
-              <span className="font-display text-lg text-stone-900 dark:text-stone-50">TrustMind</span>
+              <span className="text-[17px] font-bold text-white">
+                TrustMind AI
+              </span>
             </div>
-            <p className="mt-3 max-w-md text-sm leading-relaxed text-stone-500 dark:text-stone-400">
+            <p className="mt-3 max-w-md text-sm leading-relaxed text-[#c8c4be]">
               A calm check-in for anyone who is struggling. Private by default,
               with trusted UK guidance and live Bristol support from Nyata AI.
             </p>
           </div>
 
           <div>
-            <p className="text-sm font-semibold text-stone-800 dark:text-stone-100">Platform</p>
-            <ul className="mt-3 space-y-2 text-sm text-stone-500 dark:text-stone-400">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#9a9590]">
+              Platform
+            </p>
+            <ul className="mt-3 space-y-2 text-sm text-[#c8c4be]">
               <li>
-                <Link href="/analyse" className="hover:text-teal-700">
+                <Link href="/analyse" className="hover:text-white">
                   Check in
                 </Link>
               </li>
               <li>
-                <Link href="/dashboard" className="hover:text-teal-700">
+                <Link href="/dashboard" className="hover:text-white">
                   Dashboard
                 </Link>
               </li>
               <li>
-                <Link href="/resources" className="hover:text-teal-700">
+                <Link href="/resources" className="hover:text-white">
                   Resources
                 </Link>
               </li>
               <li>
-                <Link href="/privacy" className="hover:text-teal-700">
+                <Link href="/privacy" className="hover:text-white">
                   Privacy
                 </Link>
               </li>
@@ -275,44 +274,75 @@ export function Footer() {
           </div>
 
           <div>
-            <p className="text-sm font-semibold text-stone-800 dark:text-stone-100">Account</p>
-            <ul className="mt-3 space-y-2 text-sm text-stone-500 dark:text-stone-400">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#9a9590]">
+              Account
+            </p>
+            <ul className="mt-3 space-y-2 text-sm text-[#c8c4be]">
               <li>
-                <Link href="/login" className="hover:text-teal-700">
+                <Link href="/login" className="hover:text-white">
                   Login
                 </Link>
               </li>
               <li>
-                <Link href="/signup" className="hover:text-teal-700">
+                <Link href="/signup" className="hover:text-white">
                   Sign up
                 </Link>
               </li>
               <li>
-                <Link href="/analyse" className="hover:text-teal-700">
+                <Link href="/analyse" className="hover:text-white">
                   Continue anonymously
                 </Link>
               </li>
             </ul>
           </div>
+
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#9a9590]">
+              Contact
+            </p>
+            <ul className="mt-3 space-y-2 text-sm text-[#c8c4be]">
+              <li>
+                <button
+                  type="button"
+                  onClick={openHelpPanel}
+                  className="text-left hover:text-white"
+                >
+                  Get help now
+                </button>
+              </li>
+              <li>
+                <a
+                  href="mailto:support@trustmind.ai?subject=TrustMind%20problem%20report"
+                  className="hover:text-white"
+                >
+                  Report a problem
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://nyataai.co.uk"
+                  className="hover:text-white"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Nyata AI
+                </a>
+              </li>
+            </ul>
+          </div>
         </div>
 
-        <div className="mt-10 rounded-2xl border border-[var(--line)] bg-[var(--background)] px-4 py-3 text-center text-sm text-stone-600 dark:text-stone-400">
-          TrustMind is not a diagnosis, therapy, or crisis intervention
-          service.{" "}
-          <a
-            href="mailto:support@trustmind.ai?subject=TrustMind%20problem%20report"
-            className="text-teal-800 underline-offset-2 hover:underline dark:text-teal-300"
-          >
-            Report a problem
-          </a>
+        <div className="mt-10 border-t border-white/10 pt-6 text-center text-[12px] text-[#9a9590]">
+          TrustMind AI is not a diagnosis, therapy, or crisis intervention
+          service.
         </div>
 
-        <div className="mt-6 border-t border-[var(--line)] pt-6 text-center text-sm text-stone-400">
+        <div className="mt-3 text-center text-[12px] text-[#9a9590]">
           © {new Date().getFullYear()} TrustMind AI · Local Bristol listings in
           collaboration with{" "}
           <a
             href="https://nyataai.co.uk"
-            className="text-teal-700 hover:underline dark:text-teal-400"
+            className="text-[#d8f3dc] hover:text-white"
             target="_blank"
             rel="noopener noreferrer"
           >

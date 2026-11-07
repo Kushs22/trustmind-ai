@@ -87,7 +87,7 @@ export function DashboardContent() {
 
   if (isLoading) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 p-12 text-center shadow-sm">
+      <div className="surface-card p-12 text-center shadow-sm">
         <p className="text-sm text-slate-500 dark:text-slate-400">Loading your dashboard…</p>
       </div>
     );
@@ -95,20 +95,20 @@ export function DashboardContent() {
 
   if (!isAuthenticated()) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 p-8 text-center shadow-sm">
+      <div className="surface-card p-8 text-center shadow-sm">
         <p className="text-sm text-slate-600 dark:text-slate-400">
           Sign in or continue anonymously to view saved check-ins.
         </p>
         <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Link
             href="/login"
-            className="inline-flex h-10 items-center justify-center rounded-lg bg-teal-600 px-5 text-sm font-medium text-white hover:bg-teal-700"
+            className="btn-primary min-h-10 px-5 text-sm"
           >
             Log in
           </Link>
           <Link
             href="/analyse"
-            className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 px-5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:border-teal-200 hover:bg-teal-50/50"
+            className="btn-secondary min-h-10 px-5 text-sm"
           >
             Continue anonymously
           </Link>
@@ -163,7 +163,7 @@ export function DashboardContent() {
         ].map((stat) => (
           <div
             key={stat.label}
-            className="rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 p-5 shadow-sm"
+            className="surface-card p-5 shadow-sm"
           >
             <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
               {stat.label}
@@ -178,7 +178,7 @@ export function DashboardContent() {
 
       <div className="grid gap-8 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 p-6 shadow-sm sm:p-8">
+          <div className="surface-card p-6 shadow-sm sm:p-8">
             <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
@@ -200,7 +200,7 @@ export function DashboardContent() {
                 )}
                 <Link
                   href="/analyse"
-                  className="inline-flex h-10 items-center justify-center rounded-lg bg-teal-600 px-4 text-sm font-medium text-white hover:bg-teal-700"
+                  className="btn-primary min-h-10 px-4 text-sm"
                 >
                   New chat
                 </Link>
@@ -279,7 +279,7 @@ export function DashboardContent() {
         </div>
 
         <div className="space-y-6">
-          <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 p-6 shadow-sm">
+          <div className="surface-card p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
               Concern level history
             </h2>
@@ -301,7 +301,7 @@ export function DashboardContent() {
             </ul>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 p-6 shadow-sm">
+          <div className="surface-card p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
               AI confidence history
             </h2>

@@ -99,7 +99,7 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
       <div
         className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed sm:max-w-[75%] ${
           isUser
-            ? "rounded-br-md bg-teal-600 text-white"
+            ? "rounded-br-md bg-[var(--color-accent)] text-white"
             : "rounded-bl-md border border-slate-200 bg-slate-50 text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
         }`}
       >
@@ -198,7 +198,7 @@ export function ChatThread({
   }
 
   return (
-    <div className="flex min-h-[70vh] flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm dark:border-slate-700/80 dark:bg-slate-900">
+    <div className="flex min-h-[70vh] flex-col overflow-hidden rounded-[16px] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-card)]">
       <div className="flex items-center justify-between gap-3 border-b border-slate-200/80 px-4 py-3 dark:border-slate-700/80 sm:px-5">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">
@@ -375,7 +375,7 @@ export function ChatThread({
             type="button"
             onClick={onSend}
             disabled={composerLocked || !draft.trim()}
-            className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl bg-teal-600 px-4 text-sm font-medium text-white transition-colors hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="btn-primary h-11 min-h-11 shrink-0 px-4 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Send
           </button>

@@ -16,7 +16,7 @@ export default function SignupPage() {
         <PageBackground />
         <div className="relative mx-auto max-w-md px-6 py-12 lg:px-8 lg:py-16">
           <div className="mb-8 text-center">
-            <h1 className="font-display text-4xl text-stone-800 dark:text-stone-100">
+            <h1>
               Create your account
             </h1>
             <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-400">

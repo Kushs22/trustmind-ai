@@ -20,7 +20,7 @@ export default function DashboardPage() {
             <p className="text-sm font-semibold uppercase tracking-wide text-teal-600">
               Your history
             </p>
-            <h1 className="font-display mt-3 text-4xl text-stone-800 dark:text-stone-100 sm:text-5xl">
+            <h1 className="mt-3">
               Wellbeing dashboard
             </h1>
             <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-600 dark:text-slate-400">
