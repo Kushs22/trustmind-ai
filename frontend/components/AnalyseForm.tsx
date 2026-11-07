@@ -2003,10 +2003,14 @@ export function AnalyseForm() {
 
       {error && (
         <div
-          className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-100"
+          className={`rounded-2xl border px-4 py-3 text-sm ${
+            /paused|offline|unable to reach|timed out/i.test(error)
+              ? "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100"
+              : "border-red-200 bg-red-50 text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-100"
+          }`}
           role="alert"
         >
-          <p className="font-semibold">{error}</p>
+          <p className="font-medium">{error}</p>
         </div>
       )}
       {saveNotice && !error && (
@@ -2136,13 +2140,13 @@ export function AnalyseForm() {
       {!chatMode && !loadingThread && (
         <>
 
-        <div className="flex min-h-[70vh] flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm dark:border-slate-700/80 dark:bg-slate-900">
-          <div className="flex items-center justify-between gap-3 border-b border-slate-200/80 px-4 py-3 dark:border-slate-700/80 sm:px-5">
+        <div className="flex min-h-[62vh] flex-col overflow-hidden rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] shadow-[0_24px_80px_-48px_rgba(28,25,23,0.55)]">
+          <div className="flex items-center justify-between gap-3 border-b border-[var(--line)] px-4 py-3 sm:px-5">
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">
+              <p className="truncate text-sm font-semibold text-stone-800 dark:text-stone-100">
                 Check-in conversation
               </p>
-              <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+              <p className="truncate text-xs text-stone-500 dark:text-stone-400">
                 Share how you&apos;re feeling — then keep talking here
               </p>
             </div>
@@ -2183,19 +2187,46 @@ export function AnalyseForm() {
               </div>
             ) : (
               <div className="mx-auto max-w-md text-center">
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  No messages yet. Share what&apos;s on your mind below — type,
-                  speak, or attach a file.
+                <p className="font-display text-2xl text-stone-800 dark:text-stone-100">
+                  This is a quiet room.
                 </p>
-                <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
-                  Only share what you&apos;re comfortable with. This is not a
-                  medical diagnosis.
+                <p className="mt-2 text-sm leading-relaxed text-stone-500 dark:text-stone-400">
+                  Type, speak, or attach a note. Only share what you&apos;re
+                  comfortable with — this is not a medical diagnosis.
                 </p>
+                <div className="mt-5 flex flex-wrap justify-center gap-2">
+                  {[
+                    {
+                      label: "Anxious today",
+                      text: "I've been feeling anxious and on edge today.",
+                    },
+                    {
+                      label: "Hard to sleep",
+                      text: "It's been hard to sleep and I feel worn out.",
+                    },
+                    {
+                      label: "A bit stuck",
+                      text: "I feel a bit stuck and I'm not sure what would help.",
+                    },
+                  ].map((starter) => (
+                    <button
+                      key={starter.label}
+                      type="button"
+                      onClick={() => {
+                        setText(starter.text);
+                        if (error) setError(null);
+                      }}
+                      className="rounded-full border border-[var(--line)] bg-[var(--background)] px-3 py-1.5 text-xs font-medium text-stone-700 hover:border-teal-700/40 hover:text-teal-900 dark:text-stone-200"
+                    >
+                      {starter.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
 
-          <div className="border-t border-slate-200/80 bg-slate-50/80 px-4 py-3 dark:border-slate-700/80 dark:bg-slate-950/40 sm:px-5">
+          <div className="border-t border-[var(--line)] bg-[var(--background)]/70 px-4 py-3 sm:px-5">
             <CheckInComposer
               embedded
               value={text}

@@ -3,19 +3,25 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #fafbfc;
-  --foreground: #0f172a;
+  --background: #f4efe6;
+  --foreground: #1c1917;
+  --surface: #fffcf7;
+  --line: #e7ddd0;
+  --accent: #0f766e;
 }
 
 .dark {
-  --background: #020617;
-  --foreground: #f1f5f9;
+  --background: #0b1210;
+  --foreground: #f3eee6;
+  --surface: #121a18;
+  --line: #24302c;
+  --accent: #2dd4bf;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-outfit);
   --font-mono: var(--font-geist-mono);
 }
 
@@ -26,8 +32,22 @@ html {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
-  padding-bottom: 5.5rem;
+  font-family: var(--font-outfit), system-ui, sans-serif;
+  padding-bottom: 2.5rem;
+}
+
+.font-display {
+  font-family: var(--font-fraunces), Georgia, serif;
+}
+
+.page-shell {
+  min-height: 100vh;
+  background: var(--background);
+}
+
+.surface-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
 }
 
 @media (prefers-reduced-motion: reduce) {

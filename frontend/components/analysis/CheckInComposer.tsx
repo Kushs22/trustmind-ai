@@ -310,15 +310,15 @@ export function CheckInComposer({
             rows={2}
             disabled={locked}
             placeholder="Share what's on your mind…"
-            className="max-h-40 min-h-[2.75rem] flex-1 resize-y rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-teal-300 focus:outline-none focus:ring-2 focus:ring-teal-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-teal-900/40"
+            className="max-h-40 min-h-[2.75rem] flex-1 resize-y rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2.5 text-sm text-stone-800 placeholder:text-stone-400 focus:border-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-800/15 disabled:cursor-not-allowed disabled:opacity-60 dark:text-stone-100"
           />
           <button
             type="button"
             onClick={onSubmit}
             disabled={!canSubmit || locked}
-            className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl bg-teal-600 px-4 text-sm font-medium text-white transition-colors hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-11 shrink-0 items-center justify-center rounded-full bg-teal-800 px-5 text-sm font-medium text-white transition-colors hover:bg-teal-900 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-teal-400 dark:text-teal-950"
           >
-            {isProcessing ? "…" : "Analyse"}
+            {isProcessing ? "…" : "Send"}
           </button>
         </div>
         <p className="text-[11px] text-slate-500 dark:text-slate-400">

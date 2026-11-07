@@ -11,18 +11,20 @@ export const metadata: Metadata = {
 
 export default function AnalysePage() {
   return (
-    <div className="min-h-screen bg-[#fafbfc] dark:bg-slate-950">
+    <div className="page-shell">
       <Header />
       <main className="relative overflow-hidden">
         <PageBackground />
-        <div className="relative mx-auto max-w-3xl px-6 py-8 lg:px-8 lg:py-12">
-          <div className="mb-6 text-center">
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-800 dark:text-slate-100 sm:text-3xl">
-              Wellbeing Check-In
+        <div className="relative mx-auto max-w-3xl px-4 pb-10 pt-8 sm:px-6 lg:px-8">
+          <div className="mb-5 text-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-800 dark:text-teal-300">
+              Private check-in
+            </p>
+            <h1 className="font-display mt-2 text-4xl text-stone-900 dark:text-stone-50">
+              How are you, really?
             </h1>
-            <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-              For anyone who needs a careful check-in. Not a diagnosis or
-              therapy service. Anonymous is the default.
+            <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-stone-600 dark:text-stone-400">
+              Not a diagnosis or therapy service. Anonymous is the default.
             </p>
           </div>
           <AnalyseForm />

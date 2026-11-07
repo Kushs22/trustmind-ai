@@ -16,7 +16,7 @@ export default async function CheckInDetailPage({
   const { id } = await params;
 
   return (
-    <div className="min-h-screen bg-[#fafbfc] dark:bg-slate-950">
+    <div className="page-shell">
       <Header />
       <main className="relative overflow-hidden">
         <PageBackground />

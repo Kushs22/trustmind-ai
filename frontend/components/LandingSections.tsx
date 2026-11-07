@@ -135,25 +135,25 @@ const heroPoints = [
 
 export function HeroSection() {
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-white via-teal-50/40 to-slate-50 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900">
+    <section className="relative overflow-hidden">
       <div
-        className="pointer-events-none absolute inset-0 opacity-50 dark:opacity-30"
+        className="pointer-events-none absolute inset-0"
         aria-hidden="true"
       >
-        <div className="absolute -right-24 top-10 h-80 w-80 rounded-full bg-teal-200/60 blur-3xl dark:bg-teal-800/30" />
-        <div className="absolute -left-16 bottom-0 h-72 w-72 rounded-full bg-sky-200/50 blur-3xl dark:bg-sky-900/30" />
+        <div className="absolute -right-20 top-0 h-[28rem] w-[28rem] rounded-full bg-teal-700/15 blur-3xl dark:bg-teal-400/10" />
+        <div className="absolute -left-24 bottom-10 h-80 w-80 rounded-full bg-amber-200/40 blur-3xl dark:bg-amber-500/10" />
       </div>
 
       <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-6 pb-20 pt-28 lg:grid-cols-[1.15fr_0.85fr] lg:gap-16 lg:px-8 lg:pb-28 lg:pt-32">
         <div>
-          <p className="inline-flex items-center gap-2 rounded-full border border-teal-200 bg-white/90 px-3 py-1 text-xs font-semibold tracking-wide text-teal-800 dark:border-teal-800 dark:bg-slate-900 dark:text-teal-300">
+          <p className="inline-flex items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--surface)] px-3 py-1 text-xs font-semibold tracking-wide text-teal-900 dark:text-teal-200">
             <ShieldIcon className="h-3.5 w-3.5" />
-            TrustMind AI × Nyata AI
+            TrustMind × Nyata AI
           </p>
-          <h1 className="mt-5 max-w-xl text-4xl font-semibold tracking-tight text-slate-900 dark:text-white sm:text-5xl">
+          <h1 className="font-display mt-6 max-w-xl text-5xl leading-[1.1] text-stone-900 dark:text-stone-50 sm:text-6xl">
             When things feel heavy, talk it through here.
           </h1>
-          <p className="mt-5 max-w-xl text-lg leading-relaxed text-slate-600 dark:text-slate-300">
+          <p className="mt-6 max-w-xl text-lg leading-relaxed text-stone-600 dark:text-stone-300">
             A private check-in for anyone who is anxious, low, overwhelmed, or
             just needs to put something into words. We reply in your language,
             ground answers in trusted UK guidance, and can point to live
@@ -162,36 +162,36 @@ export function HeroSection() {
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
             <Link
               href="/analyse"
-              className="inline-flex h-12 items-center justify-center rounded-full bg-teal-600 px-7 text-base font-semibold text-white shadow-lg shadow-teal-600/25 hover:bg-teal-700"
+              className="inline-flex h-12 items-center justify-center rounded-full bg-teal-800 px-7 text-base font-semibold text-white hover:bg-teal-900 dark:bg-teal-400 dark:text-teal-950 dark:hover:bg-teal-300"
             >
               Start a private check-in
             </Link>
             <a
               href="#how-it-works"
-              className="inline-flex h-12 items-center justify-center rounded-full border border-slate-300 bg-white px-7 text-base font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+              className="inline-flex h-12 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--surface)] px-7 text-base font-medium text-stone-700 hover:bg-white dark:text-stone-200 dark:hover:bg-stone-800"
             >
               See how it works
             </a>
           </div>
-          <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
+          <p className="mt-4 text-sm text-stone-500 dark:text-stone-400">
             Anonymous · Not a diagnosis · Get help now is always one tap away
           </p>
         </div>
 
-        <div className="rounded-3xl border border-slate-200/80 bg-white/90 p-5 shadow-2xl shadow-slate-900/5 dark:border-slate-700 dark:bg-slate-900/90 dark:shadow-black/40 sm:p-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700 dark:text-teal-400">
+        <div className="rounded-[2rem] border border-[var(--line)] bg-[var(--surface)] p-5 shadow-[0_24px_80px_-40px_rgba(28,25,23,0.45)] sm:p-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-800 dark:text-teal-300">
             What you get
           </p>
           <ul className="mt-4 space-y-3">
             {heroPoints.map((point) => (
               <li
                 key={point.label}
-                className="rounded-2xl border border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/70"
+                className="rounded-2xl border border-[var(--line)] bg-[var(--background)] px-4 py-3.5"
               >
-                <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                <p className="text-sm font-semibold text-stone-900 dark:text-stone-50">
                   {point.label}
                 </p>
-                <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                <p className="mt-1 text-sm leading-relaxed text-stone-600 dark:text-stone-300">
                   {point.detail}
                 </p>
               </li>
@@ -228,17 +228,17 @@ export function FeaturesSection() {
   return (
     <section
       id="features"
-      className="scroll-mt-28 bg-white py-20 dark:bg-slate-950 lg:py-28"
+      className="scroll-mt-28 py-20 lg:py-28"
     >
       <div className="mx-auto max-w-6xl px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-wide text-teal-600">
-            Why TrustMind AI
+          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-teal-800 dark:text-teal-300">
+            Why TrustMind
           </p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-800 dark:text-slate-100 sm:text-4xl">
+          <h2 className="font-display mt-3 text-4xl text-stone-900 dark:text-stone-50 sm:text-5xl">
             Built for the people around us, not a campus form
           </h2>
-          <p className="mt-4 text-lg text-slate-600 dark:text-slate-400">
+          <p className="mt-4 text-lg text-stone-600 dark:text-stone-400">
             Support that is easy to reach when things feel heavy — at 1am, after
             work, or on a difficult commute.
           </p>
@@ -248,15 +248,15 @@ export function FeaturesSection() {
           {features.map((feature) => (
             <div
               key={feature.title}
-              className="group rounded-2xl border border-slate-200 bg-slate-50/50 p-8 transition-all hover:border-teal-200 hover:bg-teal-50/30 hover:shadow-md dark:border-slate-700 dark:bg-slate-900 dark:hover:border-teal-700 dark:hover:bg-teal-950/40"
+              className="group rounded-[1.75rem] border border-[var(--line)] bg-[var(--surface)] p-8 transition-all hover:border-teal-700/40"
             >
-              <div className="mb-5 inline-flex rounded-xl bg-teal-100 p-3 text-teal-700 transition-colors group-hover:bg-teal-600 group-hover:text-white dark:bg-teal-950 dark:text-teal-400 dark:group-hover:bg-teal-600 dark:group-hover:text-white">
+              <div className="mb-5 inline-flex rounded-2xl bg-teal-800 p-3 text-teal-50 dark:bg-teal-500 dark:text-teal-950">
                 <feature.icon className="h-6 w-6" />
               </div>
-              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+              <h3 className="font-display text-2xl text-stone-900 dark:text-stone-50">
                 {feature.title}
               </h3>
-              <p className="mt-3 leading-relaxed text-slate-600 dark:text-slate-400">
+              <p className="mt-3 leading-relaxed text-stone-600 dark:text-stone-400">
                 {feature.description}
               </p>
             </div>
@@ -289,7 +289,7 @@ export function PrivacySection() {
   return (
     <section
       id="privacy"
-      className="bg-gradient-to-br from-teal-700 via-teal-600 to-blue-600 py-20 text-white lg:py-28"
+      className="bg-teal-950 py-20 text-teal-50 lg:py-28"
     >
       <div className="mx-auto max-w-6xl px-6 lg:px-8">
         <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
@@ -297,7 +297,7 @@ export function PrivacySection() {
             <p className="text-sm font-semibold uppercase tracking-wide text-teal-100">
               Privacy & Safety
             </p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
+            <h2 className="font-display mt-3 text-4xl sm:text-5xl">
               Your wellbeing data stays yours
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-teal-50/90">
@@ -384,17 +384,17 @@ export function HowItWorksSection() {
   return (
     <section
       id="how-it-works"
-      className="scroll-mt-28 bg-slate-50 py-20 dark:bg-slate-900 lg:py-28"
+      className="scroll-mt-28 py-20 lg:py-28"
     >
       <div className="mx-auto max-w-6xl px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-wide text-teal-600">
+          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-teal-800 dark:text-teal-300">
             How it works
           </p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-800 dark:text-slate-100 sm:text-4xl">
+          <h2 className="font-display mt-3 text-4xl text-stone-900 dark:text-stone-50 sm:text-5xl">
             Three steps, no account required
           </h2>
-          <p className="mt-4 text-lg text-slate-600 dark:text-slate-400">
+          <p className="mt-4 text-lg text-stone-600 dark:text-stone-400">
             A straightforward process—no accounts required to explore.
           </p>
         </div>
@@ -408,14 +408,14 @@ export function HowItWorksSection() {
                   aria-hidden="true"
                 />
               )}
-              <div className="relative rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 p-8 shadow-sm">
-                <span className="text-4xl font-bold text-teal-200 dark:text-teal-800">
+              <div className="relative rounded-[1.75rem] border border-[var(--line)] bg-[var(--surface)] p-8">
+                <span className="font-display text-4xl text-teal-800/40 dark:text-teal-300/40">
                   {item.step}
                 </span>
-                <h3 className="mt-4 text-xl font-semibold text-slate-800 dark:text-slate-100">
+                <h3 className="font-display mt-4 text-2xl text-stone-900 dark:text-stone-50">
                   {item.title}
                 </h3>
-                <p className="mt-3 leading-relaxed text-slate-600 dark:text-slate-400">
+                <p className="mt-3 leading-relaxed text-stone-600 dark:text-stone-400">
                   {item.description}
                 </p>
               </div>
@@ -429,9 +429,9 @@ export function HowItWorksSection() {
 
 export function CTASection() {
   return (
-    <section className="bg-white py-20 dark:bg-slate-950 lg:py-28">
+    <section className="py-20 lg:py-28">
       <div className="mx-auto max-w-6xl px-6 lg:px-8">
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-teal-600 to-blue-500 px-8 py-16 text-center shadow-xl sm:px-16">
+        <div className="relative overflow-hidden rounded-[2rem] bg-teal-900 px-8 py-16 text-center sm:px-16">
           <div
             className="pointer-events-none absolute inset-0 opacity-20"
             aria-hidden="true"
@@ -440,7 +440,7 @@ export function CTASection() {
             <div className="absolute -bottom-16 -left-16 h-64 w-64 rounded-full bg-teal-300 blur-3xl" />
           </div>
           <div className="relative">
-            <h2 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+            <h2 className="font-display text-4xl text-white sm:text-5xl">
               You do not have to carry this alone
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-lg text-teal-50">
@@ -449,7 +449,7 @@ export function CTASection() {
             </p>
             <Link
               href="/analyse"
-              className="mt-8 inline-flex h-12 items-center justify-center rounded-xl bg-white px-8 text-base font-semibold text-teal-700 shadow-lg transition-all hover:bg-teal-50 hover:shadow-xl"
+              className="mt-8 inline-flex h-12 items-center justify-center rounded-full bg-[var(--background)] px-8 text-base font-semibold text-teal-950 hover:bg-white"
             >
               Start a private check-in
             </Link>
