@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -283,15 +284,40 @@ class HybridRetriever:
         return ranked
 
 
+_BM25_CACHE: dict[str, tuple[float, list[RetrievedPassage]]] = {}
+
+
 def retrieve_bm25_only(
     query: str,
     top_k: int | None = None,
     config: RagConfig | None = None,
 ) -> list[RetrievedPassage]:
-    """Lexical-only retrieval — no OpenAI embeddings required."""
-    return HybridRetriever(config=config).retrieve(
+    """Lexical-only retrieval — no OpenAI embeddings required.
+
+    Cached for repeated national-KB queries. Nyata live listings are never cached.
+    """
+    ttl = 3600
+    max_entries = 256
+    try:
+        from app.config import settings
+
+        ttl = int(settings.rag_cache_ttl_seconds or 3600)
+        max_entries = int(settings.rag_cache_max_entries or 256)
+    except Exception:  # noqa: BLE001
+        pass
+    key = f"{(query or '').strip().lower()}::{top_k}"
+    now = time.monotonic()
+    hit = _BM25_CACHE.get(key)
+    if hit and now - hit[0] < ttl:
+        return list(hit[1])
+    passages = HybridRetriever(config=config).retrieve(
         query, top_k=top_k, allow_faiss=False
     )
+    if len(_BM25_CACHE) >= max_entries:
+        oldest = min(_BM25_CACHE, key=lambda k: _BM25_CACHE[k][0])
+        _BM25_CACHE.pop(oldest, None)
+    _BM25_CACHE[key] = (now, list(passages))
+    return passages
 
 
 def retrieve(query: str, top_k: int | None = None, config: RagConfig | None = None) -> list[RetrievedPassage]:

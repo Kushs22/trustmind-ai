@@ -21,8 +21,8 @@ export default function AnalysePage() {
               Wellbeing Check-In
             </h1>
             <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-              Share how you&apos;re feeling — then keep the conversation going
-              in one place. Not a diagnosis or therapy service.
+              For anyone who needs a careful check-in. Not a diagnosis or
+              therapy service. Anonymous is the default.
             </p>
           </div>
           <AnalyseForm />

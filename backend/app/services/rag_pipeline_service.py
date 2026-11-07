@@ -79,11 +79,14 @@ def run_rag_pipeline(text: str, continuity_context: str = "") -> dict[str, Any]:
     # Prefer BM25 first so Groq/Gemini Mode B still gets KB passages without
     # OpenAI embeddings. Optionally enrich with FAISS when embeddings work.
     try:
+        from app.services.language import english_search_query
+
+        search_text = text if skip_retrieval else english_search_query(text)
         passages = (
             []
             if skip_retrieval
             else retrieve_bm25_only(
-                text, top_k=settings.rag_top_k, config=rag_cfg
+                search_text, top_k=settings.rag_top_k, config=rag_cfg
             )
         )
         if passages:
@@ -112,7 +115,7 @@ def run_rag_pipeline(text: str, continuity_context: str = "") -> dict[str, Any]:
     if not skip_retrieval and not passages and client is not None:
         try:
             retriever = HybridRetriever(rag_cfg, client=client)
-            hybrid = retriever.retrieve(text, top_k=settings.rag_top_k)
+            hybrid = retriever.retrieve(search_text, top_k=settings.rag_top_k)
             if hybrid:
                 passages = hybrid
                 retrieval_mode = (

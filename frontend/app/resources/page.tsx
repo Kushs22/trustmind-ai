@@ -5,7 +5,7 @@ import { PageBackground } from "@/components/PageBackground";
 export const metadata: Metadata = {
   title: "Resources — TrustMind AI",
   description:
-    "Support resources for crisis help, UWE wellbeing, NHS services, and more.",
+    "Crisis numbers, NHS and charity support, and live Bristol listings via Nyata AI.",
 };
 
 const resourceCategories = [
@@ -26,29 +26,39 @@ const resourceCategories = [
     ],
   },
   {
-    title: "UWE Wellbeing Support",
-    description: "Support services for UWE Bristol students.",
+    title: "National charities",
+    description: "Information and listening support for anyone in the UK.",
     items: [
       {
-        name: "UWE Wellbeing Service",
-        detail: "Counselling, mental health advice, and student support.",
-        href: "https://www.uwe.ac.uk/students/support",
+        name: "Mind",
+        detail: "Advice and support if you are experiencing a mental health problem.",
+        href: "https://www.mind.org.uk/",
       },
       {
-        name: "UWE Out of Hours Support",
-        detail: "Support options outside standard office hours.",
-        href: "https://www.uwe.ac.uk/students/support",
+        name: "CALM",
+        detail: "Call 0800 58 58 58, 5pm–midnight, if you are struggling to cope.",
+        href: "https://www.thecalmzone.net/",
+      },
+      {
+        name: "Rethink Mental Illness",
+        detail: "Practical information for people affected by mental illness.",
+        href: "https://www.rethink.org/",
       },
     ],
   },
   {
-    title: "Wisdom App",
-    description: "Digital wellbeing tools and guided support.",
+    title: "Bristol, with Nyata AI",
+    description: "Live local services appear on your check-in when Nyata finds a match.",
     items: [
       {
-        name: "Wisdom App",
-        detail: "A wellbeing app with exercises, tracking, and guided content.",
-        href: "https://www.wisdom.app/",
+        name: "Nyata AI",
+        detail: "Community meals, groups, and support listed by verified local organisations.",
+        href: "https://nyataai.co.uk",
+      },
+      {
+        name: "Bristol Mindline",
+        detail: "0117 203 4419 · Wednesday–Sunday, 7pm–11pm.",
+        href: "tel:01172034419",
       },
     ],
   },
@@ -85,34 +95,18 @@ const resourceCategories = [
     ],
   },
   {
-    title: "Academic Stress Support",
-    description: "Help managing study pressure and academic wellbeing.",
+    title: "Practical support",
+    description: "Housing, money, and everyday strain can sit underneath low mood.",
     items: [
-      {
-        name: "UWE Study Support",
-        detail: "Academic skills, exam preparation, and study wellbeing.",
-        href: "https://www.uwe.ac.uk/students/support",
-      },
-      {
-        name: "Student Minds",
-        detail: "UK student mental health charity with guides and resources.",
-        href: "https://www.studentminds.org.uk/",
-      },
-    ],
-  },
-  {
-    title: "Financial and Housing Support",
-    description: "Practical support that can affect wellbeing.",
-    items: [
-      {
-        name: "UWE Money Advice",
-        detail: "Financial guidance and hardship support for students.",
-        href: "https://www.uwe.ac.uk/students/support",
-      },
       {
         name: "Shelter housing advice",
         detail: "Free housing and homelessness support in the UK.",
         href: "https://www.shelter.org.uk/",
+      },
+      {
+        name: "Citizens Advice",
+        detail: "Help with benefits, debt, housing, and work problems.",
+        href: "https://www.citizensadvice.org.uk/",
       },
     ],
   },

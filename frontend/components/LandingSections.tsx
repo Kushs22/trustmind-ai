@@ -129,21 +129,21 @@ export function HeroSection() {
         <div className="mx-auto max-w-3xl text-center">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-teal-200/80 bg-white/80 px-4 py-1.5 text-sm font-medium text-teal-700 shadow-sm dark:border-teal-800 dark:bg-slate-900/80 dark:text-teal-400">
             <ShieldIcon className="h-4 w-4" />
-            Trustworthy AI wellbeing support
+            For anyone who needs a careful check-in
           </div>
 
           <h1 className="animate-fade-in-up animate-delay-100 text-4xl font-semibold tracking-tight text-slate-800 dark:text-slate-100 sm:text-5xl lg:text-6xl">
-            Clarity and confidence for your{" "}
+            A quiet place to talk through{" "}
             <span className="bg-gradient-to-r from-teal-600 to-blue-500 bg-clip-text text-transparent">
-              mental wellbeing
+              what you are carrying
             </span>
           </h1>
 
           <p className="animate-fade-in-up animate-delay-200 mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-slate-600 dark:text-slate-400">
-            TrustMind AI gives students and everyday users thoughtful,
-            evidence-informed wellbeing insights—without compromising your
-            privacy. A calm platform built for clarity when you need support
-            you can trust.
+            TrustMind AI is a private, non-diagnostic check-in for anyone who
+            feels anxious, low, overwhelmed, or just needs to put something
+            into words. We ground replies in trusted UK guidance, and Nyata AI
+            can add live Bristol services nearby.
           </p>
 
           <div className="animate-fade-in-up animate-delay-300 mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -151,7 +151,7 @@ export function HeroSection() {
               href="/analyse"
               className="inline-flex h-12 min-w-[200px] items-center justify-center rounded-xl bg-teal-600 px-8 text-base font-medium text-white shadow-md shadow-teal-600/20 transition-all hover:bg-teal-700 hover:shadow-lg hover:shadow-teal-600/25"
             >
-              Start your analysis
+              Start a private check-in
             </Link>
             <a
               href="#how-it-works"
@@ -172,45 +172,45 @@ export function HeroSection() {
                   <span className="h-3 w-3 rounded-full bg-slate-300 dark:bg-slate-600" />
                 </div>
                 <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                  Trust assessment preview
+                  What a check-in can include
                 </span>
               </div>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {[
                   {
-                    label: "Emotional distress level",
-                    value: "Moderate",
-                    detail: "Based on your input",
-                    detailClass: "text-amber-600",
+                    label: "A careful read",
+                    value: "Warm, not diagnostic",
+                    detail: "Based on what you share",
+                    detailClass: "text-teal-700",
                   },
                   {
-                    label: "AI confidence",
-                    value: "87%",
-                    detail: "High certainty",
+                    label: "When we are unsure",
+                    value: "We say so",
+                    detail: "No fake certainty scores",
                     detailClass: "text-teal-600",
                   },
                   {
-                    label: "Uncertainty level",
-                    value: "Low",
-                    detail: "Clear signal detected",
-                    detailClass: "text-teal-600",
-                  },
-                  {
-                    label: "Grounding evidence",
-                    value: "3 sources",
-                    detail: "Verified references",
+                    label: "Trusted guidance",
+                    value: "NHS · Mind · Samaritans",
+                    detail: "Shown only when retrieved",
                     detailClass: "text-blue-600",
                   },
                   {
-                    label: "Abstention status",
-                    value: "Not triggered",
-                    detail: "Response provided",
-                    detailClass: "text-teal-600",
+                    label: "Bristol support",
+                    value: "Live via Nyata AI",
+                    detail: "Nearby services and groups",
+                    detailClass: "text-indigo-600",
                   },
                   {
-                    label: "Privacy protection",
-                    value: "Active",
-                    detail: "HTTPS · hashed passwords",
+                    label: "Crisis help",
+                    value: "Always one tap away",
+                    detail: "Get help now on every page",
+                    detailClass: "text-rose-600",
+                  },
+                  {
+                    label: "Privacy",
+                    value: "Anonymous by default",
+                    detail: "HTTPS · you control history",
                     detailClass: "text-teal-600",
                   },
                 ].map((metric) => (
@@ -241,21 +241,21 @@ export function HeroSection() {
 const features = [
   {
     icon: ChartIcon,
-    title: "Structured wellbeing insights",
+    title: "A clear, human reply",
     description:
-      "Receive clear, organized assessments based on your inputs—not vague advice. Understand patterns with dashboards built for clarity.",
+      "You get a careful reflection of what you shared, plus next steps you can actually use — not a diagnosis and not a lecture.",
   },
   {
     icon: ShieldIcon,
-    title: "Evidence-informed analysis",
+    title: "Grounded in trusted pages",
     description:
-      "Our models draw on established wellbeing frameworks to surface meaningful signals, helping you make informed decisions about next steps.",
+      "When it helps, we pull short extracts from NHS, Mind, Samaritans and similar sources. You can see where a reply came from.",
   },
   {
     icon: SparklesIcon,
-    title: "Calm, focused experience",
+    title: "Local help, when you want it",
     description:
-      "A distraction-free interface designed for reflection. No gamification, no pressure—just thoughtful support when you need it.",
+      "Nyata AI can add live Bristol groups, meals, and support services next to national helplines — without replacing them.",
   },
 ];
 
@@ -268,10 +268,11 @@ export function FeaturesSection() {
             Why TrustMind AI
           </p>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-800 dark:text-slate-100 sm:text-4xl">
-            Built for thoughtful self-understanding
+            Built for the people around us, not a campus form
           </h2>
           <p className="mt-4 text-lg text-slate-600 dark:text-slate-400">
-            Text-based analysis tools that respect your time and your data.
+            Support that is easy to reach when things feel heavy — at 1am, after
+            work, or on a difficult commute.
           </p>
         </div>
 
@@ -420,7 +421,7 @@ export function HowItWorksSection() {
             How it works
           </p>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-800 dark:text-slate-100 sm:text-4xl">
-            Three steps to clearer insight
+            Three steps, no account required
           </h2>
           <p className="mt-4 text-lg text-slate-600 dark:text-slate-400">
             A straightforward process—no accounts required to explore.
@@ -469,17 +470,17 @@ export function CTASection() {
           </div>
           <div className="relative">
             <h2 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-              Ready to understand your wellbeing?
+              You do not have to carry this alone
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-lg text-teal-50">
-              Start a private analysis in minutes. No commitment, no chat
-              sessions—just clear insights you can trust.
+              Check in anonymously in a few minutes. If you want, we can also
+              point you to someone nearby in Bristol.
             </p>
             <Link
               href="/analyse"
               className="mt-8 inline-flex h-12 items-center justify-center rounded-xl bg-white px-8 text-base font-semibold text-teal-700 shadow-lg transition-all hover:bg-teal-50 hover:shadow-xl"
             >
-              Start Analysis
+              Start a private check-in
             </Link>
           </div>
         </div>

@@ -12,6 +12,7 @@ from app.schemas.analyse import (
     ConfidenceBreakdownOut,
     EvidenceItemOut,
     GroundingOut,
+    LocalSupportOut,
     SupportResourceOut,
     TrustSignalsOut,
 )
@@ -202,4 +203,7 @@ def analyse_and_optionally_save(
         debug=debug,
         input_summary=input_summary,
         processed_attachments=processed,
+        local_support=LocalSupportOut(**result.local_support)
+        if getattr(result, "local_support", None)
+        else None,
     )

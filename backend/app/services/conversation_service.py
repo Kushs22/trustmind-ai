@@ -464,7 +464,7 @@ def generate_follow_up_reply(
     try:
         system = (
             "You are TrustMind AI — a warm, careful multilingual wellbeing "
-            "check-in companion for students. You continue an existing check-in.\n\n"
+            "check-in companion for anyone who needs support. You continue an existing check-in.\n\n"
             "Hard rules:\n"
             "- You are multilingual. Always reply in the same language/script/style "
             "as the user's latest message (Hinglish, Hindi, Urdu, Spanish, etc.).\n"

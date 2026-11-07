@@ -51,7 +51,7 @@ EARLY_SIGN_TAXONOMY = [
     "general emotional strain",
 ]
 
-SYSTEM_PROMPT = f"""You are TrustMind AI, a warm early-sign wellbeing support assistant for students.
+SYSTEM_PROMPT = f"""You are TrustMind AI, a warm early-sign wellbeing support assistant for anyone who needs a careful check-in.
 
 GOAL
 Read ANY free-form user message and detect possible EARLY SIGNS of mental-health-related
@@ -227,13 +227,13 @@ def _normalise_result(data: dict[str, Any]) -> AnalyseResult:
         steps = [
             "Take a short break and notice how you're feeling",
             "If it helps, talk with someone you trust",
-            "Explore UWE wellbeing support if you are a student",
+            "Look at NHS, Mind, or Samaritans if you want extra support",
         ]
     if concern == "High" or any("suicid" in s.lower() or "self-harm" in s.lower() for s in early_signs):
         crisis_steps = [
             "If you are in immediate danger, please contact emergency services",
             "You can reach Samaritans on 116 123 (UK) or local crisis support",
-            "Please speak to someone you trust or UWE wellbeing support",
+            "Please speak to someone you trust or a local support service",
         ]
         steps = crisis_steps + [s for s in steps if s not in crisis_steps]
 

@@ -112,6 +112,34 @@ class EvidenceItemOut(BaseModel):
     snippet: str = ""
 
 
+class LocalSupportListingOut(BaseModel):
+    type: str = "charity_service"
+    name: str = ""
+    organisation: str = ""
+    verification: str = ""
+    verified: bool = False
+    service_type: str = ""
+    open_now: bool = False
+    booking_required: bool = False
+    booking_warning: str = ""
+    address: str = ""
+    postcode: str = ""
+    distance_km: float | None = None
+    directions_url: str = ""
+    when: str = ""
+    badges: list[str] = []
+
+
+class LocalSupportOut(BaseModel):
+    provider: str = "Nyata AI"
+    city: str = "Bristol"
+    category: str = ""
+    summary: str = ""
+    listings: list[LocalSupportListingOut] = []
+    quota_remaining: int | None = None
+    disclaimer: str = ""
+
+
 class AnalyseDebugOut(BaseModel):
     latency_ms: float = 0.0
     n_retrieved_chunks: int = 0
@@ -176,3 +204,4 @@ class AnalyseResponse(BaseModel):
     # Multimodal metadata (attachments are user context, not trusted RAG)
     input_summary: InputSummaryOut | None = None
     processed_attachments: list[ProcessedAttachmentOut] = []
+    local_support: LocalSupportOut | None = None

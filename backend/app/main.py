@@ -34,22 +34,28 @@ async def lifespan(_: FastAPI):
     except Exception:
         logger.exception("Startup aborted: database init failed")
         raise
+    try:
+        from app.services.index_warmup import warmup_retrieval_indexes
+
+        warmup_retrieval_indexes()
+    except Exception:
+        logger.exception("Index warmup failed at startup — first request may be slower")
+        # Never abort boot: a sleeping index is better than a crashed API.
     yield
 
 
 app = FastAPI(
     title="TrustMind AI API",
     description=(
-        "Trustworthy wellbeing analysis for the TrustMind AI MSc dissertation.\n\n"
+        "TrustMind AI wellbeing check-in API, with optional Nyata AI local Bristol listings.\n\n"
         "**Analyse:** `POST /api/v1/analyse` (alias `/api/analyse`).\n"
+        "**Warmup:** `GET /warmup` preloads retrieval indexes.\n"
         "**Multimodal preprocess:** `/api/v1/transcribe`, `/api/v1/process-image`, "
         "`/api/v1/process-pdf`.\n"
-        "**Chat:** `/api/v1/chat/follow-up`, `/api/v1/chat/follow-up-audio` "
-        "(transcript + soft tone cues).\n"
-        "Switch pipelines with `USE_RAG` in `.env`. "
+        "**Chat:** `/api/v1/chat/follow-up`, `/api/v1/chat/follow-up-audio`.\n"
         "See `/docs` for request/response examples including abstention."
     ),
-    version="1.2.1",
+    version="1.3.0",
     lifespan=lifespan,
 )
 
@@ -77,5 +83,5 @@ def root() -> dict[str, str]:
         "message": "TrustMind AI backend is running",
         "docs": "/docs",
         "health": "/health",
-        "version": "1.2.1",
+        "version": "1.3.0",
     }

@@ -87,6 +87,34 @@ export type ProcessedAttachment = {
   warnings: string[];
 };
 
+export type LocalSupportListing = {
+  type: string;
+  name: string;
+  organisation: string;
+  verification: string;
+  verified: boolean;
+  service_type: string;
+  open_now: boolean;
+  booking_required: boolean;
+  booking_warning: string;
+  address: string;
+  postcode: string;
+  distance_km: number | null;
+  directions_url: string;
+  when: string;
+  badges: string[];
+};
+
+export type LocalSupport = {
+  provider: string;
+  city: string;
+  category: string;
+  summary: string;
+  listings: LocalSupportListing[];
+  quota_remaining?: number | null;
+  disclaimer: string;
+};
+
 export type AnalyseResponse = {
   id: string | null;
   status: string;
@@ -132,6 +160,7 @@ export type AnalyseResponse = {
   debug?: AnalyseDebug | null;
   input_summary?: InputSummary | null;
   processed_attachments?: ProcessedAttachment[];
+  local_support?: LocalSupport | null;
 };
 
 export type CheckIn = {
@@ -300,7 +329,14 @@ async function request<T>(
     return undefined as T;
   }
 
-  return response.json() as Promise<T>;
+  try {
+    return (await response.json()) as T;
+  } catch {
+    throw new ApiError(
+      response.status,
+      "The service returned an unexpected response. Please try again.",
+    );
+  }
 }
 
 function storeAuth(response: TokenResponse): TokenResponse {

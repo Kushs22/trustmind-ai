@@ -131,7 +131,7 @@ export function Header() {
             href="/analyse"
             className="hidden rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-teal-700 sm:inline-flex"
           >
-            Start Analysis
+            Check in
           </Link>
           <button
             type="button"
@@ -215,7 +215,7 @@ export function Header() {
               onClick={() => setMobileOpen(false)}
               className="mt-2 inline-flex h-11 items-center justify-center rounded-lg bg-teal-600 text-sm font-medium text-white"
             >
-              Start Analysis
+              Check in
             </Link>
           </div>
         </div>
@@ -235,8 +235,8 @@ export function Footer() {
               <span className="font-semibold text-slate-800 dark:text-slate-100">TrustMind AI</span>
             </div>
             <p className="mt-3 max-w-md text-sm leading-relaxed text-slate-500 dark:text-slate-400">
-              Trustworthy AI wellbeing support for students and everyday users.
-              Text-based analysis with privacy, transparency, and care.
+              A calm check-in for anyone who is struggling. Private by default,
+              with trusted UK guidance and live Bristol support from Nyata AI.
             </p>
           </div>
 
@@ -245,7 +245,7 @@ export function Footer() {
             <ul className="mt-3 space-y-2 text-sm text-slate-500 dark:text-slate-400">
               <li>
                 <Link href="/analyse" className="hover:text-teal-700">
-                  Start Analysis
+                  Check in
                 </Link>
               </li>
               <li>
@@ -294,7 +294,17 @@ export function Footer() {
         </div>
 
         <div className="mt-6 border-t border-slate-100 pt-6 text-center text-sm text-slate-400 dark:border-slate-800">
-          © {new Date().getFullYear()} TrustMind AI. All rights reserved.
+          © {new Date().getFullYear()} TrustMind AI · Local Bristol listings in
+          collaboration with{" "}
+          <a
+            href="https://nyataai.co.uk"
+            className="text-teal-700 hover:underline dark:text-teal-400"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Nyata AI
+          </a>
+          .
         </div>
       </div>
     </footer>

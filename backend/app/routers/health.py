@@ -8,9 +8,9 @@ from app.config import database_url_safe_summary, settings
 router = APIRouter(tags=["health"])
 
 # Bump when production KB / RAG behaviour must be verifiable after deploy.
-APP_VERSION = "1.2.4"
+APP_VERSION = "1.3.0"
 RELEASE_NOTE = (
-    "Literature PDF sources in BM25 KB (LIT_*) + health KB fingerprint for deploy checks"
+    "General-audience product + Nyata Bristol listings + /warmup keep-alive"
 )
 
 
@@ -128,4 +128,19 @@ def health_check() -> dict[str, object]:
         "grounding_evidence_strength_min": settings.grounding_evidence_strength_min,
         "analyse_backend": settings.analyse_backend,
         "pipeline": _pipeline_diagnostics(),
+        "nyata_configured": bool(settings.nyata_api_key),
+        "nyata_enabled": bool(settings.enable_nyata),
+    }
+
+
+@router.get("/warmup")
+def warmup() -> dict[str, object]:
+    """Keep-alive + preload BM25/FAISS so the next analyse is not a cold start."""
+    from app.services.index_warmup import warmup_retrieval_indexes
+
+    state = warmup_retrieval_indexes()
+    return {
+        "status": "ok" if state.get("ready") else "degraded",
+        "service": "trustmind-ai-backend",
+        "indexes": state,
     }

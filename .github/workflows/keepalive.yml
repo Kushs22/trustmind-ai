@@ -1,0 +1,18 @@
+name: Keep API warm
+
+# Stopgap while the Render instance can sleep. A paid always-on instance is
+# still required for true 24/7 readiness. See README.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Warm TrustMind API
+        run: |
+          curl -fsS --max-time 90 https://trustmind-ai.onrender.com/warmup || true
+          curl -fsS --max-time 30 https://trustmind-ai.onrender.com/health
