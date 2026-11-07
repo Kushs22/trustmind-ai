@@ -1168,7 +1168,7 @@ export function AnalyseForm() {
       setError(
         err instanceof ApiError
           ? err.message
-          : "Unable to reach the analysis service right now. It may be waking up — wait a few seconds and try again.",
+          : "Unable to reach the check-in service. Wait a few seconds and try again — Get help now is still available.",
       );
     } finally {
       analyseLockRef.current = false;
@@ -1703,7 +1703,7 @@ export function AnalyseForm() {
   ) : null;
 
   const pipelineCompareBar = (
-    <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm dark:border-slate-700/80 dark:bg-slate-900">
+    <div className="overflow-hidden rounded-[16px] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-card)]">
       <div className="border-b border-slate-100 px-4 py-3 dark:border-slate-800 sm:px-5">
         <p className="text-xs font-semibold uppercase tracking-wide text-teal-700 dark:text-teal-300">
           How this reply was built
@@ -1778,7 +1778,7 @@ export function AnalyseForm() {
           type="button"
           disabled={!canReanalyse}
           onClick={() => void handleReanalyse(pipelineMode)}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
+          className="btn-primary min-h-10 px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isProcessing ? (
             <>
@@ -2003,10 +2003,14 @@ export function AnalyseForm() {
 
       {error && (
         <div
-          className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-100"
+          className={`rounded-2xl border px-4 py-3 text-sm ${
+            /paused|offline|unable to reach|timed out/i.test(error)
+              ? "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100"
+              : "border-red-200 bg-red-50 text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-100"
+          }`}
           role="alert"
         >
-          <p className="font-semibold">{error}</p>
+          <p className="font-medium">{error}</p>
         </div>
       )}
       {saveNotice && !error && (
@@ -2136,13 +2140,13 @@ export function AnalyseForm() {
       {!chatMode && !loadingThread && (
         <>
 
-        <div className="flex min-h-[70vh] flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm dark:border-slate-700/80 dark:bg-slate-900">
-          <div className="flex items-center justify-between gap-3 border-b border-slate-200/80 px-4 py-3 dark:border-slate-700/80 sm:px-5">
+        <div className="flex min-h-[62vh] flex-col overflow-hidden rounded-[16px] border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[var(--shadow-card)]">
+          <div className="flex items-center justify-between gap-3 border-b border-[var(--color-border)] px-4 py-3 sm:px-5">
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">
+              <p className="truncate text-sm font-semibold text-stone-800 dark:text-stone-100">
                 Check-in conversation
               </p>
-              <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+              <p className="truncate text-xs text-stone-500 dark:text-stone-400">
                 Share how you&apos;re feeling — then keep talking here
               </p>
             </div>
@@ -2183,11 +2187,11 @@ export function AnalyseForm() {
               </div>
             ) : (
               <div className="mx-auto max-w-md text-center">
-                <p className="text-sm text-slate-500 dark:text-slate-400">
+                <p className="text-sm text-[var(--color-text-muted)]">
                   No messages yet. Share what&apos;s on your mind below — type,
                   speak, or attach a file.
                 </p>
-                <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
+                <p className="mt-2 text-xs text-[var(--color-text-muted)]">
                   Only share what you&apos;re comfortable with. This is not a
                   medical diagnosis.
                 </p>
@@ -2195,7 +2199,7 @@ export function AnalyseForm() {
             )}
           </div>
 
-          <div className="border-t border-slate-200/80 bg-slate-50/80 px-4 py-3 dark:border-slate-700/80 dark:bg-slate-950/40 sm:px-5">
+          <div className="border-t border-[var(--color-border)] bg-[var(--color-surface-alt)] px-4 py-3 sm:px-5">
             <CheckInComposer
               embedded
               value={text}

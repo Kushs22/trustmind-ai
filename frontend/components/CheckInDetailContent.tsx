@@ -49,7 +49,7 @@ export function CheckInDetailContent({ checkInId }: { checkInId: string }) {
 
   if (isLoading) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900">
+      <div className="surface-card p-12 text-center">
         <p className="text-sm text-slate-500 dark:text-slate-400">
           Loading check-in…
         </p>
@@ -59,13 +59,13 @@ export function CheckInDetailContent({ checkInId }: { checkInId: string }) {
 
   if (error || !detail) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900">
+      <div className="surface-card p-8 text-center">
         <p className="text-sm text-slate-600 dark:text-slate-400">
           {error ?? "Check-in not found."}
         </p>
         <Link
           href="/dashboard"
-          className="mt-6 inline-flex h-10 items-center justify-center rounded-lg bg-teal-600 px-5 text-sm font-medium text-white hover:bg-teal-700"
+          className="btn-primary mt-6 min-h-10 px-5 text-sm"
         >
           Back to dashboard
         </Link>
@@ -93,7 +93,7 @@ export function CheckInDetailContent({ checkInId }: { checkInId: string }) {
         <div className="flex flex-wrap gap-2">
           <Link
             href={`/analyse?check_in=${encodeURIComponent(checkInId)}`}
-            className="inline-flex h-10 items-center justify-center rounded-lg bg-teal-600 px-4 text-sm font-medium text-white hover:bg-teal-700"
+            className="btn-primary min-h-10 px-4 text-sm"
           >
             Continue from here
           </Link>
@@ -135,7 +135,7 @@ export function CheckInDetailContent({ checkInId }: { checkInId: string }) {
           />
         )}
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-8">
+      <section className="surface-card p-6 sm:p-8">
         <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
           Reflection
         </h2>
@@ -145,7 +145,7 @@ export function CheckInDetailContent({ checkInId }: { checkInId: string }) {
       </section>
 
       {!detail.is_private && detail.preview && (
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-8">
+        <section className="surface-card p-6 sm:p-8">
           <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
             What you shared
           </h2>
@@ -169,7 +169,7 @@ export function CheckInDetailContent({ checkInId }: { checkInId: string }) {
       )}
 
       {detail.safe_next_steps.length > 0 && (
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-8">
+        <section className="surface-card p-6 sm:p-8">
           <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
             Suggested next steps
           </h2>
@@ -181,7 +181,7 @@ export function CheckInDetailContent({ checkInId }: { checkInId: string }) {
         </section>
       )}
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-8">
+      <section className="surface-card p-6 sm:p-8">
         <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
           Details
         </h2>

@@ -1,8 +1,17 @@
 import { clearToken, getToken, setAnonymousFlag, setToken } from "@/lib/auth";
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ??
-  "http://127.0.0.1:8000";
+/**
+ * Browser calls stay on this origin. Next.js proxies /api/v1, /health and
+ * /warmup to Render so CORS cannot hide a paused or cold-starting API.
+ */
+export const API_URL =
+  typeof window === "undefined"
+    ? (
+        process.env.BACKEND_URL ||
+        process.env.NEXT_PUBLIC_API_URL ||
+        "http://127.0.0.1:8000"
+      ).replace(/\/$/, "")
+    : "";
 
 export class ApiError extends Error {
   status: number;
@@ -253,6 +262,12 @@ function messageFromFailedResponse(status: number, detail: unknown, fallback: st
       ? "Too many requests. Please wait a moment and try again."
       : message;
   }
+  if (status === 503) {
+    if (/suspended|paused|offline/i.test(message)) return message;
+    if (/<!DOCTYPE html/i.test(message) || message === "Service Unavailable") {
+      return "The check-in service is paused right now. Get help now is still available — try again once the API is back online.";
+    }
+  }
   return message;
 }
 
@@ -305,8 +320,8 @@ async function request<T>(
       throw new ApiError(
         0,
         aborted
-          ? "The service timed out while starting. Free hosting can take up to a minute to wake — wait a moment and try again."
-          : "Unable to reach the service right now. It may be waking up from a cold start — wait a few seconds and try again.",
+          ? "The check-in service timed out. Wait a few seconds and try again — Get help now is still available."
+          : "Unable to reach the check-in service. Wait a few seconds and try again — Get help now is still available.",
       );
     }
   }

@@ -55,7 +55,7 @@ const sections: { title: string; body: string[] }[] = [
 
 export default function PrivacyPage() {
   return (
-    <div className="min-h-screen bg-[#fafbfc] dark:bg-slate-950">
+    <div className="page-shell">
       <Header />
       <main className="relative overflow-hidden">
         <PageBackground />
@@ -64,7 +64,7 @@ export default function PrivacyPage() {
             <p className="text-sm font-semibold uppercase tracking-wide text-teal-600">
               Privacy & Safety
             </p>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-800 dark:text-slate-100 sm:text-4xl">
+            <h1 className="mt-3">
               Your data, your control
             </h1>
             <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-slate-600 dark:text-slate-400">
@@ -77,7 +77,7 @@ export default function PrivacyPage() {
             {sections.map((section) => (
               <div
                 key={section.title}
-                className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-8"
+                className="surface-card p-6 sm:p-8"
               >
                 <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
                   {section.title}
@@ -106,7 +106,7 @@ export default function PrivacyPage() {
               emergency services or Samaritans (UK): 116 123.
             </p>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-8">
+            <div className="surface-card p-6 sm:p-8">
               <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
                 Honest scope
               </h2>
@@ -122,7 +122,7 @@ export default function PrivacyPage() {
             <div className="text-center">
               <Link
                 href="/analyse"
-                className="inline-flex h-11 items-center justify-center rounded-xl bg-teal-600 px-6 text-sm font-medium text-white hover:bg-teal-700"
+                className="btn-primary"
               >
                 Start a private check-in
               </Link>

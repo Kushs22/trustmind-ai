@@ -310,13 +310,13 @@ export function CheckInComposer({
             rows={2}
             disabled={locked}
             placeholder="Share what's on your mind…"
-            className="max-h-40 min-h-[2.75rem] flex-1 resize-y rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-teal-300 focus:outline-none focus:ring-2 focus:ring-teal-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-teal-900/40"
+            className="max-h-40 min-h-[44px] flex-1 resize-y rounded-[10px] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-muted)] disabled:cursor-not-allowed disabled:opacity-60"
           />
           <button
             type="button"
             onClick={onSubmit}
             disabled={!canSubmit || locked}
-            className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl bg-teal-600 px-4 text-sm font-medium text-white transition-colors hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="btn-primary h-11 min-h-11 shrink-0 px-4 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isProcessing ? "…" : "Analyse"}
           </button>
@@ -401,7 +401,7 @@ export function CheckInComposer({
               type="button"
               onClick={onSubmit}
               disabled={!canSubmit || locked}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-teal-600 px-5 text-sm font-medium text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="btn-primary h-10 min-h-10 px-5 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isProcessing ? "Analysing…" : "Analyse"}
             </button>
