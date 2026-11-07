@@ -1168,7 +1168,7 @@ export function AnalyseForm() {
       setError(
         err instanceof ApiError
           ? err.message
-          : "Unable to reach the analysis service right now. It may be waking up — wait a few seconds and try again.",
+          : "Unable to reach the check-in service. Wait a few seconds and try again — Get help now is still available.",
       );
     } finally {
       analyseLockRef.current = false;
