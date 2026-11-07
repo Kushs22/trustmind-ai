@@ -15,7 +15,7 @@ export default function AnalysePage() {
       <Header />
       <main className="relative overflow-hidden">
         <PageBackground />
-        <div className="relative mx-auto max-w-3xl px-6 py-12 lg:px-8">
+        <div className="page-wrap relative max-w-3xl py-12">
           <div className="mb-6 text-center">
             <h1 className="tracking-tight">Wellbeing Check-In</h1>
             <p className="mx-auto mt-2 max-w-xl text-sm text-[var(--color-text-muted)]">
