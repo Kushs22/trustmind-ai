@@ -114,124 +114,89 @@ function ServerIcon({ className }: { className?: string }) {
   );
 }
 
+const heroPoints = [
+  {
+    label: "Careful, not clinical",
+    detail: "A warm read of what you shared — never a diagnosis.",
+  },
+  {
+    label: "Trusted UK guidance",
+    detail: "NHS, Mind and Samaritans extracts, only when we actually retrieved them.",
+  },
+  {
+    label: "Help near you",
+    detail: "Live Bristol services from Nyata AI, next to national helplines.",
+  },
+  {
+    label: "Private by default",
+    detail: "No account required. You choose what, if anything, is saved.",
+  },
+];
+
 export function HeroSection() {
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-white via-teal-50/30 to-blue-50/40 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+    <section className="relative overflow-hidden bg-gradient-to-b from-white via-teal-50/40 to-slate-50 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900">
       <div
-        className="pointer-events-none absolute inset-0 opacity-40"
+        className="pointer-events-none absolute inset-0 opacity-50 dark:opacity-30"
         aria-hidden="true"
       >
-        <div className="absolute -right-32 -top-32 h-96 w-96 rounded-full bg-teal-200/50 blur-3xl" />
-        <div className="absolute -bottom-24 -left-24 h-80 w-80 rounded-full bg-blue-200/50 blur-3xl" />
+        <div className="absolute -right-24 top-10 h-80 w-80 rounded-full bg-teal-200/60 blur-3xl dark:bg-teal-800/30" />
+        <div className="absolute -left-16 bottom-0 h-72 w-72 rounded-full bg-sky-200/50 blur-3xl dark:bg-sky-900/30" />
       </div>
 
-      <div className="relative mx-auto max-w-6xl px-6 pb-20 pt-16 lg:px-8 lg:pb-28 lg:pt-24">
-        <div className="mx-auto max-w-3xl text-center">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-teal-200/80 bg-white/80 px-4 py-1.5 text-sm font-medium text-teal-700 shadow-sm dark:border-teal-800 dark:bg-slate-900/80 dark:text-teal-400">
-            <ShieldIcon className="h-4 w-4" />
-            For anyone who needs a careful check-in
-          </div>
-
-          <h1 className="animate-fade-in-up animate-delay-100 text-4xl font-semibold tracking-tight text-slate-800 dark:text-slate-100 sm:text-5xl lg:text-6xl">
-            A quiet place to talk through{" "}
-            <span className="bg-gradient-to-r from-teal-600 to-blue-500 bg-clip-text text-transparent">
-              what you are carrying
-            </span>
-          </h1>
-
-          <p className="animate-fade-in-up animate-delay-200 mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-slate-600 dark:text-slate-400">
-            TrustMind AI is a private, non-diagnostic check-in for anyone who
-            feels anxious, low, overwhelmed, or just needs to put something
-            into words. We ground replies in trusted UK guidance, and Nyata AI
-            can add live Bristol services nearby.
+      <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-6 pb-20 pt-28 lg:grid-cols-[1.15fr_0.85fr] lg:gap-16 lg:px-8 lg:pb-28 lg:pt-32">
+        <div>
+          <p className="inline-flex items-center gap-2 rounded-full border border-teal-200 bg-white/90 px-3 py-1 text-xs font-semibold tracking-wide text-teal-800 dark:border-teal-800 dark:bg-slate-900 dark:text-teal-300">
+            <ShieldIcon className="h-3.5 w-3.5" />
+            TrustMind AI × Nyata AI
           </p>
-
-          <div className="animate-fade-in-up animate-delay-300 mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+          <h1 className="mt-5 max-w-xl text-4xl font-semibold tracking-tight text-slate-900 dark:text-white sm:text-5xl">
+            When things feel heavy, talk it through here.
+          </h1>
+          <p className="mt-5 max-w-xl text-lg leading-relaxed text-slate-600 dark:text-slate-300">
+            A private check-in for anyone who is anxious, low, overwhelmed, or
+            just needs to put something into words. We reply in your language,
+            ground answers in trusted UK guidance, and can point to live
+            Bristol support.
+          </p>
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
             <Link
               href="/analyse"
-              className="inline-flex h-12 min-w-[200px] items-center justify-center rounded-xl bg-teal-600 px-8 text-base font-medium text-white shadow-md shadow-teal-600/20 transition-all hover:bg-teal-700 hover:shadow-lg hover:shadow-teal-600/25"
+              className="inline-flex h-12 items-center justify-center rounded-full bg-teal-600 px-7 text-base font-semibold text-white shadow-lg shadow-teal-600/25 hover:bg-teal-700"
             >
               Start a private check-in
             </Link>
             <a
               href="#how-it-works"
-              className="inline-flex h-12 min-w-[200px] items-center justify-center rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 px-8 text-base font-medium text-slate-700 dark:text-slate-300 transition-colors hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+              className="inline-flex h-12 items-center justify-center rounded-full border border-slate-300 bg-white px-7 text-base font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
             >
               See how it works
             </a>
           </div>
+          <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
+            Anonymous · Not a diagnosis · Get help now is always one tap away
+          </p>
         </div>
 
-        <div className="mx-auto mt-16 max-w-5xl">
-          <div className="rounded-2xl border border-slate-200/80 bg-white dark:border-slate-700/80 dark:bg-slate-900 p-1 shadow-xl shadow-slate-200/50 dark:shadow-slate-950/50">
-            <div className="rounded-xl bg-gradient-to-br from-slate-50 to-blue-50/50 dark:from-slate-900 dark:to-slate-800/50 p-6 sm:p-8">
-              <div className="mb-4 flex items-center gap-2 border-b border-slate-200/60 pb-4 dark:border-slate-700/60">
-                <div className="flex gap-1.5">
-                  <span className="h-3 w-3 rounded-full bg-slate-300 dark:bg-slate-600" />
-                  <span className="h-3 w-3 rounded-full bg-slate-300 dark:bg-slate-600" />
-                  <span className="h-3 w-3 rounded-full bg-slate-300 dark:bg-slate-600" />
-                </div>
-                <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                  What a check-in can include
-                </span>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {[
-                  {
-                    label: "A careful read",
-                    value: "Warm, not diagnostic",
-                    detail: "Based on what you share",
-                    detailClass: "text-teal-700",
-                  },
-                  {
-                    label: "When we are unsure",
-                    value: "We say so",
-                    detail: "No fake certainty scores",
-                    detailClass: "text-teal-600",
-                  },
-                  {
-                    label: "Trusted guidance",
-                    value: "NHS · Mind · Samaritans",
-                    detail: "Shown only when retrieved",
-                    detailClass: "text-blue-600",
-                  },
-                  {
-                    label: "Bristol support",
-                    value: "Live via Nyata AI",
-                    detail: "Nearby services and groups",
-                    detailClass: "text-indigo-600",
-                  },
-                  {
-                    label: "Crisis help",
-                    value: "Always one tap away",
-                    detail: "Get help now on every page",
-                    detailClass: "text-rose-600",
-                  },
-                  {
-                    label: "Privacy",
-                    value: "Anonymous by default",
-                    detail: "HTTPS · you control history",
-                    detailClass: "text-teal-600",
-                  },
-                ].map((metric) => (
-                  <div
-                    key={metric.label}
-                    className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-600 dark:bg-slate-800"
-                  >
-                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                      {metric.label}
-                    </p>
-                    <p className="mt-1 text-xl font-semibold text-slate-800 dark:text-slate-100">
-                      {metric.value}
-                    </p>
-                    <p className={`mt-1 text-sm ${metric.detailClass} dark:opacity-90`}>
-                      {metric.detail}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+        <div className="rounded-3xl border border-slate-200/80 bg-white/90 p-5 shadow-2xl shadow-slate-900/5 dark:border-slate-700 dark:bg-slate-900/90 dark:shadow-black/40 sm:p-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700 dark:text-teal-400">
+            What you get
+          </p>
+          <ul className="mt-4 space-y-3">
+            {heroPoints.map((point) => (
+              <li
+                key={point.label}
+                className="rounded-2xl border border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/70"
+              >
+                <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                  {point.label}
+                </p>
+                <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                  {point.detail}
+                </p>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
     </section>
@@ -261,7 +226,10 @@ const features = [
 
 export function FeaturesSection() {
   return (
-    <section id="features" className="bg-white py-20 dark:bg-slate-950 lg:py-28">
+    <section
+      id="features"
+      className="scroll-mt-28 bg-white py-20 dark:bg-slate-950 lg:py-28"
+    >
       <div className="mx-auto max-w-6xl px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-sm font-semibold uppercase tracking-wide text-teal-600">
@@ -414,7 +382,10 @@ const steps = [
 
 export function HowItWorksSection() {
   return (
-    <section id="how-it-works" className="bg-slate-50 py-20 dark:bg-slate-900 lg:py-28">
+    <section
+      id="how-it-works"
+      className="scroll-mt-28 bg-slate-50 py-20 dark:bg-slate-900 lg:py-28"
+    >
       <div className="mx-auto max-w-6xl px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-sm font-semibold uppercase tracking-wide text-teal-600">

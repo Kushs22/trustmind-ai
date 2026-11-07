@@ -19,11 +19,25 @@
   --font-mono: var(--font-geist-mono);
 }
 
+html {
+  scroll-padding-top: 6rem;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
-  padding-bottom: 4.5rem;
+  padding-bottom: 5.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in-up,
+  .animate-delay-100,
+  .animate-delay-200,
+  .animate-delay-300 {
+    animation: none;
+    opacity: 1;
+  }
 }
 
 @keyframes fade-in-up {
